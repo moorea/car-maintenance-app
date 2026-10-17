@@ -11,7 +11,15 @@ import { getDueItems } from './getDueItems'
 describe('getDueItems', () => {
   const deps = () => ({
     vehicles: memoryVehicles([
-      { id: 'v1', configId: 'rav4-2021', nickname: 'RAV4', severeDuty: false },
+      {
+        id: 'v1',
+        configId: 'rav4-2021',
+        year: 2021,
+        make: 'Toyota',
+        model: 'RAV4',
+        nickname: 'RAV4',
+        severeDuty: false,
+      },
     ]),
     schedule: memorySchedule([
       {
@@ -62,6 +70,15 @@ describe('getDueItems', () => {
     const oil = (await getDueItems(d)('v1')).find((i) => i.itemId === 'oil')
     expect(oil).toMatchObject({ status: 'upcoming', historyUnknown: false })
     expect(oil?.dueMiles).toBeCloseTo(43_033, 0)
+  })
+
+  it('has nothing due for a just-added car the server has not matched to a schedule yet', async () => {
+    const d = deps()
+    const v1 = await d.vehicles.get('v1')
+    if (!v1) throw new Error('missing fixture')
+    const { configId: _unmatched, ...justAdded } = v1
+    d.vehicles.set([justAdded])
+    expect(await getDueItems(d)('v1')).toEqual([])
   })
 
   it('fails loudly for an unknown vehicle', async () => {

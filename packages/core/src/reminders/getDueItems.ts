@@ -42,7 +42,8 @@ export const getDueItems =
     if (!vehicle) throw new Error(`Unknown vehicle ${vehicleId}`)
 
     const [items, records, odometer] = await Promise.all([
-      deps.schedule.itemsForConfig(vehicle.configId),
+      // A car added on this device has no schedule until the server has matched its config.
+      vehicle.configId === undefined ? [] : deps.schedule.itemsForConfig(vehicle.configId),
       deps.records.listForVehicle(vehicleId),
       deps.odometer.listForVehicle(vehicleId),
     ])

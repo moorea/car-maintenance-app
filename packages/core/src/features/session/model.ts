@@ -13,11 +13,18 @@ export interface SessionState {
   user?: AuthUser | undefined
   vehicles: Vehicle[]
   selectedVehicleId?: string | undefined
+  /** True while the owner is adding another car from a car's screen. */
+  addingCar: boolean
 }
 
 export interface SessionActions {
   start: () => void
   selectVehicle: (id: string) => void
+  /** Opens "add your car" over the selected car. */
+  addCar: () => void
+  cancelAddCar: () => void
+  /** Closes "add your car" and selects the new car as soon as it shows up in the list. */
+  carAdded: (id: string) => void
   signOut: () => Promise<void>
   dispose: () => void
 }
@@ -40,13 +47,17 @@ export const createSessionModel = (deps: {
   let vehiclesLoaded = false
   // undefined until the first auth callback; then the signed-in user's id, or null.
   let currentUserId: string | null | undefined
+  // A car just added, to select once the vehicle list includes it.
+  let justAdded: string | undefined
 
   return createStore<SessionState & SessionActions>()((set, get) => {
     const showVehicles = (vehicles: Vehicle[]) => {
       vehiclesLoaded = true
       const sorted = [...vehicles].sort((a, b) => a.nickname.localeCompare(b.nickname))
+      const added = sorted.find((v) => v.id === justAdded)
+      if (added) justAdded = undefined
       const kept = sorted.find((v) => v.id === get().selectedVehicleId)
-      const selected = kept ?? sorted[0]
+      const selected = added ?? kept ?? sorted[0]
       set({
         vehicles: sorted,
         selectedVehicleId: selected?.id,
@@ -67,12 +78,25 @@ export const createSessionModel = (deps: {
       stopSync = undefined
       synced = false
       vehiclesLoaded = false
+      justAdded = undefined
       if (!user) {
-        set({ status: 'signed-out', user: undefined, vehicles: [], selectedVehicleId: undefined })
+        set({
+          status: 'signed-out',
+          user: undefined,
+          vehicles: [],
+          selectedVehicleId: undefined,
+          addingCar: false,
+        })
         return
       }
       // 'starting' until the vehicles arrive, so no screen flashes in between.
-      set({ status: 'starting', user, vehicles: [], selectedVehicleId: undefined })
+      set({
+        status: 'starting',
+        user,
+        vehicles: [],
+        selectedVehicleId: undefined,
+        addingCar: false,
+      })
       stopVehicles = deps.vehicles.watchOwned(user.id, showVehicles)
       stopSync = deps.sync.onFirstSync(user.id, () => {
         synced = true
@@ -83,6 +107,7 @@ export const createSessionModel = (deps: {
     return {
       status: 'starting',
       vehicles: [],
+      addingCar: false,
 
       start: () => {
         if (stopAuth) return
@@ -91,6 +116,19 @@ export const createSessionModel = (deps: {
 
       selectVehicle: (id) => {
         if (get().vehicles.some((v) => v.id === id)) set({ selectedVehicleId: id })
+      },
+
+      addCar: () => {
+        if (get().user) set({ addingCar: true })
+      },
+
+      cancelAddCar: () => set({ addingCar: false }),
+
+      carAdded: (id) => {
+        justAdded = id
+        set({ addingCar: false })
+        // The list may already have it; otherwise the next update selects it.
+        if (vehiclesLoaded) showVehicles(get().vehicles)
       },
 
       // A failure to revoke the session on the server still signs out locally, which is what

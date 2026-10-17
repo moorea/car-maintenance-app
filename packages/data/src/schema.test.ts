@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { fromServiceRecord } from './rows'
+import { fromServiceRecord, fromVehicle } from './rows'
 import { schema } from './schema'
 
 const migrations = fileURLToPath(new URL('../../../supabase/migrations/', import.meta.url))
@@ -10,11 +10,14 @@ const sql = readdirSync(migrations)
   .map((f) => readFileSync(migrations + f, 'utf8'))
   .join('\n')
 
-/** Column names of each `create table public.x (...)` in the migrations. */
+/** Column names of `create table public.x (...)` plus any `alter table public.x add column`. */
 const postgresColumns = (table: string): string[] => {
   const body = new RegExp(`create table public\\.${table} \\(([\\s\\S]*?)\\n\\);`).exec(sql)?.[1]
   if (!body) throw new Error(`No create table for ${table}`)
-  return body
+  const added = [...sql.matchAll(new RegExp(`alter table public\\.${table}\\b([^;]*);`, 'g'))]
+    .flatMap((m) => [...(m[1] ?? '').matchAll(/add column (\w+)/g)])
+    .map((m) => m[1] ?? '')
+  const created = body
     .split('\n')
     .map((line) => line.trim().split(/\s+/)[0] ?? '')
     .filter(
@@ -22,6 +25,7 @@ const postgresColumns = (table: string): string[] => {
         /^[a-z_]+$/.test(word) &&
         !['unique', 'primary', 'check', 'constraint', 'foreign'].includes(word),
     )
+  return [...created, ...added]
 }
 
 describe('device schema', () => {
@@ -34,6 +38,14 @@ describe('device schema', () => {
       expect(device.sort()).toEqual(postgresColumns(name).sort())
     },
   )
+
+  it('stores every field the app writes for a new car', () => {
+    const columns = synced.find((t) => t.name === 'vehicles')?.columns.map((c) => c.name)
+    const car = { id: 'v', year: 2020, make: 'm', model: 'm', nickname: 'n', severeDuty: false }
+    expect(['id', ...(columns ?? [])]).toEqual(
+      expect.arrayContaining(Object.keys(fromVehicle('u', car))),
+    )
+  })
 
   it('stores every field the app writes for a service record', () => {
     const columns = synced.find((t) => t.name === 'service_records')?.columns.map((c) => c.name)

@@ -3,8 +3,15 @@ import type { Vehicle } from '../../domain/types'
 import { memoryAuth, memorySync, memoryVehicles } from '../../testing'
 import { createSessionModel } from './model'
 
-const civic: Vehicle = { id: 'v-civic', configId: 'c1', nickname: 'Civic', severeDuty: false }
-const accord: Vehicle = { id: 'v-accord', configId: 'c2', nickname: 'Accord', severeDuty: false }
+const car = { year: 2020, make: 'Honda', severeDuty: false }
+const civic: Vehicle = { ...car, id: 'v-civic', configId: 'c1', model: 'Civic', nickname: 'Civic' }
+const accord: Vehicle = {
+  ...car,
+  id: 'v-accord',
+  configId: 'c2',
+  model: 'Accord',
+  nickname: 'Accord',
+}
 
 const setup = (signedIn: boolean, owned: Vehicle[] = [], synced = true) => {
   const auth = memoryAuth(signedIn ? { user: { id: 'u1', email: 'a@example.com' } } : {})
@@ -144,5 +151,52 @@ describe('session model', () => {
     model.getState().dispose()
     await auth.signOut()
     expect(model.getState().status).toBe('ready')
+  })
+})
+
+describe('session model, adding a car', () => {
+  it('opens and closes "add your car" over the selected car', () => {
+    const { model } = setup(true, [civic])
+    model.getState().start()
+    model.getState().addCar()
+    expect(model.getState()).toMatchObject({ addingCar: true, status: 'ready' })
+    model.getState().cancelAddCar()
+    expect(model.getState().addingCar).toBe(false)
+  })
+
+  it('selects the new car once it shows up in the list', () => {
+    const { vehicles, model } = setup(true, [civic])
+    model.getState().start()
+    model.getState().addCar()
+    model.getState().carAdded('v-accord')
+    expect(model.getState()).toMatchObject({ addingCar: false, selectedVehicleId: 'v-civic' })
+    vehicles.set([civic, accord])
+    expect(model.getState().selectedVehicleId).toBe('v-accord')
+  })
+
+  it('selects the new car straight away when the list already has it', () => {
+    const { vehicles, model } = setup(true, [civic])
+    model.getState().start()
+    vehicles.set([civic, { ...accord, nickname: 'Zephyr' }])
+    model.getState().carAdded('v-accord')
+    expect(model.getState().selectedVehicleId).toBe('v-accord')
+  })
+
+  it('goes from asking for a first car to showing it', () => {
+    const { vehicles, model } = setup(true)
+    model.getState().start()
+    model.getState().carAdded('v-civic')
+    vehicles.set([accord, civic])
+    expect(model.getState()).toMatchObject({ status: 'ready', selectedVehicleId: 'v-civic' })
+  })
+
+  it('does not open "add your car" for someone signed out, and closes it on sign-out', async () => {
+    const { model } = setup(true, [civic])
+    model.getState().start()
+    model.getState().addCar()
+    await model.getState().signOut()
+    expect(model.getState().addingCar).toBe(false)
+    model.getState().addCar()
+    expect(model.getState().addingCar).toBe(false)
   })
 })

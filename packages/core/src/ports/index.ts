@@ -1,6 +1,7 @@
 import type { IsoDate } from '../lib/date'
 import type {
   AuthUser,
+  DecodedVin,
   MaintenanceItem,
   OdometerReading,
   ServiceRecord,
@@ -18,6 +19,17 @@ export interface VehicleRepo {
   get(id: VehicleId): Promise<Vehicle | undefined>
   /** Calls `onChange` with the owner's vehicles now and after every change. */
   watchOwned(ownerId: string, onChange: (vehicles: Vehicle[]) => void): Unsubscribe
+  /**
+   * Saves a new car for `ownerId`, with its first odometer reading if given, in one write so the
+   * reading never uploads without its car.
+   */
+  add(ownerId: string, vehicle: Vehicle, firstReading?: OdometerReading): Promise<void>
+}
+
+/** Looks up what a VIN is. Needs a connection. */
+export interface VinDecoder {
+  /** Resolves with the car, or throws VinDecodeError. `vin` is already valid and upper case. */
+  decode(vin: string): Promise<DecodedVin>
 }
 
 /** Whether this device's copy of an owner's data has finished its first download. */

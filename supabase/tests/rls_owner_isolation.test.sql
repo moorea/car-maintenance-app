@@ -8,9 +8,9 @@ insert into auth.users (id) values
   ('00000000-0000-0000-0000-00000000000b');
 insert into public.vehicle_configs (id, make, model, year)
   values ('10000000-0000-0000-0000-000000000001', 'Toyota', 'RAV4', 2021);
-insert into public.vehicles (id, owner_id, config_id, nickname) values
-  ('20000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000a', '10000000-0000-0000-0000-000000000001', 'A car'),
-  ('20000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-00000000000b', '10000000-0000-0000-0000-000000000001', 'B car');
+insert into public.vehicles (id, owner_id, year, make, model, nickname) values
+  ('20000000-0000-0000-0000-00000000000a', '00000000-0000-0000-0000-00000000000a', 2021, 'Toyota', 'RAV4', 'A car'),
+  ('20000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-00000000000b', 2021, 'Toyota', 'RAV4', 'B car');
 insert into public.service_records (vehicle_id, performed_on)
   values ('20000000-0000-0000-0000-00000000000b', '2026-01-01');
 
@@ -33,8 +33,8 @@ select throws_ok(
 );
 
 select throws_ok(
-  $$ insert into public.vehicles (owner_id, config_id, nickname)
-     values ('00000000-0000-0000-0000-00000000000b', '10000000-0000-0000-0000-000000000001', 'Planted') $$,
+  $$ insert into public.vehicles (owner_id, year, make, model, nickname)
+     values ('00000000-0000-0000-0000-00000000000b', 2021, 'Toyota', 'RAV4', 'Planted') $$,
   '42501', null, 'owner cannot create a vehicle in someone else''s name'
 );
 select throws_ok(

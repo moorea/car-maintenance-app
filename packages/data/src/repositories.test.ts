@@ -113,20 +113,68 @@ describe('PowerSync repositories', () => {
 
   it("tells a watcher about the owner's vehicles only, and about each change", async () => {
     await db.execute(
-      "insert into vehicles (id, owner_id, config_id, nickname) values ('v-b', 'u2', 'c1', 'Not mine')",
+      "insert into vehicles (id, owner_id, config_id, year, make, model, nickname) values ('v-b', 'u2', 'c1', 2020, 'Honda', 'Civic', 'Not mine')",
     )
     const repos = createPowerSyncRepositories(db)
     const updates = collect<Vehicle[]>((cb) => repos.vehicles.watchOwned('u1', cb))
     await updates.waitFor(1)
     await db.execute(
-      "insert into vehicles (id, owner_id, config_id, nickname, severe_duty) values ('v-a', 'u1', 'c1', 'Civic', 0)",
+      "insert into vehicles (id, owner_id, config_id, year, make, model, nickname, severe_duty) values ('v-a', 'u1', 'c1', 2020, 'Honda', 'Civic', 'Civic', 0)",
     )
     const values = await updates.waitFor(2)
     updates.stop()
     expect(values[0]).toEqual([])
     expect(values.at(-1)).toEqual([
-      { id: 'v-a', configId: 'c1', nickname: 'Civic', severeDuty: false },
+      {
+        id: 'v-a',
+        configId: 'c1',
+        year: 2020,
+        make: 'Honda',
+        model: 'Civic',
+        nickname: 'Civic',
+        severeDuty: false,
+      },
     ])
+  })
+
+  it('adds a car with its first reading in one upload, leaving the config to the server', async () => {
+    const repos = createPowerSyncRepositories(db)
+    const accord: Vehicle = {
+      id: 'v-new',
+      vin: '1HGCM82633A004352',
+      year: 2003,
+      make: 'Honda',
+      model: 'Accord',
+      trim: 'EX-V6',
+      engine: '3.0L 6-cyl',
+      nickname: 'Accord',
+      severeDuty: true,
+    }
+    await repos.vehicles.add('u1', accord, { vehicleId: 'v-new', date: '2026-10-17', miles: 1 })
+
+    expect(await repos.vehicles.get('v-new')).toStrictEqual(accord)
+    expect(await repos.odometer.listForVehicle('v-new')).toEqual([
+      { vehicleId: 'v-new', date: '2026-10-17', miles: 1 },
+    ])
+    const transaction = await db.getNextCrudTransaction()
+    expect(transaction?.crud.map((c) => c.table)).toEqual(['vehicles', 'odometer_readings'])
+    expect(transaction?.crud[0]?.opData).toMatchObject({ owner_id: 'u1', severe_duty: 1 })
+    expect(transaction?.crud[0]?.opData).not.toHaveProperty('config_id')
+  })
+
+  it('adds a car without a reading when the owner gives no mileage', async () => {
+    const repos = createPowerSyncRepositories(db)
+    const car: Vehicle = {
+      id: 'v2',
+      year: 2019,
+      make: 'Toyota',
+      model: 'RAV4',
+      nickname: 'Rav',
+      severeDuty: false,
+    }
+    await repos.vehicles.add('u1', car)
+    expect(await repos.vehicles.get('v2')).toStrictEqual(car)
+    expect(await repos.odometer.listForVehicle('v2')).toEqual([])
   })
 
   it('does not report a first sync on a device that has never synced', async () => {
@@ -140,7 +188,7 @@ describe('PowerSync repositories', () => {
 
   it('reads vehicles, odometer readings and the schedule from synced rows', async () => {
     await db.execute(
-      "insert into vehicles (id, config_id, nickname, severe_duty) values ('v1', 'c1', 'Civic', 1)",
+      "insert into vehicles (id, config_id, year, make, model, nickname, severe_duty) values ('v1', 'c1', 2020, 'Honda', 'Civic', 'Civic', 1)",
     )
     await db.execute(
       "insert into maintenance_items (id, config_id, task, interval_miles, interval_months) values ('oil', 'c1', 'Oil change', 5000, 6)",
@@ -151,6 +199,9 @@ describe('PowerSync repositories', () => {
     expect(await repos.vehicles.get('v1')).toEqual({
       id: 'v1',
       configId: 'c1',
+      year: 2020,
+      make: 'Honda',
+      model: 'Civic',
       nickname: 'Civic',
       severeDuty: true,
     })
