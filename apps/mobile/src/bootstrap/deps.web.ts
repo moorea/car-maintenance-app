@@ -7,6 +7,7 @@ import {
 } from '@car/core/testing'
 import { randomUUID } from 'expo-crypto'
 import { pdfReportExporter } from './careReport'
+import { appDataFiles } from './dataFiles'
 import { localClock } from './clock'
 import {
   createDemoAssistant,
@@ -38,6 +39,7 @@ export const deps = {
   notifier,
   reminderSettings,
   exporter: pdfReportExporter(),
+  dataFiles: appDataFiles(),
   picker: systemFilePicker(),
   preview: systemFilePreview(),
   reminders: createReminderScheduler({

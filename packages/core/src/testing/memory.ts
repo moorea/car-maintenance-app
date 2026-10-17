@@ -19,6 +19,7 @@ import {
 } from '../domain/types'
 import type {
   AttachmentRepo,
+  DataFiles,
   AccountPort,
   AuthPort,
   CareReportExporter,
@@ -603,4 +604,53 @@ export const memoryReportExporter = () => {
     },
   }
   return exporter
+}
+
+/**
+ * Files moving in and out of the app. `stored` holds the bytes behind each readable URI (memory
+ * attachments open as `memory://<id>`); `shared` records every shared file; `queueArchive` sets
+ * what the next pick returns; `staged` keeps the bytes of each staged file by its URI.
+ */
+export const memoryDataFiles = (stored: Record<string, Uint8Array> = {}) => {
+  const queue: (Uint8Array | Error)[] = []
+  let nextShareFailure: string | undefined
+  const files: DataFiles & {
+    stored: Record<string, Uint8Array>
+    shared: { bytes: Uint8Array; name: string }[]
+    staged: Map<string, Uint8Array>
+    queueArchive: (bytes: Uint8Array | Error) => void
+    failNextShare: (message: string) => void
+  } = {
+    stored,
+    shared: [],
+    staged: new Map(),
+    queueArchive: (bytes) => queue.push(bytes),
+    failNextShare: (message) => {
+      nextShareFailure = message
+    },
+    read: async (uri) => {
+      const bytes = stored[uri]
+      if (!bytes) throw new Error(`No file at ${uri}`)
+      return bytes
+    },
+    share: async (bytes, name) => {
+      if (nextShareFailure !== undefined) {
+        const message = nextShareFailure
+        nextShareFailure = undefined
+        throw new Error(message)
+      }
+      files.shared.push({ bytes, name })
+    },
+    pickArchive: async () => {
+      const next = queue.shift()
+      if (next instanceof Error) throw next
+      return next
+    },
+    stage: async (bytes, file) => {
+      const uri = `staged://${files.staged.size + 1}/${file.name}`
+      files.staged.set(uri, bytes)
+      return { uri, name: file.name, contentType: file.contentType, sizeBytes: bytes.length }
+    },
+  }
+  return files
 }
