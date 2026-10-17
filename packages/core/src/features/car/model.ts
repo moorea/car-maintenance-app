@@ -103,7 +103,6 @@ const roundTo = (n: number, step: number) => Math.round(n / step) * step
 export const createCarModel = (deps: CarDeps): CarModel => {
   const { vehicle } = deps
   const subscriptions: Unsubscribe[] = []
-  let records: ServiceRecord[] = []
   // The newest odometer reading, to reject a new one that goes backwards or jumps impossibly.
   let latest: OdometerReading | undefined
   let generation = 0
@@ -115,9 +114,12 @@ export const createCarModel = (deps: CarDeps): CarModel => {
       const mine = ++generation
       try {
         const today = deps.clock.today()
-        const [due, readings, items] = await Promise.all([
+        // Read the records here rather than keep the watch's copy, so a refresh started by a new
+        // reading never runs before the records have arrived.
+        const [due, readings, records, items] = await Promise.all([
           getDueItems(deps)(vehicle.id),
           deps.odometer.listForVehicle(vehicle.id),
+          deps.records.listForVehicle(vehicle.id),
           vehicle.configId === undefined
             ? Promise.resolve([] as MaintenanceItem[])
             : deps.schedule.itemsForConfig(vehicle.configId),
@@ -214,10 +216,7 @@ export const createCarModel = (deps: CarDeps): CarModel => {
         // Logging a service or a new odometer reading (here or from sync) moves the schedule on,
         // so recompute whenever either changes.
         subscriptions.push(
-          deps.records.watchForVehicle(vehicle.id, (next) => {
-            records = next
-            void refresh()
-          }),
+          deps.records.watchForVehicle(vehicle.id, () => void refresh()),
           deps.odometer.watchForVehicle(vehicle.id, () => void refresh()),
         )
       },

@@ -149,6 +149,17 @@ describe('garage model', () => {
     expect(model.getState().nextUp).toMatchObject({ status: 'upcoming', when: 'In 5,000 mi' })
   })
 
+  it('stops following odometer readings once disposed', async () => {
+    const { model, odometer } = setup({ items: [tires] })
+    model.getState().start()
+    await settle()
+    const before = model.getState().odometer
+    model.getState().dispose()
+    await odometer.add({ vehicleId: 'v1', date: TODAY, miles: 36_600 })
+    await settle()
+    expect(model.getState().odometer).toBe(before)
+  })
+
   it('refreshes when an odometer reading is added', async () => {
     const { model, odometer } = setup({
       items: [tires],

@@ -259,6 +259,42 @@ describe('car model', () => {
     expect(model.getState().odometer).toBe('About 35,960 mi')
   })
 
+  it('stops following odometer readings once disposed', async () => {
+    const { model, odometer } = setup()
+    model.getState().start()
+    await settle()
+    model.getState().dispose()
+    await odometer.add({ vehicleId: 'v1', date: TODAY, miles: 36_500 })
+    await settle()
+    expect(model.getState().odometer).toBe('About 35,960 mi')
+  })
+
+  it('estimates the odometer from service records when an odometer change comes first', async () => {
+    // No readings, so the only mileage is on the records; the odometer watch reports first.
+    const odometer = memoryOdometer([])
+    const records = memoryServiceRecords([done('oil', '2026-10-07', 35_400)])
+    let notifyRecords: (() => void) | undefined
+    const model = createCarModel({
+      vehicle: car,
+      vehicles: memoryVehicles([car]),
+      schedule: memorySchedule([oil]),
+      records: {
+        ...records,
+        // Holds back the first emission, as a slower database watch would.
+        watchForVehicle: (id, onChange) => {
+          notifyRecords = () => records.watchForVehicle(id, onChange)
+          return () => {}
+        },
+      },
+      odometer,
+      clock: fixedClock(TODAY),
+    })
+    model.getState().start()
+    await settle()
+    expect(notifyRecords).toBeDefined()
+    expect(model.getState().odometer).toBe('About 35,770 mi')
+  })
+
   it('closes the odometer editor without saving on cancel', () => {
     const { model } = setup()
     model.getState().editOdometer()

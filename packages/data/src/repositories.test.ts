@@ -91,9 +91,12 @@ describe('PowerSync repositories', () => {
     await repos.odometer.add(reading)
     await repos.odometer.add({ vehicleId: 'other', date: '2026-09-01', miles: 1 })
     const values = await updates.waitFor(2)
+    // Let any later emission for the other car's reading land before checking none mention it.
+    await new Promise((resolve) => setTimeout(resolve, 100))
     updates.stop()
     expect(values[0]).toEqual([])
     expect(values.at(-1)).toEqual([reading])
+    expect(values.flat().every((r) => r.vehicleId === 'v1')).toBe(true)
   })
 
   it('stops telling a watcher about changes once it unsubscribes', async () => {

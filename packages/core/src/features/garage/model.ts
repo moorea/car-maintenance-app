@@ -66,17 +66,18 @@ export const createGarageModel = (deps: GarageDeps): GarageModel => {
   const subscriptions: Unsubscribe[] = []
   // Each refresh supersedes the one before, so a slow read never overwrites a newer one.
   let generation = 0
-  // The latest service records from the watch, so an odometer change can refresh with them.
-  let records: ServiceRecord[] = []
 
   return createStore<GarageState & GarageActions>()((set) => {
     const refresh = async () => {
       const mine = ++generation
       try {
         const today = deps.clock.today()
-        const [due, odometer, items] = await Promise.all([
+        // Read the records here rather than keep the watch's copy, so a refresh started by a new
+        // reading never runs before the records have arrived.
+        const [due, odometer, records, items] = await Promise.all([
           getDueItems(deps)(vehicle.id),
           deps.odometer.listForVehicle(vehicle.id),
+          deps.records.listForVehicle(vehicle.id),
           vehicle.configId === undefined
             ? Promise.resolve([] as MaintenanceItem[])
             : deps.schedule.itemsForConfig(vehicle.configId),
@@ -128,10 +129,7 @@ export const createGarageModel = (deps: GarageDeps): GarageModel => {
         // Logging a service or a new odometer reading (here or from sync) moves the schedule on,
         // so recompute whenever either changes.
         subscriptions.push(
-          deps.records.watchForVehicle(vehicle.id, (next) => {
-            records = next
-            void refresh()
-          }),
+          deps.records.watchForVehicle(vehicle.id, () => void refresh()),
           deps.odometer.watchForVehicle(vehicle.id, () => void refresh()),
         )
         if (vehicle.configId !== undefined)
