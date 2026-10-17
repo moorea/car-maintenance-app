@@ -1,22 +1,39 @@
-import type { Clock, IdGenerator } from '@car/core'
-import { nhtsaVinDecoder } from '@car/data'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import { createReminderScheduler, type IdGenerator } from '@car/core'
+import { nhtsaVinDecoder, storedReminderSettings } from '@car/data'
 import { randomUUID } from 'expo-crypto'
+import { localClock } from './clock'
 import { backendConfig } from './config'
 import { createDemoRepositories } from './demo'
 import { createLiveRepositories } from './live'
+import { expoNotifier } from './notifications'
 
 // The composition root: the only place that picks adapters. Screens only ever see ports.
-const clock: Clock = { today: () => new Date().toISOString().slice(0, 10) }
+const clock = localClock
 // Ids are UUIDs so rows created offline never collide once uploaded to Postgres.
 const ids: IdGenerator = { next: () => randomUUID() }
 
 // Live when backend settings are present; otherwise the app runs on demo data.
 const config = backendConfig()
+const repositories = config ? createLiveRepositories(config) : createDemoRepositories()
+
+// Reminders are planned and scheduled on the phone, so they work offline and need no push server.
+const notifier = expoNotifier()
+const reminderSettings = storedReminderSettings(AsyncStorage, 'car-maintenance-reminders')
 
 export const deps = {
   clock,
   ids,
   // NHTSA's lookup is free and needs no account, so demo mode uses it too.
   vinDecoder: nhtsaVinDecoder(),
-  ...(config ? createLiveRepositories(config) : createDemoRepositories()),
+  ...repositories,
+  notifier,
+  reminderSettings,
+  reminders: createReminderScheduler({
+    ...repositories,
+    clock,
+    notifier,
+    settings: reminderSettings,
+    log: (message, error) => console.warn(message, error),
+  }),
 }

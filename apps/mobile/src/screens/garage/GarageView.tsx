@@ -19,6 +19,7 @@ import { Symbol } from '../../ui/Symbol'
 export interface GarageNavigation {
   onOpenCar: (id: string) => void
   onAddCar: () => void
+  onReminders: () => void
   onLogService: () => void
   onAsk: () => void
   onSignOut: () => void
@@ -41,7 +42,10 @@ export function GarageView(props: Props) {
         <Column spacing={16} style={{ padding: 16, paddingBottom: TAB_BAR_CLEARANCE }}>
           <Row alignment="center">
             <Spacer flexible />
-            <GlassIconButton symbol="plus" onPress={props.onAddCar} />
+            <Row spacing={10}>
+              <GlassIconButton symbol="bell" onPress={props.onReminders} />
+              <GlassIconButton symbol="plus" onPress={props.onAddCar} />
+            </Row>
           </Row>
           <Column spacing={2}>
             <Text textStyle={{ ...OVERLINE, color: colors.textSecondary }}>

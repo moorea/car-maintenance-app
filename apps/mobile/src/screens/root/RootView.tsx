@@ -5,6 +5,7 @@ import { AddCarScreen } from '../add-car/AddCarScreen'
 import { AskView } from '../ask/AskView'
 import { CarScreen } from '../car/CarScreen'
 import { GarageScreen } from '../garage/GarageScreen'
+import { RemindersScreen } from '../reminders/RemindersScreen'
 import { ServiceLogScreen } from '../service-log/ServiceLogScreen'
 import { SignInScreen } from '../sign-in/SignInScreen'
 import { Host } from '../../ui/Host'
@@ -76,6 +77,7 @@ function TabContent(props: Props & { vehicle: Vehicle }) {
           vehicle={vehicle}
           onOpenCar={props.openCar}
           onAddCar={props.addCar}
+          onReminders={() => props.openTab('reminders')}
           onLogService={() => props.openTab('log')}
           onAsk={() => props.openTab('ask')}
           onSignOut={() => void props.signOut()}
@@ -87,6 +89,8 @@ function TabContent(props: Props & { vehicle: Vehicle }) {
       return <CarScreen vehicle={vehicle} />
     case 'ask':
       return <AskView carName={vehicle.nickname} />
+    case 'reminders':
+      return <RemindersScreen />
   }
 }
 

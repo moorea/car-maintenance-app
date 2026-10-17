@@ -24,3 +24,12 @@ export const addMonths = (date: IsoDate, months: number): IsoDate => {
   const lastDay = new Date(Date.UTC(d.getUTCFullYear(), targetMonth + 1, 0)).getUTCDate()
   return fromUtc(Date.UTC(d.getUTCFullYear(), targetMonth, Math.min(d.getUTCDate(), lastDay)))
 }
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/** "Nov 14", with the year only when it is not `today`'s: "Feb 2, 2027". */
+export const formatShortDate = (date: IsoDate, today: IsoDate): string => {
+  const d = new Date(toUtc(date))
+  const monthDay = `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`
+  return date.slice(0, 4) === today.slice(0, 4) ? monthDay : `${monthDay}, ${d.getUTCFullYear()}`
+}

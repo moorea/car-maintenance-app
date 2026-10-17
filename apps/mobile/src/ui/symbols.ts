@@ -18,6 +18,7 @@ export const SYMBOLS = {
     ios: 'bubble.left.and.text.bubble.right',
     paths: ['M4 5h16v11H9l-5 4z', 'M9 10h.01M12 10h.01M15 10h.01'],
   },
+  bell: { ios: 'bell', paths: ['M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z', 'M10 20.5a2 2 0 0 0 4 0'] },
   plus: { ios: 'plus', paths: ['M12 5v14M5 12h14'] },
   chevron: { ios: 'chevron.right', paths: ['M9 6l6 6-6 6'] },
   warning: { ios: 'exclamationmark.triangle', paths: ['M12 3l10 18H2z', 'M12 10v5M12 18v.01'] },
