@@ -1,5 +1,6 @@
 import { Column, Text, TextInput, useNativeState, type TextInputProps } from '@expo/ui'
 import { useEffect, useRef } from 'react'
+import { useColors } from '../theme'
 
 interface Props {
   label: string
@@ -14,6 +15,7 @@ interface Props {
 
 /** A labelled Expo UI text input. The screen model owns the text; the field follows `value`. */
 export function TextField({ label, value, onChangeText, error, ...input }: Props) {
+  const colors = useColors()
   const text = useNativeState(value)
   // What the field last reported. Only a different `value` came from the model (a cleared code
   // after a resend) and is copied in; comparing with the live native text instead would write a
@@ -38,11 +40,9 @@ export function TextField({ label, value, onChangeText, error, ...input }: Props
         autoComplete={input.autoComplete ?? 'off'}
         autoCapitalize={input.autoCapitalize ?? 'sentences'}
         autoCorrect={false}
-        style={{ width: '100%', ...(error ? { borderColor: ERROR } : {}) }}
+        style={{ width: '100%', ...(error ? { borderColor: colors.danger } : {}) }}
       />
-      {error ? <Text textStyle={{ fontSize: 12, color: ERROR }}>{error}</Text> : null}
+      {error ? <Text textStyle={{ fontSize: 12, color: colors.danger }}>{error}</Text> : null}
     </Column>
   )
 }
-
-export const ERROR = '#c62828'

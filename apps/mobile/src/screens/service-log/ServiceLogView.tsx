@@ -1,18 +1,19 @@
 import type { ServiceLogActions, ServiceLogState, ServiceRecord } from '@car/core'
-import { Button, Column, Host, ScrollView, Text } from '@expo/ui'
+import { Button, Column, ScrollView, Text } from '@expo/ui'
 import { ActivityIndicator, StyleSheet } from 'react-native'
-import { ERROR, TextField } from '../../ui/TextField'
+import { Host } from '../../ui/Host'
+import { ErrorText, Note } from '../../ui/Note'
+import { TextField } from '../../ui/TextField'
 
 type Props = ServiceLogState & Pick<ServiceLogActions, 'setField' | 'save'>
 
 const formatCost = (cents: number) => `$${(cents / 100).toFixed(2)}`
-const MUTED = '#666'
 
 function RecordRow({ record }: { record: ServiceRecord }) {
   return (
     <Column spacing={2} style={{ paddingVertical: 10 }}>
       <Text textStyle={{ fontSize: 16, fontWeight: '600' }}>{record.performedOn}</Text>
-      <Text textStyle={{ fontSize: 13, color: MUTED }}>
+      <Note>
         {[
           record.odometerMiles !== undefined ? `${record.odometerMiles.toLocaleString()} mi` : null,
           record.shop,
@@ -20,7 +21,7 @@ function RecordRow({ record }: { record: ServiceRecord }) {
         ]
           .filter(Boolean)
           .join(' · ')}
-      </Text>
+      </Note>
     </Column>
   )
 }
@@ -69,7 +70,7 @@ export function ServiceLogView({
             onChangeText={(v) => setField('shop', v)}
             error={fieldErrors.shop}
           />
-          {saveError ? <Text textStyle={{ color: ERROR }}>{saveError}</Text> : null}
+          {saveError ? <ErrorText>{saveError}</ErrorText> : null}
           <Button
             label={status === 'saving' ? 'Saving…' : 'Save'}
             disabled={status === 'saving'}
@@ -77,7 +78,7 @@ export function ServiceLogView({
           />
           <Text textStyle={{ fontSize: 20, fontWeight: '700' }}>History</Text>
           {records.length === 0 ? (
-            <Text textStyle={{ fontSize: 13, color: MUTED }}>No service logged yet.</Text>
+            <Note>No service logged yet.</Note>
           ) : (
             records.map((r) => <RecordRow key={r.id} record={r} />)
           )}

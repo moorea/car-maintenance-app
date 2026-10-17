@@ -1,9 +1,10 @@
 import type { SessionActions, SessionState, Vehicle } from '@car/core'
-import { Button, Host, Picker, Row, Spacer, Text } from '@expo/ui'
+import { Button, Picker, Row, Spacer, Text } from '@expo/ui'
 import { ActivityIndicator, StyleSheet, View } from 'react-native'
 import { AddCarScreen } from '../add-car/AddCarScreen'
 import { CarScreen } from '../car/CarScreen'
 import { SignInScreen } from '../sign-in/SignInScreen'
+import { Host } from '../../ui/Host'
 
 type Props = SessionState &
   Pick<SessionActions, 'signOut' | 'selectVehicle' | 'addCar' | 'cancelAddCar' | 'carAdded'>
