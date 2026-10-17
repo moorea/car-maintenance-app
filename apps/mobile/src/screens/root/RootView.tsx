@@ -1,6 +1,7 @@
 import type { AppTab, SessionActions, SessionState, Vehicle } from '@car/core'
 import { Row, Text } from '@expo/ui'
 import { ActivityIndicator, StyleSheet, View } from 'react-native'
+import { AccountScreen } from '../account/AccountScreen'
 import { AddCarScreen } from '../add-car/AddCarScreen'
 import { AskScreen } from '../ask/AskScreen'
 import { CarScreen } from '../car/CarScreen'
@@ -14,7 +15,6 @@ import { TabBar, type TabBarItem } from '../../ui/TabBar'
 type Props = SessionState &
   Pick<
     SessionActions,
-    | 'signOut'
     | 'openTab'
     | 'openCar'
     | 'logService'
@@ -89,7 +89,7 @@ function TabContent(props: Props & { vehicle: Vehicle }) {
           onReminders={() => props.openTab('reminders')}
           onLogService={props.logService}
           onAsk={() => props.openTab('ask')}
-          onSignOut={() => void props.signOut()}
+          onAccount={() => props.openTab('account')}
         />
       )
     case 'log':
@@ -106,6 +106,8 @@ function TabContent(props: Props & { vehicle: Vehicle }) {
       return <AskScreen vehicle={vehicle} onBack={() => props.openTab('garage')} />
     case 'reminders':
       return <RemindersScreen />
+    case 'account':
+      return <AccountScreen onReminders={() => props.openTab('reminders')} />
   }
 }
 

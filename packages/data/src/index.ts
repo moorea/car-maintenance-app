@@ -17,4 +17,5 @@ export {
 } from './upload'
 export { makeName, nhtsaVinDecoder } from './vinDecoder'
 export { storedReminderSettings } from './reminderSettings'
+export { supabaseAccount, type RpcResult } from './account'
 export * from './assistant'
