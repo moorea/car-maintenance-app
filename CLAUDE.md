@@ -23,6 +23,13 @@ issues, with reminders and an AI assistant grounded in that data. US only at lau
 - Every behaviour change in core comes with a test. Test names describe behaviour.
 - Never put API keys in code. Edge functions read them from Supabase secrets.
 
+## Pull requests
+
+PRs group one logical change and are the checkpoint before main. Do not wait for human approval:
+open the PR, wait for CI to pass, run an independent review (a fresh subagent reading the diff),
+fix what it finds, then merge once the goal is met and the change is safe. Add static analysis
+and tests to CI whenever they make merging safer.
+
 ## Commands
 
 - `pnpm install`
