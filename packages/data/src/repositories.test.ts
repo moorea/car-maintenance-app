@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { OdometerReading, SafetyReport, ServiceRecord, Vehicle, Warranty } from '@car/core'
 import { PowerSyncDatabase } from '@powersync/node'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PowerSyncBackendConnector } from '@powersync/common'
 import { createPowerSyncRepositories, firstSyncOf } from './repositories'
 import { powerSyncSessionDatabase } from './session'
@@ -326,40 +326,43 @@ describe('PowerSync repositories', () => {
       )
     })
 
+    // Each table's watch reports on its own, so wait for the report that carries all three changes.
     const values = await reports.waitFor(2)
+    await vi.waitFor(() =>
+      expect(values.at(-1)).toEqual({
+        recallsCheckedAt: '2026-10-17 12:00:00Z',
+        complaintsCheckedAt: '2026-10-17 12:01:00Z',
+        recalls: [
+          {
+            id: 'r1',
+            configId: 'c1',
+            campaign: '23V123000',
+            component: 'ELECTRICAL SYSTEM',
+            summary: 'Wiring may chafe.',
+            remedy: 'Dealers fix it.',
+            reportedOn: '2023-01-26',
+            parkIt: false,
+            parkOutside: true,
+            overTheAir: false,
+          },
+        ],
+        complaints: [
+          {
+            id: 's1',
+            configId: 'c1',
+            component: 'ENGINE',
+            complaints: 4,
+            crashes: 1,
+            fires: 1,
+            injuries: 2,
+            deaths: 0,
+            latestFiledOn: '2024-03-01',
+            recent: [{ filedOn: '2024-03-01', summary: 'Smoke.' }, { summary: 'Leak.' }],
+          },
+        ],
+      }),
+    )
     reports.stop()
-    expect(values.at(-1)).toEqual({
-      recallsCheckedAt: '2026-10-17 12:00:00Z',
-      complaintsCheckedAt: '2026-10-17 12:01:00Z',
-      recalls: [
-        {
-          id: 'r1',
-          configId: 'c1',
-          campaign: '23V123000',
-          component: 'ELECTRICAL SYSTEM',
-          summary: 'Wiring may chafe.',
-          remedy: 'Dealers fix it.',
-          reportedOn: '2023-01-26',
-          parkIt: false,
-          parkOutside: true,
-          overTheAir: false,
-        },
-      ],
-      complaints: [
-        {
-          id: 's1',
-          configId: 'c1',
-          component: 'ENGINE',
-          complaints: 4,
-          crashes: 1,
-          fires: 1,
-          injuries: 2,
-          deaths: 0,
-          latestFiledOn: '2024-03-01',
-          recent: [{ filedOn: '2024-03-01', summary: 'Smoke.' }, { summary: 'Leak.' }],
-        },
-      ],
-    })
   })
 })
 
