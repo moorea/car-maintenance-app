@@ -4,6 +4,7 @@ import { demoQuoteReader } from '@car/core/testing'
 import { nhtsaVinDecoder, storedReminderSettings } from '@car/data'
 import { randomUUID } from 'expo-crypto'
 import { pdfReportExporter } from './careReport'
+import { appDataFiles } from './dataFiles'
 import { localClock } from './clock'
 import { backendConfig } from './config'
 import { createDemoAssistant, createDemoRepositories } from './demo'
@@ -43,6 +44,7 @@ export const deps = {
   notifier,
   reminderSettings,
   exporter: pdfReportExporter(),
+  dataFiles: appDataFiles(),
   picker: systemFilePicker(),
   preview: systemFilePreview(),
   photos: expoPhotoPicker(),
