@@ -21,6 +21,12 @@ Storage bucket at `<owner_id>/<attachment_id>`.
 - **Access** is enforced twice: RLS on the table, and Storage policies that only let a user read,
   write or delete objects under their own id. The bucket only accepts JPEG, PNG, HEIC/HEIF and PDF
   up to 25 MB.
+- **Files of deleted cars and accounts are swept.** Rows cascade but Storage objects cannot, and
+  Supabase only lets the Storage API delete a file. The `orphaned_files` database function lists
+  files no row points at: at once for a deleted account, after a day otherwise, since a file
+  uploads just before its row (and a row still queued re-uploads its file). An hourly GitHub
+  Actions job (`sweep-files.yml`) deletes them with the service role key, which it reads from
+  the project with the deploy workflows' access token.
 - **Viewing** uses the system viewer (Quick Look on iOS, via expo-file-system), which brings zoom,
   share, print and markup for free. Photos come from expo-image-picker (re-encoded as JPEG) and
   files from the system file picker.
@@ -35,5 +41,5 @@ Storage bucket at `<owner_id>/<attachment_id>`.
 ## Revisit if
 
 - Owners expect every document on every phone without opening it first: prefetch small files.
-- Storage holds files whose car or account was deleted: rows cascade, files do not. A scheduled
-  job should remove objects with no row.
+- Deleted files must be gone within minutes rather than the hour: delete them from the phone
+  as well, or run the sweep from pg_cron.
