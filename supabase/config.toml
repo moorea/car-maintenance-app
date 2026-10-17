@@ -246,7 +246,7 @@ otp_expiry = 3600
 # sender_name = "Admin"
 
 # Sign-in is by emailed code, so both emails show the code ({{ .Token }}) rather than only a link.
-# The hosted project's templates are set in the dashboard and must match.
+# The deploy-auth-emails workflow pushes them to the hosted project (it needs custom SMTP).
 [auth.email.template.magic_link]
 subject = "Your sign-in code"
 content_path = "./supabase/templates/magic_link.html"
