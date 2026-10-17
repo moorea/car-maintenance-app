@@ -1,5 +1,5 @@
 import { Row, TextInput } from '@expo/ui'
-import { frame, textFieldStyle } from '@expo/ui/swift-ui/modifiers'
+import { font, frame, textFieldStyle } from '@expo/ui/swift-ui/modifiers'
 import { useColors } from '../theme'
 import type { ChatComposerProps } from './ChatComposer'
 import { useModelText } from './composerText'
@@ -25,8 +25,13 @@ export function ChatComposer({
           placeholder={placeholder}
           returnKeyType="send"
           autoCapitalize="sentences"
-          textStyle={{ fontSize: 16, color: colors.textPrimary }}
-          modifiers={[textFieldStyle('plain'), frame({ maxWidth: Infinity })]}
+          textStyle={{ color: colors.textPrimary }}
+          // A text style rather than a point size, so the field follows Dynamic Type.
+          modifiers={[
+            font({ textStyle: 'callout' }),
+            textFieldStyle('plain'),
+            frame({ maxWidth: Infinity }),
+          ]}
           style={{ paddingLeft: 12 }}
         />
         <FilledIconButton {...action} />

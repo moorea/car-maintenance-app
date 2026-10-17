@@ -1,6 +1,7 @@
-import { Column, Text, TextInput, useNativeState, type TextInputProps } from '@expo/ui'
+import { Column, TextInput, useNativeState, type TextInputProps } from '@expo/ui'
 import { useEffect, useRef } from 'react'
 import { useColors } from '../theme'
+import { Text } from './Text'
 
 interface Props {
   label: string

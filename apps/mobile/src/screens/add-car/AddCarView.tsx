@@ -1,8 +1,9 @@
 import type { AddCarActions, AddCarState } from '@car/core'
-import { Button, Column, ScrollView, Switch, Text } from '@expo/ui'
+import { Button, Column, ScrollView, Switch } from '@expo/ui'
 import { Host } from '../../ui/Host'
 import { ErrorText, Note } from '../../ui/Note'
 import { TextField } from '../../ui/TextField'
+import { Text } from '../../ui/Text'
 
 type Props = AddCarState &
   Pick<

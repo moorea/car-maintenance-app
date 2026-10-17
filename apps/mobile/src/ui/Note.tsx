@@ -1,5 +1,5 @@
-import { Text } from '@expo/ui'
 import { useColors } from '../theme'
+import { Text } from './Text'
 
 /** Small secondary text: hints, sources, empty states. */
 export function Note({ children }: { children: string }) {

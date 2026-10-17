@@ -1,5 +1,5 @@
 import type { AppTab, SessionActions, SessionState, Vehicle } from '@car/core'
-import { Row, Text } from '@expo/ui'
+import { Row } from '@expo/ui'
 import { ActivityIndicator, StyleSheet, View } from 'react-native'
 import { AddCarScreen } from '../add-car/AddCarScreen'
 import { AskScreen } from '../ask/AskScreen'
@@ -10,6 +10,7 @@ import { ServiceLogScreen } from '../service-log/ServiceLogScreen'
 import { SignInScreen } from '../sign-in/SignInScreen'
 import { Host } from '../../ui/Host'
 import { TabBar, type TabBarItem } from '../../ui/TabBar'
+import { Text } from '../../ui/Text'
 
 type Props = SessionState &
   Pick<
@@ -47,7 +48,12 @@ export function RootView(props: Props) {
             tabs={TABS}
             selected={props.tab}
             onSelect={props.openTab}
-            action={{ symbol: 'ask', onPress: () => props.openTab('ask'), selected: false }}
+            action={{
+              symbol: 'ask',
+              label: 'Ask',
+              onPress: () => props.openTab('ask'),
+              selected: false,
+            }}
           />
         )}
       </View>

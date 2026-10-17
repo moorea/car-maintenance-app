@@ -1,6 +1,10 @@
-import { Button, Column, Row, Text } from '@expo/ui'
+import { Button, Column, Row } from '@expo/ui'
 import { Divider, ProgressView } from '@expo/ui/swift-ui'
 import {
+  accessibilityAddTraits,
+  accessibilityElement,
+  accessibilityHidden,
+  accessibilityLabel,
   background,
   buttonBorderShape,
   buttonStyle,
@@ -17,6 +21,7 @@ import { Platform } from 'react-native'
 import { useColors, type ColorRole } from '../theme'
 import { Symbol } from './Symbol'
 import type { SymbolName } from './symbols'
+import { Text } from './Text'
 
 // Liquid Glass arrived in iOS 26. Before that, glass modifiers do nothing, so fall back to the
 // system material and a bordered button.
@@ -24,8 +29,17 @@ const hasGlass = Number.parseInt(String(Platform.Version), 10) >= 26
 
 // Universal `onPress` adds its tap gesture inside the custom modifiers, so only the bare content
 // would respond. Appending it after the fill makes the whole padded shape tappable.
+// A tap gesture alone is invisible to VoiceOver, so the shape also becomes one element that reads
+// its contents and is announced as a button.
 const tappable = (onPress: (() => void) | undefined) =>
-  onPress ? [contentShape(shapes.rectangle()), onTapGesture(onPress)] : []
+  onPress
+    ? [
+        contentShape(shapes.rectangle()),
+        onTapGesture(onPress),
+        accessibilityElement('combine'),
+        accessibilityAddTraits(['isButton']),
+      ]
+    : []
 
 interface CardProps {
   children: ReactNode
@@ -74,6 +88,8 @@ export function GlassBar({ children }: { children: ReactNode }) {
 
 interface GlassButtonProps {
   symbol: SymbolName
+  /** What VoiceOver reads for the button, such as "Add car". */
+  label: string
   onPress: () => void
   /** Icon colour. Defaults to `textPrimary`. */
   tint?: ColorRole
@@ -83,6 +99,7 @@ interface GlassButtonProps {
 /** A round Liquid Glass button showing one icon, for toolbars over content. */
 export function GlassIconButton({
   symbol,
+  label,
   onPress,
   tint = 'textPrimary',
   size = 44,
@@ -91,7 +108,11 @@ export function GlassIconButton({
   return (
     <Button
       onPress={onPress}
-      modifiers={[buttonStyle(hasGlass ? 'glass' : 'bordered'), buttonBorderShape('circle')]}
+      modifiers={[
+        buttonStyle(hasGlass ? 'glass' : 'bordered'),
+        buttonBorderShape('circle'),
+        accessibilityLabel(label),
+      ]}
     >
       {/* The label sets the button's size; the glass style adds its own margin around it. */}
       <Column alignment="center" modifiers={[frame({ width: size - 16, height: size - 16 })]}>
@@ -114,12 +135,14 @@ export function ProgressBar({ value, fill }: { value: number; fill: ColorRole; t
 
 interface SegmentProps {
   children: ReactNode
+  /** What VoiceOver reads for the choice. */
+  label: string
   selected: boolean
   onPress: () => void
 }
 
 /** One of several equal-width choices in a row, such as a tab. The selected one is filled. */
-export function Segment({ children, selected, onPress }: SegmentProps) {
+export function Segment({ children, label, selected, onPress }: SegmentProps) {
   const colors = useColors()
   return (
     <Column
@@ -129,7 +152,11 @@ export function Segment({ children, selected, onPress }: SegmentProps) {
         paddingModifier({ vertical: 6, horizontal: 4 }),
         frame({ maxWidth: Infinity }),
         ...(selected ? [background(colors.selectedFill, shapes.capsule())] : []),
-        ...tappable(onPress),
+        contentShape(shapes.rectangle()),
+        onTapGesture(onPress),
+        accessibilityElement('ignore'),
+        accessibilityLabel(label),
+        accessibilityAddTraits(selected ? ['isButton', 'isSelected'] : ['isButton']),
       ]}
     >
       {children}
@@ -151,7 +178,8 @@ export function PillButton({ label, onPress, fill, text }: PillButtonProps) {
     <Row
       alignment="center"
       modifiers={[
-        frame({ height: 44 }),
+        // At least 44pt tall, and taller when Dynamic Type enlarges the label.
+        frame({ minHeight: 44 }),
         frame({ maxWidth: Infinity }),
         background(colors[fill], shapes.capsule()),
         ...tappable(onPress),
@@ -179,12 +207,20 @@ export function FillColumn({ children, spacing }: { children: ReactNode; spacing
   )
 }
 
+interface DotProps {
+  color: ColorRole
+  /** What the colour means, such as "Overdue", for VoiceOver. Without it the dot is skipped. */
+  label?: string
+  size?: number
+}
+
 /** A small filled circle, such as a status dot beside a row. */
-export function Dot({ color, size = 10 }: { color: ColorRole; size?: number }) {
+export function Dot({ color, label, size = 10 }: DotProps) {
   const colors = useColors()
   return (
     <Row
       style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: colors[color] }}
+      modifiers={[label ? accessibilityLabel(label) : accessibilityHidden()]}
     />
   )
 }
@@ -239,13 +275,21 @@ export function GlassPill({ label, onPress }: { label: string; onPress: () => vo
 
 interface FilledIconButtonProps {
   symbol: SymbolName
+  /** What VoiceOver reads for the button, such as "Send". */
+  label: string
   onPress: () => void
   disabled?: boolean
   size?: number
 }
 
 /** A round button filled with the accent, for the one main action, such as sending. */
-export function FilledIconButton({ symbol, onPress, disabled, size = 44 }: FilledIconButtonProps) {
+export function FilledIconButton({
+  symbol,
+  label,
+  onPress,
+  disabled,
+  size = 44,
+}: FilledIconButtonProps) {
   const colors = useColors()
   return (
     <Button
@@ -255,6 +299,7 @@ export function FilledIconButton({ symbol, onPress, disabled, size = 44 }: Fille
         buttonStyle(hasGlass ? 'glassProminent' : 'borderedProminent'),
         buttonBorderShape('circle'),
         tintModifier(colors.accent),
+        accessibilityLabel(label),
       ]}
     >
       <Column alignment="center" modifiers={[frame({ width: size - 16, height: size - 16 })]}>
