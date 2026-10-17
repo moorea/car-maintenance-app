@@ -106,6 +106,21 @@ describe('runningCosts', () => {
     expect(lastYear.miles).toBe(10_000)
   })
 
+  it('ignores a reading further on than the car could have been driven, as a typo', () => {
+    const { lastYear } = runningCosts({
+      fillUps: [fill('2026-06-01', 16_000, 5_000)],
+      records: [],
+      readings: [
+        reading('2026-01-01', 9_000),
+        reading('2026-02-01', 95_000),
+        reading('2026-03-01', 10_000),
+        reading('2026-06-01', 16_000),
+      ],
+      today: '2026-10-17',
+    })
+    expect(lastYear.miles).toBe(7_000)
+  })
+
   it('lists each year with a cost, newest first', () => {
     const { years } = runningCosts({
       fillUps: [fill('2024-05-01', 1_000, 3_000)],

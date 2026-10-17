@@ -1,5 +1,6 @@
 import { addDays, addMonths, daysBetween, type IsoDate } from '../../lib/date'
 import type { FillUp, OdometerReading, ServiceRecord } from '../../domain/types'
+import { MAX_PLAUSIBLE_MILES_PER_DAY } from '../../reminders/mileage'
 
 /** What the car cost over a stretch of time, in cents. */
 export interface CostTotals {
@@ -43,14 +44,19 @@ const totals = (fuelCents: number, serviceCents: number): CostTotals => ({
 })
 
 /**
- * Readings that only go up, by date: a reading lower than an earlier one is a typo and dropped,
- * as the mileage estimate does.
+ * Readings that only go up at a drivable rate, by date: one lower than an earlier one, or more
+ * miles after it than a car covers, is a typo and dropped, as the mileage estimate does.
  */
-const climbing = (readings: readonly OdometerReading[]): OdometerReading[] => {
+export const climbing = (readings: readonly OdometerReading[]): OdometerReading[] => {
   const kept: OdometerReading[] = []
   for (const r of [...readings].sort((a, b) => a.date.localeCompare(b.date) || a.miles - b.miles)) {
     const last = kept.at(-1)
-    if (!last || r.miles >= last.miles) kept.push(r)
+    const days = last ? Math.max(1, daysBetween(last.date, r.date)) : 1
+    if (
+      !last ||
+      (r.miles >= last.miles && (r.miles - last.miles) / days <= MAX_PLAUSIBLE_MILES_PER_DAY)
+    )
+      kept.push(r)
   }
   return kept
 }

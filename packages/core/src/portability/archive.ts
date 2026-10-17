@@ -93,7 +93,7 @@ const exportedFillUp = z.object({
   energy: z.enum(['fuel', 'electric']),
   /** Gallons of fuel or kWh of charge. */
   quantity: z.number().positive().max(1_000),
-  costCents: z.number().int().nonnegative().optional(),
+  costCents: z.number().int().nonnegative().max(1_000_000).optional(),
   full: z.boolean(),
   missedPrevious: z.boolean(),
   station: z.string().optional(),

@@ -1,6 +1,6 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
 import { z } from 'zod'
-import type { IsoDate } from '../../lib/date'
+import { daysBetween, type IsoDate } from '../../lib/date'
 import type { EnergyKind, FillUp, Vehicle } from '../../domain/types'
 import type {
   Clock,
@@ -12,8 +12,9 @@ import type {
 } from '../../ports'
 import { formatCents, formatDay, formatMiles, formatMonth } from '../../lib/format'
 import { fillUpDraftSchema, type FillUpDraft } from '../../schemas/fillUp'
+import { MAX_PLAUSIBLE_MILES_PER_DAY } from '../../reminders/mileage'
 import { currentOdometer } from '../garage/odometer'
-import { runningCosts, type PeriodCost } from './costs'
+import { climbing, runningCosts, type PeriodCost } from './costs'
 import {
   formatEconomy,
   formatQuantity,
@@ -213,6 +214,8 @@ export const createFuelModel = (deps: FuelDeps): FuelModel => {
 
   return createStore<FuelState & FuelActions>()((set, get) => {
     let odometerHint = ''
+    /** Mileages from readings and services that a fill-up must not contradict. */
+    let checkpoints: { date: IsoDate; miles: number; what: string }[] = []
 
     /** Recomputes economy and costs from the fill-ups, services and readings. */
     const refresh = async () => {
@@ -290,6 +293,16 @@ export const createFuelModel = (deps: FuelDeps): FuelModel => {
         ),
       ]
       const costs = runningCosts({ fillUps, records, readings: mileages, today })
+      const fromFillUps = new Set(fillUps.map((f) => `${f.filledOn}:${f.odometerMiles}`))
+      const services = new Set(records.map((r) => `${r.performedOn}:${r.odometerMiles}`))
+      // Only readings the mileage estimate trusts, so an old typo nobody can delete blocks nothing.
+      checkpoints = climbing(mileages.filter((m) => !fromFillUps.has(`${m.date}:${m.miles}`))).map(
+        (m) => ({
+          date: m.date,
+          miles: m.miles,
+          what: services.has(`${m.date}:${m.miles}`) ? 'service' : 'odometer reading',
+        }),
+      )
       set({
         status: 'ready',
         economy,
@@ -331,23 +344,47 @@ export const createFuelModel = (deps: FuelDeps): FuelModel => {
     }
 
     /**
-     * A mileage that goes backwards against another fill-up is almost always a typo. A fill-up
-     * entered late is fine as long as its date and mileage sit between its neighbours'.
+     * A mileage that goes backwards against another fill-up, a service or an odometer reading is
+     * almost always a typo. A fill-up entered late is fine as long as its date and mileage sit
+     * between its neighbours'. On the same day either can come first, unless they are further
+     * apart than a day's driving.
      */
     const outOfOrder = (id: string, date: IsoDate, miles: number): string | undefined => {
-      const others = fillUps.filter((f) => f.id !== id)
+      const others = [
+        ...fillUps
+          .filter((f) => f.id !== id)
+          .map((f) => ({ date: f.filledOn, miles: f.odometerMiles, what: 'fill-up' })),
+        ...checkpoints,
+      ]
       const today = deps.clock.today()
       const before = others
-        .filter((f) => f.filledOn < date && f.odometerMiles > miles)
-        .sort((a, b) => b.odometerMiles - a.odometerMiles)[0]
+        .filter(
+          (o) =>
+            (o.date < date && o.miles > miles) ||
+            (o.date === date && o.miles - miles > MAX_PLAUSIBLE_MILES_PER_DAY),
+        )
+        .sort((a, b) => b.miles - a.miles)[0]
       if (before) {
-        return `Lower than the ${formatDay(before.filledOn, today)} fill-up at ${formatMiles(before.odometerMiles)}`
+        return `Lower than the ${formatDay(before.date, today)} ${before.what} at ${formatMiles(before.miles)}`
       }
       const after = others
-        .filter((f) => f.filledOn > date && f.odometerMiles < miles)
-        .sort((a, b) => a.odometerMiles - b.odometerMiles)[0]
+        .filter(
+          (o) =>
+            (o.date > date && o.miles < miles) ||
+            (o.date === date && miles - o.miles > MAX_PLAUSIBLE_MILES_PER_DAY),
+        )
+        .sort((a, b) => a.miles - b.miles)[0]
       if (after) {
-        return `Higher than the ${formatDay(after.filledOn, today)} fill-up at ${formatMiles(after.odometerMiles)}`
+        return `Higher than the ${formatDay(after.date, today)} ${after.what} at ${formatMiles(after.miles)}`
+      }
+      const previous = others
+        .filter((o) => o.date < date)
+        .sort((a, b) => b.date.localeCompare(a.date) || b.miles - a.miles)[0]
+      if (
+        previous &&
+        (miles - previous.miles) / daysBetween(previous.date, date) > MAX_PLAUSIBLE_MILES_PER_DAY
+      ) {
+        return `Too far past the ${formatDay(previous.date, today)} ${previous.what} at ${formatMiles(previous.miles)}`
       }
       return undefined
     }
@@ -425,6 +462,10 @@ export const createFuelModel = (deps: FuelDeps): FuelModel => {
         }
         const d = parsed.data
         const id = form.id ?? deps.ids.next()
+        if (d.filledOn > deps.clock.today()) {
+          updateForm({ fieldErrors: { filledOn: "Can't be in the future" } })
+          return false
+        }
         const order = outOfOrder(id, d.filledOn, d.odometerMiles)
         if (order) {
           updateForm({ fieldErrors: { odometerMiles: order } })

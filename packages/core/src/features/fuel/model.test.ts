@@ -225,6 +225,44 @@ describe('fuel and costs screen', () => {
     expect(await s.save()).toBe(true)
   })
 
+  it('refuses a mileage lower than a reading or service, naming it', async () => {
+    const { model } = setup()
+    await settle()
+    const s = model.getState()
+    s.openNew()
+    s.setField('odometerMiles', '3,240')
+    s.setField('quantity', '10')
+    expect(await s.save()).toBe(false)
+    expect(model.getState().form?.fieldErrors.odometerMiles).toBe(
+      'Lower than the Sep 15 service at 32,400 mi',
+    )
+  })
+
+  it('refuses a mileage further on than the car could have been driven', async () => {
+    const { model } = setup(history)
+    await settle()
+    const s = model.getState()
+    s.openNew()
+    s.setField('odometerMiles', '332,400')
+    s.setField('quantity', '10')
+    expect(await s.save()).toBe(false)
+    expect(model.getState().form?.fieldErrors.odometerMiles).toBe(
+      'Too far past the Oct 1 fill-up at 32,900 mi',
+    )
+  })
+
+  it('refuses a fill-up dated in the future', async () => {
+    const { model } = setup()
+    await settle()
+    const s = model.getState()
+    s.openNew()
+    s.setField('filledOn', '2027-10-17')
+    s.setField('odometerMiles', '33,240')
+    s.setField('quantity', '10')
+    expect(await s.save()).toBe(false)
+    expect(model.getState().form?.fieldErrors).toEqual({ filledOn: "Can't be in the future" })
+  })
+
   it('corrects a fill-up in place', async () => {
     const { model, fillUps } = setup(history)
     await settle()

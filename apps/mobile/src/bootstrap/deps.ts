@@ -28,7 +28,11 @@ function demoRepositories() {
   const demo = createDemoRepositories()
   return {
     ...demo,
-    assistant: createDemoAssistant(demo, clock),
+    // The assistant sees fill-up mileage too, as the live server does.
+    assistant: createDemoAssistant(
+      { ...demo, odometer: withFillUpReadings(demo.odometer, demo.fillUps) },
+      clock,
+    ),
     quoteReader: demoQuoteReader({ delayMs: 1_500 }),
   }
 }

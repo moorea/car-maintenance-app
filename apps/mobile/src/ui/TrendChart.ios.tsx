@@ -9,7 +9,9 @@ export function TrendChart({ points, color, height = 96 }: TrendChartProps) {
   return (
     <Chart
       type="line"
-      data={points.map((p) => ({ x: p.label, y: Number(p.value.toFixed(1)) }))}
+      // Plotted by position, as the other platforms draw it: two points on one date (a road trip)
+      // would share a text label and stack on one spot.
+      data={points.map((p, i) => ({ x: i + 1, y: Number(p.value.toFixed(1)) }))}
       showGrid
       lineStyle={{ color: colors[color], width: 2, pointStyle: 'circle', pointSize: 6 }}
       modifiers={[frame({ height: height + 24 })]}
