@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { createReminderScheduler, type IdGenerator } from '@car/core'
+import { demoQuoteReader } from '@car/core/testing'
 import { nhtsaVinDecoder, storedReminderSettings } from '@car/data'
 import { randomUUID } from 'expo-crypto'
 import { localClock } from './clock'
@@ -8,6 +9,7 @@ import { createDemoAssistant, createDemoRepositories } from './demo'
 import { createLiveRepositories } from './live'
 import { systemFilePicker, systemFilePreview } from './files'
 import { expoNotifier } from './notifications'
+import { expoPhotoPicker } from './photos'
 
 // The composition root: the only place that picks adapters. Screens only ever see ports.
 const clock = localClock
@@ -20,7 +22,11 @@ const repositories = config ? createLiveRepositories(config) : demoRepositories(
 
 function demoRepositories() {
   const demo = createDemoRepositories()
-  return { ...demo, assistant: createDemoAssistant(demo, clock) }
+  return {
+    ...demo,
+    assistant: createDemoAssistant(demo, clock),
+    quoteReader: demoQuoteReader({ delayMs: 1_500 }),
+  }
 }
 
 // Reminders are planned and scheduled on the phone, so they work offline and need no push server.
@@ -37,6 +43,7 @@ export const deps = {
   reminderSettings,
   picker: systemFilePicker(),
   preview: systemFilePreview(),
+  photos: expoPhotoPicker(),
   reminders: createReminderScheduler({
     ...repositories,
     clock,

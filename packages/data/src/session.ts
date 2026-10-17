@@ -15,6 +15,11 @@ export interface SyncDatabase {
 export interface SyncSession {
   /** Call on every auth change with the signed-in user's id, or null when signed out. */
   setUser(userId: string | null): Promise<void>
+  /**
+   * Disconnects and deletes this phone's copy, including changes not uploaded yet. For after the
+   * owner's account is deleted, when nothing is left to upload them to.
+   */
+  discard(): Promise<void>
 }
 
 /**
@@ -26,6 +31,8 @@ export interface SyncSession {
  *   otherwise it is kept so nothing logged offline is lost if the same user signs back in.
  * - Signing in as someone else first deletes the previous user's copy, so it is never shown to
  *   or uploaded as the new user.
+ * - Discarding deletes the local copy whatever is pending, and leaves sync stopped until the next
+ *   sign-in.
  */
 export const createSyncSession = (
   db: SyncDatabase,
@@ -60,13 +67,20 @@ export const createSyncSession = (
     applied = userId
   }
 
+  const enqueue = (step: () => Promise<void>) => {
+    const next = queue.then(step)
+    // One failed step must not stop later auth changes from being applied.
+    queue = next.catch((error: unknown) => log(`Sync session update failed: ${String(error)}`))
+    return next
+  }
+
   return {
-    setUser: (userId) => {
-      const next = queue.then(() => apply(userId))
-      // One failed step must not stop later auth changes from being applied.
-      queue = next.catch((error: unknown) => log(`Sync session update failed: ${String(error)}`))
-      return next
-    },
+    setUser: (userId) => enqueue(() => apply(userId)),
+    discard: () =>
+      enqueue(async () => {
+        await db.clear()
+        applied = null
+      }),
   }
 }
 

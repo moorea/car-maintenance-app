@@ -11,6 +11,8 @@ interface Props {
   keyboardType?: TextInputProps['keyboardType']
   autoComplete?: TextInputProps['autoComplete']
   autoCapitalize?: TextInputProps['autoCapitalize']
+  /** Lines of text the field shows; more than one makes it a multi-line field. */
+  lines?: number
 }
 
 /** A labelled Expo UI text input. The screen model owns the text; the field follows `value`. */
@@ -40,6 +42,9 @@ export function TextField({ label, value, onChangeText, error, ...input }: Props
         autoComplete={input.autoComplete ?? 'off'}
         autoCapitalize={input.autoCapitalize ?? 'sentences'}
         autoCorrect={false}
+        {...(input.lines !== undefined && input.lines > 1
+          ? { multiline: true, numberOfLines: input.lines }
+          : {})}
         style={{ width: '100%', ...(error ? { borderColor: colors.danger } : {}) }}
       />
       {error ? <Text textStyle={{ fontSize: 12, color: colors.danger }}>{error}</Text> : null}

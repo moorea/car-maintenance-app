@@ -14,6 +14,7 @@ import { useColors, type ColorRole } from '../../theme'
 import { Host } from '../../ui/Host'
 import { ErrorText, Note } from '../../ui/Note'
 import { SegmentedControl } from '../../ui/SegmentedControl'
+import { Symbol } from '../../ui/Symbol'
 import { TAB_BAR_CLEARANCE } from '../../ui/TabBar'
 import { TextField } from '../../ui/TextField'
 import { Card, Dot, FillColumn, Separator } from '../../ui/surfaces'
@@ -25,12 +26,13 @@ interface Props {
   car: CarState & CarActions
   safety: SafetyState & Pick<SafetyActions, 'toggle'>
   documents: AttachmentsProps
+  onCheckQuote: () => void
 }
 
 const OVERLINE = { fontSize: 13, fontWeight: '600', letterSpacing: 0.5 } as const
 
 /** Pure rendering of a car's page: odometer, documents, then schedule, recalls or known issues. */
-export function CarView({ car, safety, documents }: Props) {
+export function CarView({ car, safety, documents, onCheckQuote }: Props) {
   const colors = useColors()
   if (car.status === 'loading') return <ActivityIndicator style={styles.fill} />
 
@@ -54,6 +56,7 @@ export function CarView({ car, safety, documents }: Props) {
             ) : null}
           </Column>
           <OdometerCard {...car} />
+          <QuoteCard onPress={onCheckQuote} />
           <DocumentsSection {...documents} />
           <SegmentedControl options={sections} selected={car.section} onSelect={car.showSection} />
           {car.section === 'schedule' ? (
@@ -117,6 +120,25 @@ function OdometerCard(car: CarState & CarActions) {
   )
 }
 
+/** Opens the quote checker, for when a shop hands over a list of recommended work. */
+function QuoteCard({ onPress }: { onPress: () => void }) {
+  const colors = useColors()
+  return (
+    <Card padding={14} onPress={onPress}>
+      <Row alignment="center" spacing={12}>
+        <Symbol name="quote" size={22} color={colors.accent} />
+        <FillColumn spacing={1}>
+          <Text textStyle={{ fontSize: 16, fontWeight: '600' }}>Check a shop’s quote</Text>
+          <Text textStyle={{ fontSize: 13, color: colors.textSecondary }}>
+            See which recommendations are actually due
+          </Text>
+        </FillColumn>
+        <Symbol name="chevron" size={16} color={colors.textSecondary} />
+      </Row>
+    </Card>
+  )
+}
+
 const DOT: Record<DueStatus, ColorRole> = {
   overdue: 'warning',
   'due-soon': 'accent',
@@ -132,12 +154,12 @@ function Schedule(car: CarState) {
     return <Note>We don't have a maintenance schedule for this car yet.</Note>
   return (
     <Column spacing={8}>
-      <Text
-        textStyle={{ ...OVERLINE, color: colors.textSecondary }}
-        style={{ paddingHorizontal: 4 }}
-      >
-        {car.scheduleTitle.toUpperCase()}
-      </Text>
+      <Column spacing={4} style={{ paddingHorizontal: 4 }}>
+        <Text textStyle={{ ...OVERLINE, color: colors.textSecondary }}>
+          {car.scheduleTitle.toUpperCase()}
+        </Text>
+        {car.scheduleNote ? <Note>{car.scheduleNote}</Note> : null}
+      </Column>
       <Card padding={0}>
         {car.schedule.map((row, i) => (
           <Fragment key={row.itemId}>

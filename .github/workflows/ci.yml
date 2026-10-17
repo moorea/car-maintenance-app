@@ -23,6 +23,9 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # Known advisories that cannot be fixed yet are listed, with reasons, in pnpm-workspace.yaml.
+      - name: Dependency audit
+        run: pnpm audit --audit-level moderate
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm format:check

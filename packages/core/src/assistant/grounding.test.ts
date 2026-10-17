@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import type { Complaint, MaintenanceItem, Vehicle } from '../domain/types'
-import { groundingDocuments, MAX_COMPLAINTS, type CarFacts } from './grounding'
+import {
+  ASSISTANT_SYSTEM_PROMPT,
+  groundingDocuments,
+  MAX_COMPLAINTS,
+  type CarFacts,
+} from './grounding'
 
 const vehicle: Vehicle = {
   id: 'v1',
@@ -128,6 +133,19 @@ describe('groundingDocuments', () => {
         "Last done on 2026-07-01 at 28,000 mi, according to the owner's service log.",
         'Next due around 2027-07-01 at 38,000 mi: not due yet.',
       ].join('\n'),
+    )
+  })
+
+  it("says a baseline schedule item is general guidance, not the manufacturer's", () => {
+    const schedule = groundingDocuments(facts({ schedule: [{ ...oil, source: 'baseline' }] }))[1]
+    expect(schedule?.text.split('\n')[1]).toBe(
+      "This is the app's general guidance for most cars, not Toyota's own schedule for this car, which the owner's manual has.",
+    )
+  })
+
+  it('tells the model to say so when it quotes general guidance', () => {
+    expect(ASSISTANT_SYSTEM_PROMPT).toContain(
+      "when you quote one, say it is general guidance and that the owner's manual has the exact interval",
     )
   })
 

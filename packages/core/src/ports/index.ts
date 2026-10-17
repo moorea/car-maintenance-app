@@ -7,6 +7,8 @@ import type {
   MaintenanceItem,
   OdometerReading,
   PickedFile,
+  QuoteLine,
+  QuotePhoto,
   SafetyReport,
   ServiceRecord,
   Vehicle,
@@ -55,6 +57,17 @@ export interface AuthPort {
   verifyCode(email: string, code: string): Promise<void>
   /** Always ends signed out on this device, even offline; may still throw if the server was not told. */
   signOut(): Promise<void>
+}
+
+/** The owner's account itself, as opposed to signing in and out of it. */
+export interface AccountPort {
+  /**
+   * Permanently deletes the signed-in owner's account and everything stored for it on the
+   * server, then signs this phone out and erases its copy of their data, including changes not
+   * uploaded yet. Needs a connection. Throws AuthError, leaving the account as it was, if the
+   * server did not delete it.
+   */
+  deleteAccount(): Promise<void>
 }
 
 export interface ServiceRecordRepo {
@@ -265,4 +278,21 @@ export interface LanguageModel {
     onEvent: (event: ModelEvent) => void,
     signal?: CancelSignal,
   ): Promise<ModelStopReason>
+}
+
+/** Reads the lines of a shop's quote from a photo, on the server. Needs a connection. */
+export interface QuoteReader {
+  /**
+   * Resolves with the quote's lines in order, empty when the photo shows no quote. Rejects with
+   * AssistantError, since it shares the assistant's service and daily limit.
+   */
+  read(photo: QuotePhoto, signal?: CancelSignal): Promise<QuoteLine[]>
+}
+
+/** The phone's camera and photo library. */
+export interface PhotoPicker {
+  /** Opens the camera; resolves with the photo, or undefined if the owner cancelled. */
+  take(): Promise<QuotePhoto | undefined>
+  /** Opens the photo library; resolves with the photo, or undefined if the owner cancelled. */
+  choose(): Promise<QuotePhoto | undefined>
 }

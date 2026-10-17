@@ -123,6 +123,8 @@ export const toMaintenanceItem = (r: Row): MaintenanceItem =>
     id: required(text(r.id), 'id'),
     configId: required(text(r.config_id), 'config_id'),
     task: required(text(r.task), 'task'),
+    kind: text(r.kind),
+    source: text(r.source),
     intervalMiles: num(r.interval_miles),
     intervalMonths: num(r.interval_months),
     severeMiles: num(r.severe_miles),

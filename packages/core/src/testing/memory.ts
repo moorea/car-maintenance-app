@@ -18,6 +18,7 @@ import {
 } from '../domain/types'
 import type {
   AttachmentRepo,
+  AccountPort,
   AuthPort,
   Clock,
   FilePicker,
@@ -172,6 +173,30 @@ export const memoryAuth = (
     },
   }
   return auth
+}
+
+/**
+ * Account deletion for a pretend owner signed in with `auth`: deleting signs them out.
+ * `failNext` makes the next deletion throw and delete nothing.
+ */
+export const memoryAccount = (auth: Pick<AuthPort, 'signOut'>) => {
+  let nextFailure: AuthErrorKind | undefined
+  const account: AccountPort & { deletions: number; failNext: (kind: AuthErrorKind) => void } = {
+    deletions: 0,
+    failNext: (kind) => {
+      nextFailure = kind
+    },
+    deleteAccount: async () => {
+      if (nextFailure !== undefined) {
+        const kind = nextFailure
+        nextFailure = undefined
+        throw new AuthError(kind)
+      }
+      account.deletions++
+      await auth.signOut()
+    },
+  }
+  return account
 }
 
 export const memorySchedule = (items: MaintenanceItem[] = []): ScheduleRepo => ({

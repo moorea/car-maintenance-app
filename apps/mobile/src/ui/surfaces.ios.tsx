@@ -282,3 +282,28 @@ export function FilledIconButton({ symbol, onPress, disabled, size = 44 }: Fille
     </Button>
   )
 }
+
+/** A padded row inside a card that responds to a tap across its whole width. */
+export function TappableRow({
+  children,
+  onPress,
+  spacing,
+}: {
+  children: ReactNode
+  onPress: () => void
+  spacing?: number
+}) {
+  return (
+    <Column
+      spacing={spacing ?? 0}
+      alignment="start"
+      modifiers={[
+        paddingModifier({ horizontal: 16, vertical: 12 }),
+        frame({ maxWidth: Infinity, alignment: 'leading' }),
+        ...tappable(onPress),
+      ]}
+    >
+      {children}
+    </Column>
+  )
+}

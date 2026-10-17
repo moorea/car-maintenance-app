@@ -1,4 +1,4 @@
-# 0010 Attachments: files in Supabase Storage, details synced by PowerSync
+# 0012 Attachments: files in Supabase Storage, details synced by PowerSync
 
 Status: accepted, 2026-10-17
 
