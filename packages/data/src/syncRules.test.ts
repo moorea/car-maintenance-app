@@ -8,22 +8,34 @@ import { schema } from './schema'
 const path = fileURLToPath(new URL('../../../powersync/sync-rules.yaml', import.meta.url))
 const source = readFileSync(path, 'utf8')
 
-interface Bucket {
-  parameters: string
-  data: string[]
+interface Stream {
+  auto_subscribe?: boolean
+  query?: string
+  queries?: string[]
 }
-const buckets = Object.values(
-  (parse(source) as { bucket_definitions: Record<string, Bucket> }).bucket_definitions,
-)
+const streams = Object.values((parse(source) as { streams: Record<string, Stream> }).streams)
+const queries = streams.flatMap((s) => s.queries ?? (s.query ? [s.query] : []))
 
-describe('sync rules', () => {
+/**
+ * The only query shapes allowed: the user's own vehicles, or rows whose key is in a list drawn
+ * from them. Anything else (an OR, a client-supplied parameter) fails, because RLS does not apply
+ * to sync and these queries are the read boundary. Widening this needs a deliberate review.
+ */
+const OWN_VEHICLES = 'vehicles WHERE owner_id = auth\\.user_id\\(\\)'
+const SCOPED = [
+  new RegExp(`^SELECT \\* FROM (vehicles) WHERE owner_id = auth\\.user_id\\(\\)$`),
+  new RegExp(`^SELECT \\* FROM (\\w+) WHERE \\w+ IN \\(SELECT \\w+ FROM ${OWN_VEHICLES}\\)$`),
+]
+const tableOf = (query: string) => SCOPED.map((re) => re.exec(query)?.[1]).find(Boolean)
+const syncedTables = queries.map(tableOf)
+
+describe('sync streams', () => {
   it('parse without errors', () => {
     expect(SqlSyncRules.validate(source, { defaultSchema: 'public' })).toEqual([])
   })
 
   it('sync exactly the tables in the device schema', () => {
-    const synced = buckets.flatMap((b) => b.data.map((q) => /\bfrom\s+(\w+)/i.exec(q)?.[1]))
-    expect(new Set(synced)).toEqual(
+    expect(new Set(syncedTables)).toEqual(
       new Set(schema.tables.filter((t) => !t.localOnly).map((t) => t.name)),
     )
   })
@@ -35,11 +47,14 @@ describe('sync rules', () => {
       .join('\n')
     const list = /create publication powersync for table([^;]*);/.exec(sql)?.[1] ?? ''
     const published = list.split(',').map((t) => t.trim().replace(/^public\./, ''))
-    const synced = buckets.flatMap((b) => b.data.map((q) => /\bfrom\s+(\w+)/i.exec(q)?.[1]))
-    expect(new Set(published)).toEqual(new Set(synced))
+    expect(new Set(published)).toEqual(new Set(syncedTables))
   })
 
-  it('scope every bucket to the signed-in user', () => {
-    for (const bucket of buckets) expect(bucket.parameters).toContain('request.user_id()')
+  it("scope every query to the signed-in user's vehicles", () => {
+    for (const query of queries) expect(tableOf(query), query).toBeDefined()
+  })
+
+  it('subscribe every stream by default, since the app never subscribes explicitly', () => {
+    for (const stream of streams) expect(stream.auto_subscribe).toBe(true)
   })
 })
