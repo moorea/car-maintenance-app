@@ -44,6 +44,12 @@ export const SYMBOLS = {
   stop: { ios: 'stop.fill', paths: ['M7 7h10v10H7z'] },
   compose: { ios: 'square.and.pencil', paths: ['M4 20h4L19 9l-4-4L4 16z', 'M13 7l4 4'] },
   source: { ios: 'doc.text.magnifyingglass', paths: ['M5 4h10l4 4v12H5z'] },
+  camera: {
+    ios: 'camera',
+    paths: ['M3 8h4l2-3h6l2 3h4v11H3z', 'M12 10a3.5 3.5 0 1 0 0.01 0'],
+  },
+  photo: { ios: 'photo', paths: ['M3 5h18v14H3z', 'M3 16l5-5 4 4 3-3 6 6', 'M15 9h.01'] },
+  quote: { ios: 'list.bullet.clipboard', paths: ['M7 4h10v17H7z', 'M10 9h5M10 13h5M10 17h3'] },
 } satisfies Record<string, { ios: SFSymbol; paths: string[] }>
 
 export type SymbolName = keyof typeof SYMBOLS

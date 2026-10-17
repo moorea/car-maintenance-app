@@ -1,5 +1,10 @@
 import { createReminderScheduler, type IdGenerator } from '@car/core'
-import { memoryNotifier, memoryReminderSettings } from '@car/core/testing'
+import {
+  demoQuoteReader,
+  memoryNotifier,
+  memoryPhotoPicker,
+  memoryReminderSettings,
+} from '@car/core/testing'
 import { randomUUID } from 'expo-crypto'
 import { localClock } from './clock'
 import { createDemoAssistant, createDemoRepositories, demoVinDecoder } from './demo'
@@ -19,6 +24,9 @@ export const deps = {
   vinDecoder: demoVinDecoder(),
   ...repositories,
   assistant: createDemoAssistant(repositories, clock),
+  // The preview has no camera; every photo is a sample dealer quote.
+  photos: memoryPhotoPicker(),
+  quoteReader: demoQuoteReader({ delayMs: 1_500 }),
   notifier,
   reminderSettings,
   reminders: createReminderScheduler({

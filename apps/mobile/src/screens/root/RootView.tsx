@@ -6,9 +6,11 @@ import { AddCarScreen } from '../add-car/AddCarScreen'
 import { AskScreen } from '../ask/AskScreen'
 import { CarScreen } from '../car/CarScreen'
 import { GarageScreen } from '../garage/GarageScreen'
+import { QuoteCheckScreen } from '../quote-check/QuoteCheckScreen'
 import { RemindersScreen } from '../reminders/RemindersScreen'
 import { ServiceLogScreen } from '../service-log/ServiceLogScreen'
 import { SignInScreen } from '../sign-in/SignInScreen'
+import { askModelFor } from '../../models/askModels'
 import { Host } from '../../ui/Host'
 import { TabBar, type TabBarItem } from '../../ui/TabBar'
 
@@ -16,6 +18,7 @@ type Props = SessionState &
   Pick<
     SessionActions,
     | 'openTab'
+    | 'back'
     | 'openCar'
     | 'logService'
     | 'logRequestHandled'
@@ -41,8 +44,8 @@ export function RootView(props: Props) {
     return (
       <View style={styles.fill}>
         <TabContent {...props} vehicle={vehicle} />
-        {/* Ask fills the screen with its own composer and a back button, as in the mockup. */}
-        {props.tab === 'ask' ? null : (
+        {/* Ask and the quote checker fill the screen with their own back button, as in the mockup. */}
+        {props.tab === 'ask' || props.tab === 'quote' ? null : (
           <TabBar
             tabs={TABS}
             selected={props.tab}
@@ -108,9 +111,23 @@ function TabContent(props: Props & { vehicle: Vehicle }) {
         />
       )
     case 'car':
-      return <CarScreen vehicle={vehicle} />
+      return <CarScreen vehicle={vehicle} onCheckQuote={() => props.openTab('quote')} />
     case 'ask':
-      return <AskScreen vehicle={vehicle} onBack={() => props.openTab('garage')} />
+      return <AskScreen vehicle={vehicle} onBack={props.back} />
+    case 'quote':
+      return (
+        <QuoteCheckScreen
+          vehicle={vehicle}
+          onBack={props.back}
+          onAsk={(question) => {
+            props.openTab('ask')
+            const ask = askModelFor(vehicle).getState()
+            // While Ask is still answering, the question waits in the composer to send.
+            if (ask.status === 'ready') ask.ask(question)
+            else ask.setDraft(question)
+          }}
+        />
+      )
     case 'reminders':
       return <RemindersScreen />
     case 'account':
