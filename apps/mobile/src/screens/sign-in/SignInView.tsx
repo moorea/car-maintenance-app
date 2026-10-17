@@ -21,7 +21,10 @@ export function SignInView(props: Props) {
           {step === 'email' ? (
             <>
               <Text>We'll email you a code. No password needed.</Text>
+              {/* Keyed so each step mounts a new native field: iOS keeps a focused field's keyboard,
+                  so reusing the email field left the code step with the email keyboard. */}
               <TextField
+                key="email"
                 label="Email"
                 value={email}
                 onChangeText={props.setEmail}
@@ -42,6 +45,7 @@ export function SignInView(props: Props) {
             <>
               <Text>{`Enter the code we sent to ${email}.`}</Text>
               <TextField
+                key="code"
                 label="Code"
                 value={code}
                 onChangeText={props.setCode}

@@ -1,0 +1,57 @@
+# The pages that open from the Garage and Log buttons. Those round buttons have no text yet, so
+# they are tapped by position, and each page starts from a fresh launch.
+appId: com.moorea.carmaintenance
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+- extendedWaitUntil:
+    visible: 'Demo car'
+    timeout: 60000
+# Account, then its data export page.
+- tapOn:
+    point: '59%,11%'
+- scrollUntilVisible:
+    element: 'Export or import data'
+- tapOn: 'Export or import data'
+- extendedWaitUntil:
+    visible: 'Your data'
+    timeout: 5000
+- takeScreenshot: 40-your-data
+
+- launchApp
+- extendedWaitUntil:
+    visible: 'Demo car'
+    timeout: 60000
+# Reminders: the bell.
+- tapOn:
+    point: '74%,11%'
+- extendedWaitUntil:
+    visible: 'Reminders'
+    timeout: 5000
+- takeScreenshot: 41-reminders
+
+- launchApp
+- extendedWaitUntil:
+    visible: 'Demo car'
+    timeout: 60000
+# Add a car: the plus.
+- tapOn:
+    point: '90%,11%'
+- extendedWaitUntil:
+    visible: 'Add your car'
+    timeout: 5000
+- takeScreenshot: 42-add-car
+
+- launchApp
+- extendedWaitUntil:
+    visible: 'Demo car'
+    timeout: 60000
+# Log a service: the plus on the Log tab opens the form sheet.
+- tapOn: 'Log'
+- assertVisible: 'Service log'
+- tapOn:
+    point: '90%,11%'
+- waitForAnimationToEnd
+- takeScreenshot: 43-log-form

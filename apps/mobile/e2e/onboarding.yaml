@@ -1,0 +1,33 @@
+# The first-run introduction, which only shows to someone signed out. The `demoSignedOut` launch
+# argument starts the demo signed out (see apps/mobile/src/bootstrap/launchFlags.ios.ts).
+appId: com.moorea.carmaintenance
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      demoSignedOut: true
+- extendedWaitUntil:
+    visible: 'Your car, explained'
+    timeout: 60000
+- takeScreenshot: 20-onboarding-1
+- tapOn: 'Continue'
+- extendedWaitUntil:
+    visible: 'Answers you can check'
+    timeout: 5000
+- takeScreenshot: 21-onboarding-2
+- tapOn: 'Continue'
+- extendedWaitUntil:
+    visible: 'Walk into the shop knowing more'
+    timeout: 5000
+- takeScreenshot: 22-onboarding-3
+- tapOn: 'Continue'
+- extendedWaitUntil:
+    visible: "A heads-up when it's due"
+    timeout: 5000
+- takeScreenshot: 23-onboarding-4
+- tapOn: 'Get started'
+- extendedWaitUntil:
+    visible: 'Email me a code'
+    timeout: 5000

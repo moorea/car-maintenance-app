@@ -1,0 +1,79 @@
+# The pages that open from the Car tab. Each starts from a fresh launch, since their back buttons
+# have no text to tap.
+appId: com.moorea.carmaintenance
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+- extendedWaitUntil:
+    visible: 'Demo car'
+    timeout: 60000
+- tapOn: 'Car'
+- scrollUntilVisible:
+    element: 'Insurance card'
+- takeScreenshot: 30-car-documents
+- scrollUntilVisible:
+    element: 'Known issues'
+- tapOn: 'Known issues'
+- waitForAnimationToEnd
+- takeScreenshot: 31-car-known-issues
+- tapOn: 'Recalls · 2'
+- waitForAnimationToEnd
+- takeScreenshot: 32-car-recalls
+
+- launchApp
+- extendedWaitUntil:
+    visible: 'Demo car'
+    timeout: 60000
+- tapOn: 'Car'
+- scrollUntilVisible:
+    element: 'Fuel & costs'
+- tapOn: 'Fuel & costs'
+- waitForAnimationToEnd
+- takeScreenshot: 33-fuel
+- scroll
+- takeScreenshot: 34-fuel-charts
+
+- tapOn: 'Car'
+- scrollUntilVisible:
+    element: 'Warranty & care report'
+- tapOn: 'Warranty & care report'
+- extendedWaitUntil:
+    visible: 'Care report'
+    timeout: 5000
+- takeScreenshot: 35-warranty
+
+- tapOn: 'Car'
+- scrollUntilVisible:
+    element: 'Check a shop.s quote'
+- tapOn: 'Check a shop.s quote'
+- extendedWaitUntil:
+    visible: 'Before you check a quote'
+    timeout: 5000
+- takeScreenshot: 36-quote-consent
+
+- launchApp
+- extendedWaitUntil:
+    visible: 'Demo car'
+    timeout: 60000
+- tapOn: 'Car'
+- scrollUntilVisible:
+    element: 'Check-engine light on.'
+- tapOn: 'Check-engine light on.'
+- extendedWaitUntil:
+    visible: 'Check-engine light'
+    timeout: 5000
+- takeScreenshot: 37-trouble-codes
+
+# Ask is the round button beside the tab bar, which has no text.
+- launchApp
+- extendedWaitUntil:
+    visible: 'Demo car'
+    timeout: 60000
+- tapOn:
+    point: '86%,90%'
+- extendedWaitUntil:
+    visible: 'Before you ask'
+    timeout: 5000
+- takeScreenshot: 38-ask-consent
