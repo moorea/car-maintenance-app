@@ -102,7 +102,7 @@ const roundTo = (n: number, step: number) => Math.round(n / step) * step
 /** Screen model for a car's page: its odometer, its maintenance schedule and which tab is open. */
 export const createCarModel = (deps: CarDeps): CarModel => {
   const { vehicle } = deps
-  let unsubscribe: Unsubscribe | undefined
+  const subscriptions: Unsubscribe[] = []
   let records: ServiceRecord[] = []
   // The newest odometer reading, to reject a new one that goes backwards or jumps impossibly.
   let latest: OdometerReading | undefined
@@ -209,18 +209,21 @@ export const createCarModel = (deps: CarDeps): CarModel => {
       },
 
       start: () => {
-        if (unsubscribe) return
+        if (subscriptions.length > 0) return
         disposed = false
-        // Logging a service moves the schedule on, so recompute whenever the records change.
-        unsubscribe = deps.records.watchForVehicle(vehicle.id, (next) => {
-          records = next
-          void refresh()
-        })
+        // Logging a service or a new odometer reading (here or from sync) moves the schedule on,
+        // so recompute whenever either changes.
+        subscriptions.push(
+          deps.records.watchForVehicle(vehicle.id, (next) => {
+            records = next
+            void refresh()
+          }),
+          deps.odometer.watchForVehicle(vehicle.id, () => void refresh()),
+        )
       },
 
       dispose: () => {
-        unsubscribe?.()
-        unsubscribe = undefined
+        for (const stop of subscriptions.splice(0)) stop()
         disposed = true
         generation++
       },

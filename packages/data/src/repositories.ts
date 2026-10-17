@@ -35,6 +35,8 @@ export interface PowerSyncRepositories {
 const RECORDS_FOR_VEHICLE =
   'select * from service_records where vehicle_id = ? order by performed_on desc, created_at desc'
 
+const READINGS_FOR_VEHICLE = 'select * from odometer_readings where vehicle_id = ? order by read_on'
+
 type Row = Record<string, unknown>
 
 /** Calls `onRows` with the query's rows now and whenever `table` changes, until unsubscribed. */
@@ -228,12 +230,15 @@ export const createPowerSyncRepositories = (
 
   odometer: {
     listForVehicle: async (vehicleId) =>
-      (
-        await db.getAll<Record<string, unknown>>(
-          'select * from odometer_readings where vehicle_id = ? order by read_on',
-          [vehicleId],
-        )
-      ).map(toOdometerReading),
+      (await db.getAll<Record<string, unknown>>(READINGS_FOR_VEHICLE, [vehicleId])).map(
+        toOdometerReading,
+      ),
+
+    watchForVehicle: (vehicleId, onChange) =>
+      watchRows(db, READINGS_FOR_VEHICLE, [vehicleId], 'odometer_readings', (rows) =>
+        onChange(rows.map(toOdometerReading)),
+      ),
+
     add: (reading) => insertReading(db, reading),
   },
 

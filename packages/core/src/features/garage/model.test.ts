@@ -54,16 +54,17 @@ const setup = (
   const vehicle = options.vehicle ?? car
   const records = memoryServiceRecords(options.records ?? [])
   const safety = memorySafety()
+  const odometer = memoryOdometer(options.odometer ?? readings)
   const model = createGarageModel({
     vehicle,
     vehicles: memoryVehicles([vehicle]),
     schedule: memorySchedule(options.items ?? [oil, tires, brakeFluid]),
     records,
-    odometer: memoryOdometer(options.odometer ?? readings),
+    odometer,
     clock: fixedClock(TODAY),
     safety,
   })
-  return { model, records, safety }
+  return { model, records, odometer, safety }
 }
 
 // The in-memory repos resolve at once, so a few microtask turns let a refresh finish.
@@ -146,6 +147,25 @@ describe('garage model', () => {
     await records.add(done('r3', 'tires', TODAY, 36_000))
     await settle()
     expect(model.getState().nextUp).toMatchObject({ status: 'upcoming', when: 'In 5,000 mi' })
+  })
+
+  it('refreshes when an odometer reading is added', async () => {
+    const { model, odometer } = setup({
+      items: [tires],
+      records: [done('r2', 'tires', '2026-07-01', 31_500)],
+    })
+    model.getState().start()
+    await settle()
+    expect(model.getState().odometer).toBe('About 35,800 mi · updated 10 days ago')
+    expect(model.getState().nextUp).toMatchObject({ status: 'upcoming', when: 'In 700 mi' })
+    // A reading saved elsewhere, here or arriving by sync, not a logged service.
+    await odometer.add({ vehicleId: 'v1', date: TODAY, miles: 36_600 })
+    await settle()
+    expect(model.getState().odometer).toBe('36,600 mi')
+    expect(model.getState().nextUp).toMatchObject({
+      status: 'overdue',
+      when: 'Was due at 36,500 mi',
+    })
   })
 
   it('has no schedule for a car that has not synced its configuration', async () => {

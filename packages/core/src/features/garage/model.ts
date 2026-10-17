@@ -66,9 +66,11 @@ export const createGarageModel = (deps: GarageDeps): GarageModel => {
   const subscriptions: Unsubscribe[] = []
   // Each refresh supersedes the one before, so a slow read never overwrites a newer one.
   let generation = 0
+  // The latest service records from the watch, so an odometer change can refresh with them.
+  let records: ServiceRecord[] = []
 
   return createStore<GarageState & GarageActions>()((set) => {
-    const refresh = async (records: ServiceRecord[]) => {
+    const refresh = async () => {
       const mine = ++generation
       try {
         const today = deps.clock.today()
@@ -123,10 +125,14 @@ export const createGarageModel = (deps: GarageDeps): GarageModel => {
 
       start: () => {
         if (subscriptions.length > 0) return
-        // Logging a service moves the schedule on, so recompute whenever the records change. A
-        // new odometer reading does not refresh it: the odometer port has no watch yet.
+        // Logging a service or a new odometer reading (here or from sync) moves the schedule on,
+        // so recompute whenever either changes.
         subscriptions.push(
-          deps.records.watchForVehicle(vehicle.id, (records) => void refresh(records)),
+          deps.records.watchForVehicle(vehicle.id, (next) => {
+            records = next
+            void refresh()
+          }),
+          deps.odometer.watchForVehicle(vehicle.id, () => void refresh()),
         )
         if (vehicle.configId !== undefined)
           subscriptions.push(

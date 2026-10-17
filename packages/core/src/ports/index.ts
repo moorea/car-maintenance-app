@@ -63,6 +63,11 @@ export interface ServiceRecordRepo {
 
 export interface OdometerRepo {
   listForVehicle(vehicleId: VehicleId): Promise<OdometerReading[]>
+  /** Calls `onChange` with the car's readings now and after every change, like a live query. */
+  watchForVehicle(
+    vehicleId: VehicleId,
+    onChange: (readings: OdometerReading[]) => void,
+  ): Unsubscribe
   add(reading: OdometerReading): Promise<void>
 }
 

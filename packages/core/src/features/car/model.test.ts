@@ -144,6 +144,17 @@ describe('car model', () => {
     expect(model.getState()).toMatchObject({ editingOdometer: undefined, odometer: '36,500 mi' })
   })
 
+  it('refreshes when an odometer reading is added', async () => {
+    const { model, odometer } = setup()
+    model.getState().start()
+    await settle()
+    expect(model.getState().odometer).toBe('About 35,960 mi')
+    // A reading from another device arrives through sync, not through this page's editor.
+    await odometer.add({ vehicleId: 'v1', date: TODAY, miles: 36_500 })
+    await settle()
+    expect(model.getState().odometer).toBe('36,500 mi')
+  })
+
   it('rejects a reading that is not whole miles or goes backwards', async () => {
     const { model } = setup()
     model.getState().start()
