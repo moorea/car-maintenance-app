@@ -8,11 +8,13 @@ export const palette = {
   black: '#000000',
 
   gray50: '#F2F2F7',
+  gray75: '#EEF0F3',
   gray50Cool: '#F2F4F7',
   gray100: '#E2E4E8',
   gray400: '#A1A8B2',
   gray600: '#5B6470',
   gray800: '#38383A',
+  gray850: '#2C2C2E',
   gray900: '#1C1C1E',
   gray950: '#111418',
 
@@ -28,4 +30,14 @@ export const palette = {
 
   red200: '#F2B8B5',
   red700: '#B3261E',
+
+  // Translucent fills for Liquid Glass where the platform has no native glass (web, Android).
+  whiteGlass: 'rgba(255, 255, 255, 0.62)',
+  whiteGlassEdge: 'rgba(255, 255, 255, 0.85)',
+  charcoalGlass: 'rgba(44, 44, 46, 0.62)',
+  charcoalGlassEdge: 'rgba(255, 255, 255, 0.14)',
+  graySelected: 'rgba(118, 124, 134, 0.16)',
+  graySelectedDark: 'rgba(235, 235, 245, 0.16)',
+  shadowSoft: 'rgba(16, 24, 32, 0.14)',
+  shadowDark: 'rgba(0, 0, 0, 0.5)',
 } as const
