@@ -14,3 +14,4 @@ and what would make us revisit it. Add a new record rather than editing an accep
 | [0007](0007-semantic-colors.md)         | Colours come from one semantic theme                           |
 | [0008](0008-local-reminders.md)         | Reminders are local notifications planned on the phone         |
 | [0009](0009-grounded-assistant.md)      | The assistant answers only from the car's stored data, cited   |
+| [0010](0010-schedule-providers.md)      | Schedules come from providers, with a general baseline         |

@@ -12,6 +12,7 @@ import type {
 import type { IsoDate } from '../lib/date'
 import { formatCents, formatMiles } from '../lib/format'
 import { componentLabel, recallLookupUrl } from '../lib/nhtsa'
+import { BASELINE_SOURCE } from '../lib/schedule'
 import type { ModelDocument } from '../ports'
 import { dueItemsFor } from '../reminders/getDueItems'
 import type { DueProjection } from '../reminders/projectDue'
@@ -95,6 +96,9 @@ const scheduleText = (item: MaintenanceItem, due: DueProjection | undefined, fac
     .sort((a, b) => b.performedOn.localeCompare(a.performedOn))[0]
   const lines = [
     `${item.task}: ${every(item.intervalMiles, item.intervalMonths)} under normal conditions.`,
+    item.source === BASELINE_SOURCE
+      ? `This is the app's general guidance for most cars, not ${facts.vehicle.make}'s own schedule for this car, which the owner's manual has.`
+      : undefined,
     item.severeMiles !== undefined || item.severeMonths !== undefined
       ? `Severe conditions: ${every(item.severeMiles ?? item.intervalMiles, item.severeMonths ?? item.intervalMonths)}.`
       : undefined,
@@ -132,7 +136,9 @@ const recallText = (recall: Recall, vin: string | undefined) => {
       ? 'NHTSA says to park outside and away from buildings until it is repaired.'
       : undefined,
     recall.overTheAir ? 'The fix is a software update sent over the air.' : undefined,
-    `Recalls are listed by model year and may not cover every car of that year. Whether it applies to this car and was already fixed: ${recallLookupUrl(vin)}`,
+    `Schedule items that say they are general guidance are typical intervals, not the manufacturer's: when you quote one, say it is general guidance and that the owner's manual has the exact interval for this car.
+
+Recalls are listed by model year and may not cover every car of that year. Whether it applies to this car and was already fixed: ${recallLookupUrl(vin)}`,
   ]
   return lines.filter((l) => l !== undefined).join('\n')
 }

@@ -76,6 +76,36 @@ describe('NHTSA VIN decoder', () => {
     })
   })
 
+  it('says when the engine is a hybrid, plug-in hybrid or diesel, which changes its schedule', async () => {
+    const engineOf = async (fields: Record<string, string>) =>
+      (await nhtsaVinDecoder(respond({ Results: [{ ...accord, ...fields }] })).decode(VIN)).engine
+    expect(
+      await engineOf({
+        DisplacementL: '2.5',
+        EngineCylinders: '4',
+        ElectrificationLevel: 'Strong HEV (Hybrid Electric Vehicle)',
+      }),
+    ).toBe('2.5L 4-cyl hybrid')
+    expect(await engineOf({ ElectrificationLevel: 'PHEV (Plug-in Hybrid Electric Vehicle)' })).toBe(
+      '3.0L 6-cyl plug-in hybrid',
+    )
+    expect(
+      await engineOf({ DisplacementL: '', EngineCylinders: '', ElectrificationLevel: 'PHEV' }),
+    ).toBe('Plug-in hybrid')
+    expect(await engineOf({ ElectrificationLevel: 'Mild HEV (Hybrid Electric Vehicle)' })).toBe(
+      '3.0L 6-cyl',
+    )
+    expect(await engineOf({ DisplacementL: '6.7', FuelTypePrimary: 'Diesel' })).toBe(
+      '6.7L 6-cyl diesel',
+    )
+    expect(
+      await engineOf({
+        FuelTypePrimary: '',
+        ElectrificationLevel: 'BEV (Battery Electric Vehicle)',
+      }),
+    ).toBe('Electric')
+  })
+
   it('reports a VIN vPIC cannot place as not found', async () => {
     const unknown = { ...accord, Make: '', Model: '', ModelYear: '', ErrorCode: '8' }
     expect(await kindOf(nhtsaVinDecoder(respond({ Results: [unknown] })).decode(VIN))).toBe(

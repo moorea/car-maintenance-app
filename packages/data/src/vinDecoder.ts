@@ -13,6 +13,7 @@ interface VpicResult {
   DisplacementL?: string
   EngineCylinders?: string
   FuelTypePrimary?: string
+  ElectrificationLevel?: string
   DriveType?: string
 }
 
@@ -36,16 +37,34 @@ const value = (s: string | undefined) => {
   return v && v !== 'Not Applicable' ? v : undefined
 }
 
-/** "2.0L 4-cyl", "Electric" or undefined when vPIC does not say. */
+/**
+ * What kind of engine it is, when its schedule differs from a plain gas engine's. A mild hybrid's
+ * engine is serviced like any other.
+ */
+const engineKindOf = (r: VpicResult): string | undefined => {
+  const electrification = value(r.ElectrificationLevel) ?? ''
+  if (electrification.startsWith('PHEV')) return 'plug-in hybrid'
+  if (electrification.startsWith('Strong HEV')) return 'hybrid'
+  if (value(r.FuelTypePrimary) === 'Diesel') return 'diesel'
+  return undefined
+}
+
+/**
+ * "2.0L 4-cyl", "2.5L 4-cyl hybrid", "6.7L 6-cyl diesel", "Electric", or undefined when vPIC
+ * does not say. The server reads the kind to pick a schedule (ADR 0010).
+ */
 const engineOf = (r: VpicResult): string | undefined => {
-  if (value(r.FuelTypePrimary) === 'Electric') return 'Electric'
+  if (value(r.FuelTypePrimary) === 'Electric' || value(r.ElectrificationLevel)?.startsWith('BEV'))
+    return 'Electric'
   const litres = Number(value(r.DisplacementL))
   const cylinders = value(r.EngineCylinders)
   const parts = [
     Number.isFinite(litres) && litres > 0 ? `${litres.toFixed(1)}L` : undefined,
     cylinders ? `${cylinders}-cyl` : undefined,
+    engineKindOf(r),
   ].filter(Boolean)
-  return parts.length > 0 ? parts.join(' ') : undefined
+  const engine = parts.join(' ')
+  return engine ? engine.charAt(0).toUpperCase() + engine.slice(1) : undefined
 }
 
 /** vPIC's "AWD/All-Wheel Drive" as "AWD". */

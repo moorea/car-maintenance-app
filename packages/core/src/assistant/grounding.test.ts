@@ -131,6 +131,13 @@ describe('groundingDocuments', () => {
     )
   })
 
+  it("says a baseline schedule item is general guidance, not the manufacturer's", () => {
+    const schedule = groundingDocuments(facts({ schedule: [{ ...oil, source: 'baseline' }] }))[1]
+    expect(schedule?.text.split('\n')[1]).toBe(
+      "This is the app's general guidance for most cars, not Toyota's own schedule for this car, which the owner's manual has.",
+    )
+  })
+
   it('points recalls at the VIN lookup, since a model-year recall may not apply', () => {
     const recall = groundingDocuments(facts())[3]
     expect(recall?.text).toContain('https://www.nhtsa.gov/recalls?vin=2T3P1RFV0MW000000')
