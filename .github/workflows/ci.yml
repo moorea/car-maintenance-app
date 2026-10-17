@@ -77,3 +77,117 @@ jobs:
       - name: Lint SQL
         run: supabase db lint --level warning --fail-on warning
       - run: supabase test db
+
+  # Builds the app for the iOS simulator and launches it, since screens are otherwise only run on
+  # the web build. Needs no Apple account: simulator builds are not code signed.
+  ios:
+    runs-on: macos-26
+    timeout-minutes: 75
+    env:
+      CI: 1
+      # Pinned so a Maestro release cannot change or break CI unannounced.
+      MAESTRO_VERSION: 2.11.0
+      MAESTRO_CLI_NO_ANALYTICS: 1
+      # Starting the XCTest driver on a cold simulator can take over the 2 minute default.
+      MAESTRO_DRIVER_STARTUP_TIMEOUT: 300000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: xcodebuild -version
+      - name: Generate the native project
+        working-directory: apps/mobile
+        run: npx expo prebuild --platform ios
+      - name: Build for the simulator
+        working-directory: apps/mobile/ios
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -workspace CarMaintenance.xcworkspace \
+            -scheme CarMaintenance \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/derived" \
+            CODE_SIGNING_ALLOWED=NO | tail -n 200
+      - name: Boot a simulator and install the app
+        run: |
+          udid=$(xcrun simctl list devices available --json \
+            | jq -r '[.devices[][] | select(.name | startswith("iPhone"))][0].udid')
+          [ "$udid" != null ] || { echo "No iPhone simulator available"; xcrun simctl list; exit 1; }
+          echo "Booting $udid"
+          xcrun simctl boot "$udid"
+          xcrun simctl bootstatus "$udid"
+          xcrun simctl install "$udid" "$RUNNER_TEMP/derived/Build/Products/Release-iphonesimulator/CarMaintenance.app"
+      - name: Install Maestro
+        run: |
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+          "$HOME/.maestro/bin/maestro" --version
+      - name: Smoke test
+        run: maestro test --test-output-dir "$RUNNER_TEMP/maestro" apps/mobile/e2e
+      - name: Collect screenshots
+        if: ${{ !cancelled() }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/screenshots"
+          # takeScreenshot writes to the working directory; failure screenshots go to the output dir.
+          find . "$RUNNER_TEMP/maestro" -name '*.png' -newer package.json \
+            -not -path '*/node_modules/*' -not -path '*/ios/*' \
+            -exec cp {} "$RUNNER_TEMP/screenshots/" \; || true
+          xcrun simctl io booted screenshot "$RUNNER_TEMP/screenshots/last.png" || true
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: ios-simulator
+          path: |
+            ${{ runner.temp }}/screenshots
+            ${{ runner.temp }}/maestro
+
+  # Keeps the latest screenshots on the ios-screenshots branch, one folder per commit, so a PR can
+  # show them inline and they can be fetched with plain git. A separate job so the write token
+  # never shares a runner with install scripts or app code. Skipped for forks (no write token).
+  ios-screenshots:
+    needs: ios
+    if: ${{ !cancelled() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      KEEP: 40
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ios-simulator
+          path: ${{ runner.temp }}/artifact
+      - name: Publish to the ios-screenshots branch
+        env:
+          TOKEN: ${{ github.token }}
+        run: |
+          shots="$RUNNER_TEMP/artifact/screenshots"
+          compgen -G "$shots/*.png" > /dev/null || { echo "No screenshots to publish"; exit 0; }
+          remote="https://x-access-token:$TOKEN@github.com/$GITHUB_REPOSITORY.git"
+          git init -q branch && cd branch
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Each publish replaces the branch with one commit holding the newest $KEEP folders, so
+          # clones never carry the screenshot history.
+          for attempt in 1 2 3; do
+            git rm -rqf --ignore-unmatch . && rm -rf -- * && lease=""
+            if git fetch -q --depth 1 "$remote" ios-screenshots; then
+              git checkout -q --detach FETCH_HEAD
+              lease="$(git rev-parse HEAD)"
+            fi
+            rm -rf "$SHA" && mkdir "$SHA" && cp "$shots"/*.png "$SHA/"
+            grep -vx "$SHA" order.txt 2> /dev/null > order.new || true
+            echo "$SHA" >> order.new && tail -n "$KEEP" order.new > order.txt && rm order.new
+            for dir in */; do grep -qx "${dir%/}" order.txt || rm -rf "$dir"; done
+            git checkout -q --orphan "publish-$attempt"
+            git add -A && git commit -qm "iOS simulator screenshots, latest $SHA"
+            git push -q --force-with-lease="ios-screenshots:$lease" "$remote" HEAD:refs/heads/ios-screenshots && exit 0
+          done
+          exit 1

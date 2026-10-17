@@ -1,0 +1,43 @@
+# Smoke test for the iOS simulator build (CI job `ios`). The build has no backend settings, so the
+# app opens on demo data, already signed in. Run locally with `maestro test apps/mobile/e2e`.
+appId: com.moorea.carmaintenance
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+- extendedWaitUntil:
+    visible: 'Demo car'
+    timeout: 60000
+- takeScreenshot: 1-garage
+- tapOn: 'Log'
+- assertVisible: 'Service log'
+- waitForAnimationToEnd
+- takeScreenshot: 2-service-log
+- tapOn: 'Car'
+- assertVisible: 'Recalls · 2'
+- waitForAnimationToEnd
+- takeScreenshot: 3-car
+- tapOn: 'Garage'
+- extendedWaitUntil:
+    visible: 'Demo car'
+    timeout: 10000
+# The account button is the first round button at the top right. It has no text, so tap by
+# position until it carries an accessibility label to match on.
+- tapOn:
+    point: '59%,11%'
+- scrollUntilVisible:
+    element: 'Sign out'
+- takeScreenshot: 4-account
+- tapOn: 'Sign out'
+- extendedWaitUntil:
+    visible: 'Email me a code'
+    timeout: 10000
+- takeScreenshot: 5-sign-in
+- tapOn: 'you@example.com'
+- inputText: 'demo@example.com'
+- tapOn: 'Email me a code'
+- extendedWaitUntil:
+    visible: 'Enter the code we sent to demo@example.com.'
+    timeout: 10000
+- takeScreenshot: 6-sign-in-code
