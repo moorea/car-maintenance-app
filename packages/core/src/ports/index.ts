@@ -55,6 +55,17 @@ export interface AuthPort {
   signOut(): Promise<void>
 }
 
+/** The owner's account itself, as opposed to signing in and out of it. */
+export interface AccountPort {
+  /**
+   * Permanently deletes the signed-in owner's account and everything stored for it on the
+   * server, then signs this phone out and erases its copy of their data, including changes not
+   * uploaded yet. Needs a connection. Throws AuthError, leaving the account as it was, if the
+   * server did not delete it.
+   */
+  deleteAccount(): Promise<void>
+}
+
 export interface ServiceRecordRepo {
   listForVehicle(vehicleId: VehicleId): Promise<ServiceRecord[]>
   /** Calls `onChange` with the full list now and after every change, like a live query. */

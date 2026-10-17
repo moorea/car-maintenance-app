@@ -19,6 +19,22 @@ export const SYMBOLS = {
     paths: ['M4 5h16v11H9l-5 4z', 'M9 10h.01M12 10h.01M15 10h.01'],
   },
   bell: { ios: 'bell', paths: ['M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z', 'M10 20.5a2 2 0 0 0 4 0'] },
+  person: {
+    ios: 'person.crop.circle',
+    paths: [
+      'M12 3a9 9 0 1 0 0.01 0',
+      'M12 7a3 3 0 1 0 0.01 0',
+      'M6 18.5c1.5-2.5 3.5-3.5 6-3.5s4.5 1 6 3.5',
+    ],
+  },
+  signOut: {
+    ios: 'rectangle.portrait.and.arrow.right',
+    paths: ['M14 4H6v16h8', 'M10 12h11M17 8l4 4-4 4'],
+  },
+  trash: {
+    ios: 'trash',
+    paths: ['M4 7h16', 'M9 7V4h6v3', 'M6 7l1 13h10l1-13', 'M10 11v6M14 11v6'],
+  },
   plus: { ios: 'plus', paths: ['M12 5v14M5 12h14'] },
   chevron: { ios: 'chevron.right', paths: ['M9 6l6 6-6 6'] },
   back: { ios: 'chevron.left', paths: ['M15 6l-6 6 6 6'] },

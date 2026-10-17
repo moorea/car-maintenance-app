@@ -6,6 +6,7 @@ import {
   powerSyncSessionDatabase,
   schema,
   storedSession,
+  supabaseAccount,
   supabaseAuth,
   SupabaseConnector,
   remoteAssistant,
@@ -53,5 +54,13 @@ export const createLiveRepositories = (config: BackendConfig) => {
     fetch: streamingFetch,
   })
 
-  return { auth, assistant, ...createPowerSyncRepositories(db) }
+  // Deleting the account deletes everything on the server, then signs out and erases this phone's
+  // copy, including changes not uploaded yet: there is no account left to upload them to.
+  const account = supabaseAccount({
+    deleteOnServer: () => supabase.rpc('delete_account'),
+    auth,
+    eraseLocal: () => session.discard(),
+  })
+
+  return { auth, account, assistant, ...createPowerSyncRepositories(db) }
 }

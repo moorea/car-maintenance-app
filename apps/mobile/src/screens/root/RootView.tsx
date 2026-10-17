@@ -1,6 +1,7 @@
 import type { AppTab, SessionActions, SessionState, Vehicle } from '@car/core'
-import { Row, Text } from '@expo/ui'
+import { Button, Row, Text } from '@expo/ui'
 import { ActivityIndicator, StyleSheet, View } from 'react-native'
+import { AccountScreen } from '../account/AccountScreen'
 import { AddCarScreen } from '../add-car/AddCarScreen'
 import { AskScreen } from '../ask/AskScreen'
 import { CarScreen } from '../car/CarScreen'
@@ -14,7 +15,6 @@ import { TabBar, type TabBarItem } from '../../ui/TabBar'
 type Props = SessionState &
   Pick<
     SessionActions,
-    | 'signOut'
     | 'openTab'
     | 'openCar'
     | 'logService'
@@ -53,6 +53,11 @@ export function RootView(props: Props) {
       </View>
     )
   }
+  // Without a car there is no garage to open the account from, yet the owner must still be able
+  // to sign out or delete it (App Store guideline 5.1.1(v)), so it opens over the first screens.
+  if (props.tab === 'account') {
+    return <AccountScreen onBack={() => props.openTab('garage')} />
+  }
   if (status === 'syncing') {
     return (
       <View style={styles.fill}>
@@ -63,6 +68,7 @@ export function RootView(props: Props) {
               Getting your cars. This needs a connection the first time.
             </Text>
           </Row>
+          <Button variant="text" label="Account" onPress={() => props.openTab('account')} />
         </Host>
       </View>
     )
@@ -72,6 +78,7 @@ export function RootView(props: Props) {
       ownerId={user.id}
       onAdded={props.carAdded}
       onCancel={status === 'ready' ? props.cancelAddCar : undefined}
+      onAccount={status === 'ready' ? undefined : () => props.openTab('account')}
     />
   )
 }
@@ -89,7 +96,7 @@ function TabContent(props: Props & { vehicle: Vehicle }) {
           onReminders={() => props.openTab('reminders')}
           onLogService={props.logService}
           onAsk={() => props.openTab('ask')}
-          onSignOut={() => void props.signOut()}
+          onAccount={() => props.openTab('account')}
         />
       )
     case 'log':
@@ -106,6 +113,8 @@ function TabContent(props: Props & { vehicle: Vehicle }) {
       return <AskScreen vehicle={vehicle} onBack={() => props.openTab('garage')} />
     case 'reminders':
       return <RemindersScreen />
+    case 'account':
+      return <AccountScreen onReminders={() => props.openTab('reminders')} />
   }
 }
 
