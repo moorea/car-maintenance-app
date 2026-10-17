@@ -57,9 +57,10 @@ select throws_ok(
   '42501', null, 'messages are written only by the server'
 );
 
-update public.service_records set shop = 'edited';
-select is((select count(*) from public.service_records where shop = 'edited')::int, 0,
-  'service history is append-only');
+select throws_ok(
+  $$ update public.service_records set shop = 'edited' $$,
+  '42501', null, 'service history is append-only'
+);
 
 select * from finish();
 rollback;
