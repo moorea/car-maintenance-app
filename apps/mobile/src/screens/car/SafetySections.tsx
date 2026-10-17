@@ -26,7 +26,7 @@ export function RecallsSection({ status, recalls, expanded, toggle, lookupUrl, m
   if (status === 'unmatched') {
     return <Note>Recalls appear once your car has synced.</Note>
   }
-  if (status === 'checking') {
+  if (status === 'loading' || status === 'checking') {
     return <Note>Checking NHTSA for recalls on your model year…</Note>
   }
   return (

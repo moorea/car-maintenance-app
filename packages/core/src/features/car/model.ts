@@ -1,9 +1,10 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
-import type { IsoDate } from '../../lib/date'
+import { daysBetween, type IsoDate } from '../../lib/date'
 import { formatMiles } from '../../lib/format'
 import type { MaintenanceItem, OdometerReading, ServiceRecord, Vehicle } from '../../domain/types'
 import type { Unsubscribe } from '../../ports'
 import { getDueItems, type GetDueItemsDeps } from '../../reminders/getDueItems'
+import { MAX_PLAUSIBLE_MILES_PER_DAY } from '../../reminders/mileage'
 import type { DueProjection, DueStatus } from '../../reminders/projectDue'
 import { odometerReadingSchema } from '../../schemas/odometer'
 import { currentOdometer } from '../garage/odometer'
@@ -103,12 +104,14 @@ export const createCarModel = (deps: CarDeps): CarModel => {
   const { vehicle } = deps
   let unsubscribe: Unsubscribe | undefined
   let records: ServiceRecord[] = []
-  // The newest odometer reading, to reject a new one that goes backwards.
-  let latestMiles: number | undefined
+  // The newest odometer reading, to reject a new one that goes backwards or jumps impossibly.
+  let latest: OdometerReading | undefined
   let generation = 0
+  let disposed = false
 
   return createStore<CarState & CarActions>()((set, get) => {
     const refresh = async () => {
+      if (disposed) return
       const mine = ++generation
       try {
         const today = deps.clock.today()
@@ -121,7 +124,7 @@ export const createCarModel = (deps: CarDeps): CarModel => {
         ])
         if (mine !== generation) return
         const odometer = currentOdometer(readings, records, today)
-        latestMiles = odometer.latest?.miles
+        latest = odometer.latest
         const byId = new Map(items.map((i) => [i.id, i]))
         set({
           status: vehicle.configId === undefined ? 'unmatched' : 'ready',
@@ -184,13 +187,16 @@ export const createCarModel = (deps: CarDeps): CarModel => {
           return false
         }
         if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? 'Check the miles')
-        if (latestMiles !== undefined && parsed.data < latestMiles)
-          return fail(`That's less than the last reading of ${formatMiles(latestMiles)}`)
-        const reading: OdometerReading = {
-          vehicleId: vehicle.id,
-          date: deps.clock.today(),
-          miles: parsed.data,
-        }
+        const today = deps.clock.today()
+        if (latest && parsed.data < latest.miles)
+          return fail(`That's less than the last reading of ${formatMiles(latest.miles)}`)
+        // The estimate ignores a reading this far ahead as a typo, so saving it would change nothing.
+        const days = latest ? daysBetween(latest.date, today) : 0
+        if (latest && days > 0 && (parsed.data - latest.miles) / days > MAX_PLAUSIBLE_MILES_PER_DAY)
+          return fail(
+            `That's ${formatMiles(parsed.data - latest.miles)} since the last reading of ${formatMiles(latest.miles)}. Check the miles`,
+          )
+        const reading: OdometerReading = { vehicleId: vehicle.id, date: today, miles: parsed.data }
         set({ editingOdometer: { ...editing, saving: true, error: undefined } })
         try {
           await deps.odometer.add(reading)
@@ -204,6 +210,7 @@ export const createCarModel = (deps: CarDeps): CarModel => {
 
       start: () => {
         if (unsubscribe) return
+        disposed = false
         // Logging a service moves the schedule on, so recompute whenever the records change.
         unsubscribe = deps.records.watchForVehicle(vehicle.id, (next) => {
           records = next
@@ -214,6 +221,7 @@ export const createCarModel = (deps: CarDeps): CarModel => {
       dispose: () => {
         unsubscribe?.()
         unsubscribe = undefined
+        disposed = true
         generation++
       },
     }

@@ -160,6 +160,94 @@ describe('car model', () => {
     )
   })
 
+  it('rejects a reading too far ahead to be real, which the estimate would ignore', async () => {
+    const { model, odometer } = setup()
+    model.getState().start()
+    await settle()
+    model.getState().editOdometer()
+    // Ten days after 35,400 mi, 50,000 mi would be 1,460 mi a day.
+    model.getState().setOdometer('50000')
+    expect(await model.getState().saveOdometer()).toBe(false)
+    expect(model.getState().editingOdometer?.error).toBe(
+      "That's 14,600 mi since the last reading of 35,400 mi. Check the miles",
+    )
+    expect(await odometer.listForVehicle('v1')).toHaveLength(2)
+  })
+
+  it('keeps the editor open with the error when the reading cannot be saved', async () => {
+    const { model, odometer } = setup()
+    model.getState().start()
+    await settle()
+    odometer.add = () => Promise.reject(new Error('Offline'))
+    model.getState().editOdometer()
+    model.getState().setOdometer('36500')
+    expect(await model.getState().saveOdometer()).toBe(false)
+    expect(model.getState().editingOdometer).toEqual({
+      value: '36500',
+      saving: false,
+      error: 'Offline',
+    })
+  })
+
+  it('shows an error and no stale rows when the schedule cannot be read', async () => {
+    const { model } = setup()
+    model.getState().start()
+    await settle()
+    expect(model.getState().schedule).toHaveLength(3)
+    const failing = createCarModel({
+      vehicle: car,
+      // The vehicle repo does not know the car, so reading its schedule throws.
+      vehicles: memoryVehicles([]),
+      schedule: memorySchedule([oil]),
+      records: memoryServiceRecords(),
+      odometer: memoryOdometer(readings),
+      clock: fixedClock(TODAY),
+    })
+    failing.getState().start()
+    await settle()
+    expect(failing.getState()).toMatchObject({
+      status: 'ready',
+      schedule: [],
+      error: 'Unknown vehicle v1',
+    })
+  })
+
+  it('shows the latest refresh when an earlier one finishes last', async () => {
+    const { model, records } = setup()
+    const list = records.listForVehicle.bind(records)
+    let release: () => void = () => {}
+    const slow = new Promise<void>((resolve) => (release = resolve))
+    let calls = 0
+    // The first refresh reads the records before the tire rotation is logged, and hangs until the
+    // second refresh has finished.
+    records.listForVehicle = async (id) => {
+      const snapshot = await list(id)
+      if (++calls === 1) await slow
+      return snapshot
+    }
+    model.getState().start()
+    while (calls === 0) await Promise.resolve()
+    await records.add(done('tires', TODAY, 35_960))
+    await settle()
+    const latest = model.getState().schedule
+    expect(latest[0]?.task).not.toBe('Tire rotation')
+    release()
+    await settle()
+    expect(model.getState().schedule).toEqual(latest)
+  })
+
+  it('does not update after it is disposed, even mid-save', async () => {
+    const { model } = setup()
+    model.getState().start()
+    await settle()
+    model.getState().editOdometer()
+    model.getState().setOdometer('36500')
+    const saving = model.getState().saveOdometer()
+    model.getState().dispose()
+    await saving
+    expect(model.getState().odometer).toBe('About 35,960 mi')
+  })
+
   it('closes the odometer editor without saving on cancel', () => {
     const { model } = setup()
     model.getState().editOdometer()
@@ -189,5 +277,15 @@ describe('describeInterval', () => {
 
   it('falls back to the normal interval when there is no severe one', () => {
     expect(describeInterval(tires, true)).toBe('Every 5,000 mi')
+  })
+
+  it('names whole years, and months otherwise', () => {
+    expect(describeInterval({ ...brakeFluid, intervalMonths: 24 }, false)).toBe('Every 2 years')
+    expect(describeInterval({ ...brakeFluid, intervalMonths: 12 }, false)).toBe('Every 12 months')
+    expect(describeInterval({ ...brakeFluid, intervalMonths: 18 }, false)).toBe('Every 18 months')
+  })
+
+  it('says as needed when there is no interval', () => {
+    expect(describeInterval({ id: 'x', configId: 'c1', task: 'Wipers' }, false)).toBe('As needed')
   })
 })
