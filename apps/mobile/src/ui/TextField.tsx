@@ -1,6 +1,7 @@
 import { Column, Text, TextInput, useNativeState, type TextInputProps } from '@expo/ui'
 import { useEffect, useRef } from 'react'
 import { useColors } from '../theme'
+import { fullWidth } from './fullWidth'
 
 interface Props {
   label: string
@@ -45,7 +46,8 @@ export function TextField({ label, value, onChangeText, error, ...input }: Props
         {...(input.lines !== undefined && input.lines > 1
           ? { multiline: true, numberOfLines: input.lines }
           : {})}
-        style={{ width: '100%', ...(error ? { borderColor: colors.danger } : {}) }}
+        style={{ ...fullWidth.style, ...(error ? { borderColor: colors.danger } : {}) }}
+        modifiers={fullWidth.modifiers}
       />
       {error ? <Text textStyle={{ fontSize: 12, color: colors.danger }}>{error}</Text> : null}
     </Column>

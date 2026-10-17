@@ -1,6 +1,7 @@
 import { TextInput, useNativeState } from '@expo/ui'
 import { useEffect, useRef } from 'react'
 import { useColors } from '../theme'
+import { fullWidth } from './fullWidth'
 
 interface Props {
   value: string
@@ -31,8 +32,9 @@ export function SearchField({ value, onChangeText, placeholder }: Props) {
       autoCorrect={false}
       autoCapitalize="none"
       returnKeyType="search"
+      modifiers={fullWidth.modifiers}
       style={{
-        width: '100%',
+        ...fullWidth.style,
         height: 44,
         borderRadius: 22,
         borderWidth: 0,
