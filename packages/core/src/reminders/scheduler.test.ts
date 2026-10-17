@@ -73,6 +73,28 @@ const setup = (
   return { ...deps, scheduler }
 }
 
+/** Wraps the service log and odometer so a test can count the watches still open on them. */
+const openWatches = (d: ReturnType<typeof setup>) => {
+  let open = 0
+  const counted =
+    <T>(watch: (id: string, onChange: (v: T) => void) => () => void) =>
+    (id: string, onChange: (v: T) => void) => {
+      open++
+      const stop = watch(id, onChange)
+      return () => {
+        open--
+        stop()
+      }
+    }
+  return {
+    open: () => open,
+    repos: {
+      records: { ...d.records, watchForVehicle: counted(d.records.watchForVehicle) },
+      odometer: { ...d.odometer, watchForVehicle: counted(d.odometer.watchForVehicle) },
+    },
+  }
+}
+
 const ids = async (notifier: ReturnType<typeof memoryNotifier>) =>
   (await notifier.scheduled()).map((n) => n.id)
 
@@ -159,6 +181,32 @@ describe('createReminderScheduler', () => {
       'cancel reminder:v1:due:2026-11-28',
       'schedule reminder:v1:soon:2027-02-14',
       'schedule reminder:v1:due:2027-02-28',
+    ])
+  })
+
+  it('moves mileage reminders as soon as an odometer reading is added', async () => {
+    const { scheduler, notifier, odometer } = setup()
+    scheduler.start()
+    await scheduler.refresh()
+    notifier.log.length = 0
+    const replanned = new Promise<void>((resolve) => {
+      let first = true
+      scheduler.watchScheduled(() => (first ? (first = false) : resolve()))
+    })
+
+    // 1,500 miles in two days: the rotation is now due in about a week, and the oil change moves
+    // forward too.
+    await odometer.add({ vehicleId: 'v1', date: '2026-10-01', miles: 34_500 })
+    await replanned
+
+    expect(notifier.log).toEqual([
+      'cancel reminder:v1:soon:2026-11-14',
+      'cancel reminder:v1:due:2026-11-28',
+      'cancel reminder:v1:soon:2027-04-13',
+      'cancel reminder:v1:due:2027-04-27',
+      'schedule reminder:v1:due:2026-10-09',
+      'schedule reminder:v1:soon:2026-12-10',
+      'schedule reminder:v1:due:2026-12-24',
     ])
   })
 
@@ -280,13 +328,32 @@ describe('createReminderScheduler', () => {
     expect(await ids(d.notifier)).toEqual(PLANNED)
   })
 
-  it('stops following changes once disposed', async () => {
-    const { scheduler, notifier, settings } = setup()
+  it("stops watching a car's service log and readings once it is gone", async () => {
+    const d = setup()
+    const counter = openWatches(d)
+    const scheduler = createReminderScheduler({ ...d, ...counter.repos })
+    scheduler.start()
+    await scheduler.refresh()
+    expect(counter.open()).toBe(2)
+
+    const car = await d.vehicles.get('v1')
+    if (!car) throw new Error('missing fixture')
+    d.vehicles.set([])
+    expect(counter.open()).toBe(0)
+
+    d.vehicles.set([car])
+    expect(counter.open()).toBe(2)
+    await d.auth.signOut()
+    expect(counter.open()).toBe(0)
+  })
+
+  it('stops following everything once disposed', async () => {
+    const d = setup()
+    const counter = openWatches(d)
+    const scheduler = createReminderScheduler({ ...d, ...counter.repos })
     scheduler.start()
     await scheduler.refresh()
     scheduler.dispose()
-    notifier.log.length = 0
-    await settings.set({ enabled: false })
-    expect(notifier.log).toEqual([])
+    expect(counter.open()).toBe(0)
   })
 })
