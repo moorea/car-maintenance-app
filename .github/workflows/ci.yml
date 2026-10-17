@@ -107,6 +107,15 @@ jobs:
           find . "$RUNNER_TEMP/maestro" -name '*.png' -newer package.json -not -path '*/node_modules/*' \
             -exec cp {} "$RUNNER_TEMP/screenshots/" \; || true
           xcrun simctl io booted screenshot "$RUNNER_TEMP/screenshots/last.png" || true
+      # Small JPEG copies in the log, for reviewers (and agents) who cannot download artifacts.
+      - name: Print screenshots as base64
+        if: always()
+        working-directory: ${{ runner.temp }}/screenshots
+        run: |
+          for f in *.png; do
+            sips -s format jpeg -s formatOptions 55 -Z 1000 "$f" --out "/tmp/${f%.png}.jpg" > /dev/null
+            echo "SCREENSHOT ${f%.png} $(base64 -i "/tmp/${f%.png}.jpg" | tr -d '\n')"
+          done
       - uses: actions/upload-artifact@v4
         if: always()
         with:
