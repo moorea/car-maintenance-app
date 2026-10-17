@@ -4,7 +4,7 @@ import { nhtsaVinDecoder, storedReminderSettings } from '@car/data'
 import { randomUUID } from 'expo-crypto'
 import { localClock } from './clock'
 import { backendConfig } from './config'
-import { createDemoRepositories } from './demo'
+import { createDemoAssistant, createDemoRepositories } from './demo'
 import { createLiveRepositories } from './live'
 import { expoNotifier } from './notifications'
 
@@ -15,7 +15,12 @@ const ids: IdGenerator = { next: () => randomUUID() }
 
 // Live when backend settings are present; otherwise the app runs on demo data.
 const config = backendConfig()
-const repositories = config ? createLiveRepositories(config) : createDemoRepositories()
+const repositories = config ? createLiveRepositories(config) : demoRepositories()
+
+function demoRepositories() {
+  const demo = createDemoRepositories()
+  return { ...demo, assistant: createDemoAssistant(demo, clock) }
+}
 
 // Reminders are planned and scheduled on the phone, so they work offline and need no push server.
 const notifier = expoNotifier()

@@ -36,6 +36,24 @@ jobs:
         working-directory: apps/mobile
         run: npx expo export --platform ios --platform android --platform web --output-dir ${{ runner.temp }}/expo-export
 
+  assistant:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      # The edge function is a bundle of packages/server. Check it builds, loads in Deno and
+      # answers, as it will on Supabase.
+      - run: pnpm --filter @car/server build
+      - run: scripts/smoke-assistant.sh
+
   database:
     runs-on: ubuntu-latest
     steps:

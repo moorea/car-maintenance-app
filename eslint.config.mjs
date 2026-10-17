@@ -53,7 +53,15 @@ const themeImportBans = {
 }
 
 export default tseslint.config(
-  { ignores: ['**/node_modules/**', '**/dist/**', '**/coverage/**', '**/.expo/**'] },
+  {
+    ignores: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/coverage/**',
+      '**/.expo/**',
+      'supabase/functions/assistant/index.js',
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.strict,
   {

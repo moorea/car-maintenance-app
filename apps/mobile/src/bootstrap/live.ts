@@ -8,9 +8,11 @@ import {
   storedSession,
   supabaseAuth,
   SupabaseConnector,
+  remoteAssistant,
 } from '@car/data'
 import { PowerSyncDatabase } from '@powersync/react-native'
 import { createClient } from '@supabase/supabase-js'
+import { fetch as streamingFetch } from 'expo/fetch'
 import { AppState } from 'react-native'
 import type { BackendConfig } from './config'
 
@@ -43,5 +45,13 @@ export const createLiveRepositories = (config: BackendConfig) => {
   // Sync follows the same view of who is signed in as the screens, so the two never disagree.
   auth.watchUser((user) => void session.setUser(user?.id ?? null).catch(() => {}))
 
-  return { auth, ...createPowerSyncRepositories(db) }
+  // Ask runs on the server, which holds the model's key (ADR 0009). Expo's fetch streams the
+  // answer as it arrives; React Native's built-in one waits for the whole response.
+  const assistant = remoteAssistant({
+    url: `${config.supabaseUrl}/functions/v1/assistant`,
+    accessToken: async () => (await supabase.auth.getSession()).data.session?.access_token,
+    fetch: streamingFetch as unknown as typeof fetch,
+  })
+
+  return { auth, assistant, ...createPowerSyncRepositories(db) }
 }

@@ -2,7 +2,7 @@ import { createReminderScheduler, type IdGenerator } from '@car/core'
 import { memoryNotifier, memoryReminderSettings } from '@car/core/testing'
 import { randomUUID } from 'expo-crypto'
 import { localClock } from './clock'
-import { createDemoRepositories, demoVinDecoder } from './demo'
+import { createDemoAssistant, createDemoRepositories, demoVinDecoder } from './demo'
 
 // The web build is a preview of the app on demo data (used for PR screenshots). PowerSync's
 // native SQLite does not run in a browser, so it never uses the live backend.
@@ -18,6 +18,7 @@ export const deps = {
   ids,
   vinDecoder: demoVinDecoder(),
   ...repositories,
+  assistant: createDemoAssistant(repositories, clock),
   notifier,
   reminderSettings,
   reminders: createReminderScheduler({
