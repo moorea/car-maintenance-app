@@ -1,0 +1,59 @@
+name: Sync rules
+
+# Checks powersync/sync-rules.yaml against the hosted PowerSync instance on pull requests. The
+# offline checks (parsing, scoping every query to the user) are tests in packages/data; this adds
+# what only the instance can say. Deploying after merge is a job in deploy-db.yml.
+#
+# Needs a PowerSync personal access token in the PS_ADMIN_TOKEN repository secret. Until it
+# exists the check skips with a warning rather than fail.
+on:
+  pull_request:
+    paths: ['powersync/**', '.github/workflows/sync-rules.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    env:
+      # The instance id is the first label of EXPO_PUBLIC_POWERSYNC_URL; it is not a secret.
+      INSTANCE_ID: 6ad3a8c62f27853eb0afd855
+    steps:
+      - name: Check for the PowerSync token
+        id: token
+        env:
+          PS_ADMIN_TOKEN: ${{ secrets.PS_ADMIN_TOKEN }}
+        run: |
+          if [ -z "$PS_ADMIN_TOKEN" ]; then
+            echo "::warning::PS_ADMIN_TOKEN is not set, so sync rules were not checked against PowerSync."
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.token.outputs.present == 'true'
+        uses: actions/checkout@v4
+      - if: steps.token.outputs.present == 'true'
+        uses: pnpm/action-setup@v4
+      - if: steps.token.outputs.present == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - if: steps.token.outputs.present == 'true'
+        run: pnpm install --frozen-lockfile
+      # Validates against the instance's replicated schema and prints what would change. A table
+      # that only exists in this PR's migrations shows as a warning, since migrations apply on merge.
+      - name: Validate against the instance
+        if: steps.token.outputs.present == 'true'
+        env:
+          PS_ADMIN_TOKEN: ${{ secrets.PS_ADMIN_TOKEN }}
+        run: |
+          set -o pipefail
+          pnpm exec powersync deploy sync-config --dry-run --instance-id "$INSTANCE_ID" \
+            --sync-config-file-path powersync/sync-rules.yaml | tee "$RUNNER_TEMP/dry-run.txt"
+          # An instance that is not provisioned skips validation and still exits 0.
+          if grep -q 'not currently provisioned' "$RUNNER_TEMP/dry-run.txt"; then
+            echo "::error::The PowerSync instance is not provisioned, so the sync rules could not be checked."
+            exit 1
+          fi

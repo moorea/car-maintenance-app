@@ -53,8 +53,24 @@ const collect = <T>(subscribe: (onChange: (value: T) => void) => () => void) => 
       }
       check()
     })
+  /** The first value that passes, for watchers that settle over several updates. */
+  const waitUntil = (passes: (value: T) => boolean) =>
+    new Promise<T>((resolve, reject) => {
+      const timer = setTimeout(
+        () => reject(new Error(`No match in ${values.length} updates`)),
+        5_000,
+      )
+      const check = () => {
+        const match = values.find(passes)
+        if (match) {
+          clearTimeout(timer)
+          resolve(match)
+        } else setTimeout(check, 10)
+      }
+      check()
+    })
   const unsubscribe = subscribe((value) => values.push(value))
-  return { waitFor, stop: () => unsubscribe() }
+  return { waitFor, waitUntil, stop: () => unsubscribe() }
 }
 
 describe('PowerSync repositories', () => {
@@ -413,9 +429,13 @@ describe('PowerSync repositories', () => {
       )
     })
 
-    const values = await reports.waitFor(2)
+    // Recalls, complaints and check times are watched separately, so the report settles over a
+    // few updates.
+    const settled = await reports.waitUntil(
+      (r) => r.recalls.length > 0 && r.complaints.length > 0 && r.complaintsCheckedAt !== undefined,
+    )
     reports.stop()
-    expect(values.at(-1)).toEqual({
+    expect(settled).toEqual({
       recallsCheckedAt: '2026-10-17 12:00:00Z',
       complaintsCheckedAt: '2026-10-17 12:01:00Z',
       recalls: [
