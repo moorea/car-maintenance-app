@@ -26,7 +26,7 @@ export const WARRANTY_NOTICE_DAYS = [30, 7] as const
 /** A coverage still running, with when it is expected to end. */
 export interface WarrantyEnding {
   id: string
-  /** "Powertrain". */
+  /** "Powertrain coverage", "Extended warranty". */
   coverage: string
   endsOn: IsoDate
   /** Whether the end is the time limit or the projected date the car reaches its mileage. */
@@ -73,7 +73,7 @@ const warrantyBody = (w: WarrantyEnding, days: number): string => {
     w.endsBy === 'miles' && w.endMiles !== undefined
       ? `at ${formatMiles(w.endMiles)}, ${when} away at your usual driving`
       : `in ${when}, on ${formatLongDate(w.endsOn)}`
-  return `${w.coverage} coverage ends ${end}. Have anything it covers looked at before then.`
+  return `${w.coverage} ends ${end}. Have anything it covers looked at before then.`
 }
 
 const warrantyNotices = (cars: VehicleDue[], today: IsoDate): LocalNotification[] =>

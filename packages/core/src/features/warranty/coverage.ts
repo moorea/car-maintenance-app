@@ -151,6 +151,16 @@ export const describeCoverage = (
 }
 
 /**
+ * What a reminder calls a coverage: "Powertrain coverage", "Extended warranty", or the plan's
+ * provider for other coverage, since "Other coverage" says nothing in a notification.
+ */
+const noticeName = (w: Warranty): string => {
+  if (w.kind === 'extended') return 'Extended warranty'
+  if (w.kind === 'other') return w.provider ?? 'Other coverage'
+  return `${warrantyKindLabel(w.kind)} coverage`
+}
+
+/**
  * The coverages still running and when each is expected to end, for reminders. A coverage whose
  * end can't be projected (a mileage limit on a car with no readings) is left out.
  */
@@ -164,7 +174,7 @@ export const upcomingWarrantyEnds = (
     return [
       {
         id: warranty.id,
-        coverage: warrantyKindLabel(warranty.kind),
+        coverage: noticeName(warranty),
         endsOn: c.expectedEnd,
         endsBy: c.endsBy,
         endMiles: warranty.endMiles,

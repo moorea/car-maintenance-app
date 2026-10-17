@@ -148,7 +148,7 @@ describe('warranty coverage', () => {
     expect(ends).toEqual([
       {
         id: 'w1',
-        coverage: 'Bumper-to-bumper',
+        coverage: 'Bumper-to-bumper coverage',
         endsOn: '2027-03-14',
         endsBy: 'time',
         endMiles: 36_000,
@@ -156,6 +156,14 @@ describe('warranty coverage', () => {
       // 31,000 miles to go at 30 a day.
       expect.objectContaining({ id: 'w-miles', coverage: 'Extended warranty', endsBy: 'miles' }),
     ])
+  })
+
+  it('names other coverage by its provider in reminders', () => {
+    const plan = { ...basic, kind: 'other' as const, provider: 'Tire and wheel plan' }
+    const { provider: _p, ...unnamed } = plan
+    const car = drivenAt(5_000, '2026-03-14')
+    expect(upcomingWarrantyEnds([plan], car)[0]?.coverage).toBe('Tire and wheel plan')
+    expect(upcomingWarrantyEnds([unnamed], car)[0]?.coverage).toBe('Other coverage')
   })
 
   it('leaves out a mileage-only coverage it cannot project', () => {

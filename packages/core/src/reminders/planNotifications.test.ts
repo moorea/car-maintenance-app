@@ -176,7 +176,7 @@ describe('planNotifications', () => {
   describe('warranties', () => {
     const powertrain: WarrantyEnding = {
       id: 'w1',
-      coverage: 'Powertrain',
+      coverage: 'Powertrain coverage',
       endsOn: '2027-03-14',
       endsBy: 'time',
       endMiles: 60_000,

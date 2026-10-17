@@ -216,33 +216,6 @@ describe('warranty screen', () => {
     ])
   })
 
-  it('reads the receipts once, from a watch that reports after it returns', async () => {
-    const exporter = memoryReportExporter()
-    let open = 0
-    const later = memoryAttachments()
-    const model = createWarrantyModel({
-      vehicle: car,
-      warranties: memoryWarranties(),
-      records: memoryServiceRecords(),
-      odometer: memoryOdometer(),
-      schedule: memorySchedule(),
-      attachments: {
-        ...later,
-        watchForVehicle: (_id, onChange) => {
-          open++
-          void Promise.resolve().then(() => onChange([]))
-          return () => open--
-        },
-      },
-      exporter,
-      clock: fixedClock('2026-10-17'),
-      ids: sequentialIds(),
-    })
-    await model.getState().shareReport()
-    expect(exporter.shared).toHaveLength(1)
-    expect(open).toBe(0)
-  })
-
   it('says when the report could not be made', async () => {
     const { model, exporter } = setup()
     exporter.failNext('No PDF printer')

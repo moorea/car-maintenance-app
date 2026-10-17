@@ -1,12 +1,6 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
 import { z } from 'zod'
-import type {
-  Attachment,
-  MaintenanceItem,
-  Vehicle,
-  Warranty,
-  WarrantyKind,
-} from '../../domain/types'
+import type { MaintenanceItem, Vehicle, Warranty, WarrantyKind } from '../../domain/types'
 import type {
   AttachmentRepo,
   CareReportExporter,
@@ -117,21 +111,6 @@ const draftFrom = (w: Warranty): WarrantyDraft => ({
   policyNumber: w.policyNumber ?? '',
   notes: w.notes ?? '',
 })
-
-/** The first value a watch reports, for a one-off read from a repository that only watches. */
-const firstValue = <T>(watch: (onChange: (value: T) => void) => Unsubscribe): Promise<T> =>
-  new Promise((resolve) => {
-    const watching: { stop?: Unsubscribe } = {}
-    let seen = false
-    watching.stop = watch((value) => {
-      if (seen) return
-      seen = true
-      resolve(value)
-      watching.stop?.()
-    })
-    // A watch that reports synchronously has not returned its unsubscribe yet when it reports.
-    if (seen) watching.stop()
-  })
 
 const message = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback)
 
@@ -316,7 +295,7 @@ export const createWarrantyModel = (deps: WarrantyDeps): WarrantyModel => {
             vehicle.configId === undefined
               ? Promise.resolve([] as MaintenanceItem[])
               : deps.schedule.itemsForConfig(vehicle.configId),
-            firstValue<Attachment[]>((on) => deps.attachments.watchForVehicle(vehicle.id, on)),
+            deps.attachments.listForVehicle(vehicle.id),
           ])
           const report = buildCareReport({
             vehicle,

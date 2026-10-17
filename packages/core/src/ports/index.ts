@@ -110,6 +110,8 @@ export interface CareReportExporter {
  * uploads after it is attached and downloads to another phone the first time it is opened there.
  */
 export interface AttachmentRepo {
+  /** Everything attached to the car or its services, newest first. */
+  listForVehicle(vehicleId: VehicleId): Promise<Attachment[]>
   /**
    * Calls `onChange` with everything attached to the car or its services, now and after every
    * change.
