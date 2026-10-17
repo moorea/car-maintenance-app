@@ -1,0 +1,95 @@
+name: Sync rules
+
+# Checks powersync/sync-rules.yaml against the hosted PowerSync instance on pull requests, and
+# deploys it there after it merges. The offline checks (parsing, scoping every query to the user)
+# are tests in packages/data and run in CI; these jobs add what only the instance can say.
+#
+# Needs a PowerSync personal access token in the PS_ADMIN_TOKEN repository secret. Until it
+# exists both jobs skip with a warning rather than fail.
+on:
+  pull_request:
+    paths: ['powersync/**', '.github/workflows/deploy-sync-rules.yml']
+  push:
+    branches: [main]
+    paths: ['powersync/**', '.github/workflows/deploy-sync-rules.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  POWERSYNC_CLI: powersync@0.10.2
+  # The instance id is the first label of EXPO_PUBLIC_POWERSYNC_URL; it is not a secret.
+  INSTANCE_ID: 6ad3a8c62f27853eb0afd855
+  PS_ADMIN_TOKEN: ${{ secrets.PS_ADMIN_TOKEN }}
+
+jobs:
+  validate:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for the PowerSync token
+        id: token
+        run: |
+          if [ -z "$PS_ADMIN_TOKEN" ]; then
+            echo "::warning::PS_ADMIN_TOKEN is not set, so sync rules were not checked against PowerSync."
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.token.outputs.present == 'true'
+        uses: actions/checkout@v4
+      - if: steps.token.outputs.present == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      # Validates against the instance's replicated schema and prints what would change. A table
+      # that only exists in this PR's migrations shows as a warning, since migrations apply on merge.
+      - name: Validate against the instance
+        if: steps.token.outputs.present == 'true'
+        run: >-
+          npx --yes "$POWERSYNC_CLI" deploy sync-config --dry-run
+          --instance-id "$INSTANCE_ID" --sync-config-file-path powersync/sync-rules.yaml
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    # Shares the database deploy's group so it never runs alongside a migration, and applies any
+    # pending migrations itself first: streams must not go live before the tables they read exist.
+    concurrency:
+      group: deploy-db
+      cancel-in-progress: false
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PROJECT_REF: vdklyvktmbcocwmiqkze
+    steps:
+      - name: Check for the PowerSync token
+        id: token
+        run: |
+          if [ -z "$PS_ADMIN_TOKEN" ]; then
+            echo "::warning::PS_ADMIN_TOKEN is not set, so sync rules were not deployed. Add it, then run this workflow by hand."
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.token.outputs.present == 'true'
+        uses: actions/checkout@v4
+      - if: steps.token.outputs.present == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - if: steps.token.outputs.present == 'true'
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.121.0
+      - if: steps.token.outputs.present == 'true'
+        run: supabase link --project-ref "$PROJECT_REF"
+      - if: steps.token.outputs.present == 'true'
+        run: supabase db push --yes
+      # Validates first and stops on any error, then waits for the instance to report the deploy.
+      - name: Deploy sync rules
+        if: steps.token.outputs.present == 'true'
+        run: >-
+          npx --yes "$POWERSYNC_CLI" deploy sync-config
+          --instance-id "$INSTANCE_ID" --sync-config-file-path powersync/sync-rules.yaml
