@@ -31,8 +31,13 @@ const CHECKED = '2026-10-17 12:00:00Z'
 const setup = (options: { unmatched?: boolean; vin?: string } = {}) => {
   const safety = memorySafety()
   const model = createSafetyModel({
-    configId: options.unmatched ? undefined : 'c1',
-    vin: options.vin,
+    vehicle: {
+      year: 2021,
+      make: 'Toyota',
+      model: 'RAV4',
+      ...(!options.unmatched && { configId: 'c1' }),
+      ...(options.vin !== undefined && { vin: options.vin }),
+    },
     safety,
   })
   return { safety, model }
@@ -78,11 +83,15 @@ describe('safety screen model', () => {
     ])
   })
 
-  it('reports no recalls as ready with an empty list', () => {
+  it('reports no recalls as ready with an empty list, naming the model year it covers', () => {
     const { model, safety } = setup()
     model.getState().start()
     safety.set('c1', { recallsCheckedAt: CHECKED, recalls: [], complaints: [] })
-    expect(model.getState()).toMatchObject({ status: 'ready', recalls: [] })
+    expect(model.getState()).toMatchObject({
+      status: 'ready',
+      recalls: [],
+      modelYear: '2021 Toyota RAV4',
+    })
   })
 
   it('lists the components with the most complaints first', () => {

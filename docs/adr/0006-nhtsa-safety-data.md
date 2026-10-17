@@ -7,17 +7,21 @@ Status: accepted, 2026-10-17
 Recalls and owner complaints come from NHTSA's free APIs (`api.nhtsa.gov`, no key) and are
 stored in Postgres per `vehicle_configs` row. The database fetches them: a `pg_cron` job runs
 `nhtsa_sync()` every minute, which stores the answers `pg_net` received for earlier requests and
-then requests recalls and complaints for up to ten model years whose data is missing or a day old.
-Only model years someone owns are fetched; the trims of one model year share one request.
+then requests recalls and complaints for up to ten model years: first those a new car is waiting
+on, then the stalest of those last checked over a day ago. Only model years someone owns, up to
+next year's, are fetched; the trims of one model year share one request.
 
 - `recalls` and `complaint_summaries` (counts, crashes, fires, injuries and the three newest
   complaints per component) sync to the phone. Raw `complaints` stay on the server for the
   assistant. `vehicle_configs.recalls_checked_at` and `complaints_checked_at` let the phone tell
   "no recalls" from "not checked yet".
-- A failed request (outage, rate limit, timeout, an answer that is not JSON) keeps the stored
-  data and is retried after 10 minutes, doubling up to a day. A 4xx other than 429 means NHTSA
-  has nothing for that model year: it counts as checked and stored data is kept.
+- Only a 200 with a `results` array counts as checked. Anything else (a block, a moved endpoint,
+  an outage, a rate limit, a timeout, an answer that is not JSON) keeps the stored data and is
+  retried after 10 minutes, doubling up to a day, so the phone never says "no recalls" because a
+  request failed. An answer that cannot be stored is logged and counted as a failure without
+  stopping the job.
 - Unchanged rows are not rewritten, so the daily refresh does not make phones download them again.
+  The refresh time lives in `nhtsa_fetches`; a config's check times are set once.
 
 ## Why
 

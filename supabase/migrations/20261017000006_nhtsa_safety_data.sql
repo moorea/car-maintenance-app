@@ -52,12 +52,14 @@ create table public.complaint_summaries (
   unique (config_id, component)
 );
 
--- Requests to NHTSA in flight or backing off, per model year (lower-cased) and kind.
+-- NHTSA fetches per model year (make and model lower-cased) and kind: when it was last stored,
+-- any request in flight, and the backoff after failures.
 create table public.nhtsa_fetches (
   make         text not null,
   model        text not null,
   year         int  not null,
   kind         text not null check (kind in ('recalls', 'complaints')),
+  checked_at   timestamptz,
   request_id   bigint,
   requested_at timestamptz,
   failures     int not null default 0,
@@ -167,7 +169,9 @@ begin
           from pg_catalog.jsonb_array_elements(results) as r
       ) as raw
      where campaign is not null
-     order by campaign
+     -- NHTSA sometimes lists a campaign twice; keep the fuller listing, the same one every time.
+     order by campaign, pg_catalog.length(summary) desc, pg_catalog.length(remedy) desc nulls last,
+              component nulls last
   ),
   gone as (
     delete from public.recalls rc
@@ -194,8 +198,9 @@ begin
           excluded.remedy, excluded.notes, excluded.reported_on, excluded.park_it,
           excluded.park_outside, excluded.over_the_air);
 
+  -- Set once: the refresh time lives in nhtsa_fetches, so phones are not sent the config daily.
   update public.vehicle_configs set recalls_checked_at = pg_catalog.now()
-   where id = any (configs);
+   where id = any (configs) and recalls_checked_at is null;
 end
 $$;
 
@@ -234,7 +239,7 @@ begin
           from pg_catalog.jsonb_array_elements(results) as r
          where (r ->> 'odiNumber') ~ '^\d{1,18}$'
       ) as raw
-     order by odi_number
+     order by odi_number, pg_catalog.length(summary) desc nulls last
   ),
   gone as (
     delete from public.complaints cm
@@ -306,14 +311,32 @@ begin
          (excluded.complaints, excluded.crashes, excluded.fires, excluded.injuries,
           excluded.deaths, excluded.latest_filed_on, excluded.recent);
 
+  -- Set once: the refresh time lives in nhtsa_fetches, so phones are not sent the config daily.
   update public.vehicle_configs set complaints_checked_at = pg_catalog.now()
-   where id = any (configs);
+   where id = any (configs) and complaints_checked_at is null;
 end
 $$;
 
--- Handles NHTSA's answer to one fetch. A success stores the results. Other client errors mean
--- NHTSA has nothing for that model year, so it counts as checked and stored data is kept.
--- Anything else (outage, rate limit, timeout, garbage) is retried later with backoff.
+-- Counts a failed fetch: retried after 10 minutes, doubling per failure, at most a day.
+create function public.nhtsa_fetch_failed(p_make text, p_model text, p_year int, p_kind text)
+  returns void
+  language plpgsql set search_path = ''
+as $$
+begin
+  update public.nhtsa_fetches f
+     set request_id = null,
+         failures = f.failures + 1,
+         -- The cap is checked first, so the doubling never overflows an interval.
+         retry_after = pg_catalog.now()
+           + case when f.failures >= 7 then interval '1 day'
+                  else interval '10 minutes' * pg_catalog.power(2, f.failures) end
+   where (f.make, f.model, f.year, f.kind) = (p_make, p_model, p_year, p_kind);
+end
+$$;
+
+-- Handles NHTSA's answer to one fetch. Only a 200 with a results array counts: anything else
+-- (a block, a moved endpoint, an outage, a rate limit, a timeout, garbage) keeps stored data and
+-- is retried with backoff, so the phone never says "no recalls" because a request failed.
 create function public.nhtsa_handle_response(
   p_make text, p_model text, p_year int, p_kind text, status int, body text
 ) returns void
@@ -321,7 +344,6 @@ create function public.nhtsa_handle_response(
 as $$
 declare
   results jsonb;
-  configs uuid[];
 begin
   if status = 200 then
     begin
@@ -331,43 +353,29 @@ begin
     end;
   end if;
 
-  if status = 200 and pg_catalog.jsonb_typeof(results) = 'array' then
-    if p_kind = 'recalls' then
-      perform public.nhtsa_store_recalls(p_make, p_model, p_year, results);
-    else
-      perform public.nhtsa_store_complaints(p_make, p_model, p_year, results);
-    end if;
-    delete from public.nhtsa_fetches
-     where (make, model, year, kind) = (p_make, p_model, p_year, p_kind);
-  elsif status between 400 and 499 and status <> 429 then
-    configs := public.nhtsa_configs(p_make, p_model, p_year);
-    if p_kind = 'recalls' then
-      update public.vehicle_configs set recalls_checked_at = pg_catalog.now()
-       where id = any (configs);
-    else
-      update public.vehicle_configs set complaints_checked_at = pg_catalog.now()
-       where id = any (configs);
-    end if;
-    delete from public.nhtsa_fetches
-     where (make, model, year, kind) = (p_make, p_model, p_year, p_kind);
-  else
-    -- 10 minutes, doubling per failure, at most a day.
-    update public.nhtsa_fetches f
-       set request_id = null,
-           failures = f.failures + 1,
-           retry_after = pg_catalog.now()
-             + least(interval '10 minutes' * power(2, f.failures), interval '1 day')
-     where (f.make, f.model, f.year, f.kind) = (p_make, p_model, p_year, p_kind);
+  if pg_catalog.jsonb_typeof(results) is distinct from 'array' then
+    perform public.nhtsa_fetch_failed(p_make, p_model, p_year, p_kind);
+    return;
   end if;
+
+  if p_kind = 'recalls' then
+    perform public.nhtsa_store_recalls(p_make, p_model, p_year, results);
+  else
+    perform public.nhtsa_store_complaints(p_make, p_model, p_year, results);
+  end if;
+  update public.nhtsa_fetches
+     set checked_at = pg_catalog.now(), request_id = null, failures = 0, retry_after = null
+   where (make, model, year, kind) = (p_make, p_model, p_year, p_kind);
 end
 $$;
 
 -- The fetch job ----------------------------------------------------------------------------
 
--- Runs every minute. Stores the answers to requests sent on earlier runs, then asks NHTSA about
--- up to `batch` model years whose data is missing or a day old. Only model years someone owns
--- are fetched. pg_net sends requests after this transaction commits.
-create function public.nhtsa_sync(batch int default 10) returns void
+-- Stores the answers to requests sent on earlier runs, then asks NHTSA about up to `batch`
+-- model years: first those a new car is waiting on, then the stalest of those last checked over a
+-- day ago. Only model years someone owns, up to next year's, are fetched. pg_net sends the
+-- requests after this transaction commits.
+create function public.nhtsa_run(batch int) returns void
   language plpgsql set search_path = ''
 as $$
 declare
@@ -375,11 +383,6 @@ declare
   url text;
   rid bigint;
 begin
-  -- A run that overlaps a slow one does nothing.
-  if not pg_catalog.pg_try_advisory_xact_lock(pg_catalog.hashtext('public.nhtsa_sync')) then
-    return;
-  end if;
-
   for f in
     select n.make, n.model, n.year, n.kind, n.requested_at, r.status_code, r.content,
            r.id as response_id
@@ -387,33 +390,40 @@ begin
       left join net._http_response r on r.id = n.request_id
      where n.request_id is not null
   loop
-    if f.response_id is not null then
+    if f.response_id is null and f.requested_at >= pg_catalog.now() - interval '10 minutes' then
+      continue;  -- still in flight
+    end if;
+    -- One answer that cannot be stored must not stop the others, or the job.
+    begin
+      -- A response lost after pg_net's few hours of keeping it counts as a failure.
       perform public.nhtsa_handle_response(f.make, f.model, f.year, f.kind,
                                            coalesce(f.status_code, 0), f.content);
-    elsif f.requested_at < pg_catalog.now() - interval '10 minutes' then
-      -- The response was lost (pg_net keeps them for a few hours); treat it as a failure.
-      perform public.nhtsa_handle_response(f.make, f.model, f.year, f.kind, 0, null);
-    end if;
+    exception when others then
+      raise warning 'NHTSA % for % % % not stored: %', f.kind, f.make, f.model, f.year, sqlerrm;
+      perform public.nhtsa_fetch_failed(f.make, f.model, f.year, f.kind);
+    end;
   end loop;
 
   for f in
     select due.make, due.model, due.year, due.kind, due.make_name, due.model_name
       from (
         select pg_catalog.lower(c.make) as make, pg_catalog.lower(c.model) as model, c.year,
-               k.kind, pg_catalog.min(c.make) as make_name, pg_catalog.min(c.model) as model_name
+               k.kind, pg_catalog.min(c.make) as make_name, pg_catalog.min(c.model) as model_name,
+               pg_catalog.bool_or(case k.kind when 'recalls' then c.recalls_checked_at
+                                            else c.complaints_checked_at end is null) as waiting
           from public.vehicle_configs c
           cross join (values ('recalls'), ('complaints')) as k (kind)
          where exists (select 1 from public.vehicles v where v.config_id = c.id)
-           and coalesce(case k.kind when 'recalls' then c.recalls_checked_at
-                                    else c.complaints_checked_at end,
-                        '-infinity') < pg_catalog.now() - interval '1 day'
+           and c.year <= pg_catalog.date_part('year', pg_catalog.now())::int + 1
          group by 1, 2, 3, 4
       ) as due
       left join public.nhtsa_fetches n
         on (n.make, n.model, n.year, n.kind) = (due.make, due.model, due.year, due.kind)
      where n.request_id is null
        and coalesce(n.retry_after, '-infinity') <= pg_catalog.now()
-     order by n.make is not null, due.year desc, due.make, due.model, due.kind
+       and (due.waiting or coalesce(n.checked_at, '-infinity') < pg_catalog.now() - interval '1 day')
+     order by due.waiting desc, n.checked_at nulls first, due.year desc, due.make, due.model,
+              due.kind
      limit batch
   loop
     url := case f.kind
@@ -434,13 +444,26 @@ begin
 end
 $$;
 
+-- The job pg_cron runs every minute. A run that overlaps a slow one does nothing.
+create function public.nhtsa_sync() returns void
+  language plpgsql set search_path = ''
+as $$
+begin
+  if pg_catalog.pg_try_advisory_xact_lock(pg_catalog.hashtext('public.nhtsa_sync')) then
+    perform public.nhtsa_run(10);
+  end if;
+end
+$$;
+
 revoke all on function
   public.nhtsa_date(text, boolean), public.nhtsa_flag(jsonb), public.nhtsa_text(jsonb),
   public.nhtsa_configs(text, text, int),
   public.nhtsa_store_recalls(text, text, int, jsonb),
   public.nhtsa_store_complaints(text, text, int, jsonb),
+  public.nhtsa_fetch_failed(text, text, int, text),
   public.nhtsa_handle_response(text, text, int, text, int, text),
-  public.nhtsa_sync(int)
+  public.nhtsa_run(int),
+  public.nhtsa_sync()
   from public, anon, authenticated;
 
 select cron.schedule('nhtsa-sync', '* * * * *', 'select public.nhtsa_sync()');

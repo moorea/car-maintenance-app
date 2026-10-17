@@ -8,7 +8,7 @@ import { SafetyView } from './SafetyView'
 export function SafetyScreen({ vehicle }: { vehicle: Vehicle }) {
   // A new car gets its configuration once it has synced back, so that starts a fresh model.
   const model = useScreenModel(`${vehicle.id}:${vehicle.configId ?? ''}`, () =>
-    createSafetyModel({ configId: vehicle.configId, vin: vehicle.vin, safety: deps.safety }),
+    createSafetyModel({ vehicle, safety: deps.safety }),
   )
   const state = useStore(model)
   return <SafetyView {...state} />

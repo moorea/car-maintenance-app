@@ -1,9 +1,10 @@
 -- Run with `supabase test db`. Proves NHTSA recalls and complaints are fetched for owned model
 -- years and stored, summarised and retried correctly. Requests are never sent: pg_net only sends
 -- after commit, and this test rolls back. Responses are handed to nhtsa_handle_response directly.
+-- nhtsa_run is the job without its lock, so a scheduled run elsewhere cannot skip a call here.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(29);
+select plan(34);
 
 -- Dates -------------------------------------------------------------------------------------
 
@@ -27,11 +28,12 @@ insert into public.vehicle_configs (id, make, model, year, trim) values
   ('10000000-0000-0000-0000-000000000003', 'Honda', 'Civic', 2019, null);
 insert into public.vehicles (owner_id, year, make, model, trim, nickname) values
   ('00000000-0000-0000-0000-00000000000a', 2021, 'Toyota', 'RAV4', 'LE', 'Rav'),
-  ('00000000-0000-0000-0000-00000000000a', 2021, 'Toyota', 'RAV4', 'XLE', 'Rav 2');
+  ('00000000-0000-0000-0000-00000000000a', 2021, 'Toyota', 'RAV4', 'XLE', 'Rav 2'),
+  ('00000000-0000-0000-0000-00000000000a', 2100, 'Future', 'Car', null, 'Future');
 
 -- Requests ----------------------------------------------------------------------------------
 
-select public.nhtsa_sync();
+select public.nhtsa_run(10);
 select is(
   (select array_agg(row(make, model, year, kind)::text order by kind)
      from public.nhtsa_fetches where request_id is not null),
@@ -40,8 +42,10 @@ select is(
 );
 select ok(not exists (select 1 from public.nhtsa_fetches where make = 'honda'),
   'model years nobody owns are not fetched');
+select ok(not exists (select 1 from public.nhtsa_fetches where year = 2100),
+  'model years after next year are not fetched');
 
-select public.nhtsa_sync();
+select public.nhtsa_run(10);
 select is((select count(*)::int from public.nhtsa_fetches), 2,
   'a model year with a request in flight is not asked again');
 
@@ -79,13 +83,20 @@ select is(
   (select count(*)::int from public.vehicle_configs
     where recalls_checked_at is not null and complaints_checked_at is null),
   2, 'both trims are marked as checked for recalls only');
-select is((select count(*)::int from public.nhtsa_fetches where kind = 'recalls'), 0,
-  'a stored answer clears its fetch');
+select ok(
+  (select request_id is null and checked_at is not null from public.nhtsa_fetches
+    where kind = 'recalls'),
+  'a stored answer clears its request and records the check');
 
+update public.vehicle_configs set recalls_checked_at = '2026-01-01' where make ilike 'toyota';
 select public.nhtsa_handle_response('toyota', 'rav4', 2021, 'recalls', 200,
   '{"Count": 1, "results": [{"NHTSACampaignNumber": "23V123000", "Summary": "Wiring may chafe."}]}');
 select is((select array_agg(distinct campaign) from public.recalls), array['23V123000'],
   'a recall NHTSA no longer lists is removed');
+select ok(
+  (select bool_and(recalls_checked_at = '2026-01-01') from public.vehicle_configs
+    where make ilike 'toyota'),
+  'a refresh does not rewrite the configs, so phones are not sent them again');
 
 -- Complaints --------------------------------------------------------------------------------
 
@@ -142,13 +153,13 @@ select is((select array_agg(component) from public.complaint_summaries
 
 -- Checked data is not fetched again for a day ----------------------------------------------
 
-select public.nhtsa_sync();
-select is((select count(*)::int from public.nhtsa_fetches), 0,
+select public.nhtsa_run(10);
+select is((select count(*)::int from public.nhtsa_fetches where request_id is not null), 0,
   'a model year checked within the day is not fetched');
 
-update public.vehicle_configs set recalls_checked_at = now() - interval '25 hours';
-select public.nhtsa_sync();
-select is((select count(*)::int from public.nhtsa_fetches where kind = 'recalls'), 1,
+update public.nhtsa_fetches set checked_at = now() - interval '25 hours' where kind = 'recalls';
+select public.nhtsa_run(10);
+select ok((select request_id is not null from public.nhtsa_fetches where kind = 'recalls'),
   'a day later it is fetched again');
 
 -- Failures ----------------------------------------------------------------------------------
@@ -160,12 +171,12 @@ select ok(
   'an outage is retried after a backoff'
 );
 select is((select count(*)::int from public.recalls), 2, 'an outage keeps stored recalls');
-select public.nhtsa_sync();
+select public.nhtsa_run(10);
 select ok((select request_id is null from public.nhtsa_fetches where kind = 'recalls'),
   'nothing is asked again before the backoff ends');
 
 update public.nhtsa_fetches set retry_after = now() - interval '1 second';
-select public.nhtsa_sync();
+select public.nhtsa_run(10);
 select public.nhtsa_handle_response('toyota', 'rav4', 2021, 'recalls', 200, '<html>oops</html>');
 select ok(
   (select failures = 2 and retry_after > now() + interval '19 minutes'
@@ -174,14 +185,35 @@ select ok(
 );
 
 update public.vehicle_configs set recalls_checked_at = null;
-select public.nhtsa_handle_response('toyota', 'rav4', 2021, 'recalls', 400, '{"message": "No results"}');
+select public.nhtsa_handle_response('toyota', 'rav4', 2021, 'recalls', 403, 'Forbidden');
 select ok(
-  (select bool_and(recalls_checked_at is not null) from public.vehicle_configs where make ilike 'toyota')
+  (select bool_and(recalls_checked_at is null) from public.vehicle_configs where make ilike 'toyota')
   and (select count(*) from public.recalls) = 2
-  and not exists (select 1 from public.nhtsa_fetches where kind = 'recalls'),
-  'a client error counts as checked and keeps stored recalls'
+  and (select failures = 3 from public.nhtsa_fetches where kind = 'recalls'),
+  'a client error is a failure too, so a blocked request never reads as "no recalls"'
 );
 
+update public.nhtsa_fetches set failures = 50 where kind = 'recalls';
+select public.nhtsa_handle_response('toyota', 'rav4', 2021, 'recalls', 503, null);
+select ok(
+  (select retry_after between now() + interval '23 hours' and now() + interval '25 hours'
+     from public.nhtsa_fetches where kind = 'recalls'),
+  'the backoff stops at a day however many times a request has failed'
+);
+
+-- A car added to a model year already checked today is still fetched for, so it stops showing
+-- "Checking…" without waiting a day.
+insert into public.vehicle_configs (id, make, model, year, trim) values
+  ('10000000-0000-0000-0000-000000000004', 'Toyota', 'RAV4', 2021, 'Limited');
+insert into public.vehicles (owner_id, year, make, model, trim, nickname) values
+  ('00000000-0000-0000-0000-00000000000a', 2021, 'Toyota', 'RAV4', 'Limited', 'Rav 3');
+update public.nhtsa_fetches set checked_at = now(), request_id = null, retry_after = null;
+select public.nhtsa_run(10);
+select is((select count(*)::int from public.nhtsa_fetches where request_id is not null), 2,
+  'a model year with a car waiting on its first check is fetched straight away');
+
+select is((select command from cron.job where jobname = 'nhtsa-sync'), 'select public.nhtsa_sync()',
+  'the fetch job is scheduled');
 select is((select schedule from cron.job where jobname = 'nhtsa-sync'), '* * * * *',
   'the fetch job runs every minute');
 

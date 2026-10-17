@@ -38,7 +38,7 @@ export function SafetyView(props: Props) {
   )
 }
 
-function Recalls({ status, recalls, expanded, toggle, lookupUrl }: Props) {
+function Recalls({ status, recalls, expanded, toggle, lookupUrl, modelYear }: Props) {
   if (status === 'unmatched') {
     return <Text textStyle={NOTE}>Recalls appear once your car has synced.</Text>
   }
@@ -49,8 +49,8 @@ function Recalls({ status, recalls, expanded, toggle, lookupUrl }: Props) {
     <>
       <Text>
         {recalls.length === 0
-          ? 'NHTSA lists no recalls for your model year.'
-          : `NHTSA lists ${plural(recalls.length, 'recall')} for your model year. Not every recall covers every car, and yours may already be fixed.`}
+          ? `NHTSA lists no recalls for the ${modelYear}.`
+          : `NHTSA lists ${plural(recalls.length, 'recall')} for the ${modelYear}. Not every recall covers every car, and yours may already be fixed.`}
       </Text>
       {recalls.map((r) => (
         <RecallItem
@@ -99,7 +99,7 @@ function RecallItem(props: { recall: Recall; open: boolean; onToggle: () => void
   )
 }
 
-function Complaints({ status, complaintsChecked, complaints, expanded, toggle }: Props) {
+function Complaints({ status, complaintsChecked, complaints, expanded, toggle, modelYear }: Props) {
   if (status === 'unmatched') {
     return <Text textStyle={NOTE}>Complaints appear once your car has synced.</Text>
   }
@@ -107,13 +107,12 @@ function Complaints({ status, complaintsChecked, complaints, expanded, toggle }:
     return <Text textStyle={NOTE}>Checking NHTSA for owner complaints…</Text>
   }
   if (complaints.length === 0) {
-    return <Text>Owners have filed no complaints with NHTSA about your model year.</Text>
+    return <Text>{`Owners have filed no complaints with NHTSA about the ${modelYear}.`}</Text>
   }
   return (
     <>
       <Text textStyle={NOTE}>
-        What owners of your model year have reported to NHTSA, by part of the car. A complaint can
-        name more than one part.
+        {`What owners of the ${modelYear} have reported to NHTSA, by part of the car. A complaint can name more than one part.`}
       </Text>
       {complaints.map((c) => (
         <ComplaintItem

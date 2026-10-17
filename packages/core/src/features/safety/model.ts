@@ -1,5 +1,5 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
-import type { ComplaintSummary, Recall } from '../../domain/types'
+import type { ComplaintSummary, Recall, Vehicle } from '../../domain/types'
 import { recallLookupUrl } from '../../lib/nhtsa'
 import type { SafetyRepo, Unsubscribe } from '../../ports'
 
@@ -23,6 +23,8 @@ export interface SafetyState {
   expanded: string[]
   /** Where the owner checks which recalls apply to their car and whether they were fixed. */
   lookupUrl: string
+  /** What NHTSA was asked about, such as "2021 Toyota RAV4", so an empty list says what it covers. */
+  modelYear: string
 }
 
 export interface SafetyActions {
@@ -35,9 +37,7 @@ export interface SafetyActions {
 export type SafetyModel = StoreApi<SafetyState & SafetyActions>
 
 export interface SafetyDeps {
-  /** The car's configuration; absent until a newly added car has synced back. */
-  configId: string | undefined
-  vin: string | undefined
+  vehicle: Pick<Vehicle, 'year' | 'make' | 'model' | 'configId' | 'vin'>
   safety: SafetyRepo
 }
 
@@ -53,15 +53,17 @@ const byMostComplaints = (a: ComplaintSummary, b: ComplaintSummary) =>
 
 /** Screen model for a car's NHTSA recalls and owner complaints. */
 export const createSafetyModel = (deps: SafetyDeps): SafetyModel => {
+  const { configId, vin, year, make, model } = deps.vehicle
   let unsubscribe: Unsubscribe | undefined
 
   return createStore<SafetyState & SafetyActions>()((set) => ({
-    status: deps.configId === undefined ? 'unmatched' : 'loading',
+    status: configId === undefined ? 'unmatched' : 'loading',
     recalls: [],
     complaintsChecked: false,
     complaints: [],
     expanded: [],
-    lookupUrl: recallLookupUrl(deps.vin),
+    lookupUrl: recallLookupUrl(vin),
+    modelYear: `${year} ${make} ${model}`,
 
     toggle: (id) =>
       set((s) => ({
@@ -71,8 +73,8 @@ export const createSafetyModel = (deps: SafetyDeps): SafetyModel => {
       })),
 
     start: () => {
-      if (unsubscribe || deps.configId === undefined) return
-      unsubscribe = deps.safety.watchForConfig(deps.configId, (report) =>
+      if (unsubscribe || configId === undefined) return
+      unsubscribe = deps.safety.watchForConfig(configId, (report) =>
         set({
           status: report.recallsCheckedAt === undefined ? 'checking' : 'ready',
           recalls: [...report.recalls].sort(byUrgencyThenNewest),
