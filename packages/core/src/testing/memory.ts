@@ -12,6 +12,7 @@ import type {
   AuthPort,
   Clock,
   IdGenerator,
+  SyncStatus,
   OdometerRepo,
   ScheduleRepo,
   ServiceRecordRepo,
@@ -51,8 +52,11 @@ export const memoryVehicles = (
  * Email sign-in that accepts one fixed code. `sent` records where codes went; `failNext` makes
  * the next request throw an AuthError of that kind.
  */
-export const memoryAuth = (options: { user?: AuthUser; validCode?: string } = {}) => {
+export const memoryAuth = (
+  options: { user?: AuthUser; validCode?: string; userIdFor?: (email: string) => string } = {},
+) => {
   const validCode = options.validCode ?? '123456'
+  const userIdFor = options.userIdFor ?? ((email: string) => `user-${email}`)
   let user: AuthUser | null = options.user ?? null
   let nextFailure: AuthErrorKind | undefined
   const sent: string[] = []
@@ -87,9 +91,13 @@ export const memoryAuth = (options: { user?: AuthUser; validCode?: string } = {}
     verifyCode: async (email, code) => {
       failIfScheduled()
       if (!sent.includes(email) || code !== validCode) throw new AuthError('invalid-code')
-      setUser({ id: `user-${email}`, email })
+      setUser({ id: userIdFor(email), email })
     },
-    signOut: async () => setUser(null),
+    // Like Supabase, signs out locally even when the server call fails.
+    signOut: async () => {
+      setUser(null)
+      failIfScheduled()
+    },
   }
   return auth
 }
@@ -142,4 +150,26 @@ export const fixedClock = (today: IsoDate): Clock => ({ today: () => today })
 export const sequentialIds = (prefix = 'id'): IdGenerator => {
   let n = 0
   return { next: () => `${prefix}-${++n}` }
+}
+
+/** First-sync status. Already synced unless `{ synced: false }`; `complete()` finishes it. */
+export const memorySync = (options: { synced?: boolean } = {}) => {
+  let synced = options.synced ?? true
+  const waiting = new Set<() => void>()
+  const sync: SyncStatus & { complete: () => void } = {
+    onFirstSync: (onSynced) => {
+      if (synced) {
+        onSynced()
+        return () => {}
+      }
+      waiting.add(onSynced)
+      return () => waiting.delete(onSynced)
+    },
+    complete: () => {
+      synced = true
+      for (const w of [...waiting]) w()
+      waiting.clear()
+    },
+  }
+  return sync
 }

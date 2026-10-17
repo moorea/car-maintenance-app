@@ -73,6 +73,17 @@ describe('sign-in screen model', () => {
     expect(model.getState().error).toMatch(message)
   })
 
+  it('clears an old error when sending a new code succeeds', async () => {
+    const { model } = setup()
+    model.getState().setEmail('owner@example.com')
+    await model.getState().submitEmail()
+    model.getState().setCode('000000')
+    await model.getState().submitCode()
+    await model.getState().resend()
+    expect(model.getState().error).toBeUndefined()
+    expect(model.getState().fieldError).toBeUndefined()
+  })
+
   it('resends a code to the same email and clears the old code', async () => {
     const { auth, model } = setup()
     model.getState().setEmail('owner@example.com')

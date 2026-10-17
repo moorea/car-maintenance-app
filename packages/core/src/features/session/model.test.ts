@@ -1,16 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import type { Vehicle } from '../../domain/types'
-import { memoryAuth, memoryVehicles } from '../../testing'
+import { memoryAuth, memorySync, memoryVehicles } from '../../testing'
 import { createSessionModel } from './model'
 
 const civic: Vehicle = { id: 'v-civic', configId: 'c1', nickname: 'Civic', severeDuty: false }
 const accord: Vehicle = { id: 'v-accord', configId: 'c2', nickname: 'Accord', severeDuty: false }
 
-const setup = (signedIn: boolean, owned: Vehicle[] = []) => {
+const setup = (signedIn: boolean, owned: Vehicle[] = [], synced = true) => {
   const auth = memoryAuth(signedIn ? { user: { id: 'u1', email: 'a@example.com' } } : {})
   const vehicles = memoryVehicles(owned)
-  const model = createSessionModel({ auth, vehicles })
-  return { auth, vehicles, model }
+  const sync = memorySync({ synced })
+  const model = createSessionModel({ auth, vehicles, sync })
+  return { auth, vehicles, sync, model }
 }
 
 describe('session model', () => {
@@ -37,6 +38,40 @@ describe('session model', () => {
     expect(model.getState().status).toBe('no-vehicles')
     vehicles.set([civic])
     expect(model.getState()).toMatchObject({ status: 'ready', selectedVehicleId: 'v-civic' })
+  })
+
+  it('waits for the first sync on a new device instead of asking for a car', () => {
+    const { vehicles, model } = setup(true, [], false)
+    model.getState().start()
+    expect(model.getState().status).toBe('syncing')
+    vehicles.set([civic])
+    expect(model.getState().status).toBe('ready')
+  })
+
+  it('asks for a car once the first sync finds none', () => {
+    const { sync, model } = setup(true, [], false)
+    model.getState().start()
+    sync.complete()
+    expect(model.getState().status).toBe('no-vehicles')
+  })
+
+  it('switches straight from one account to another', async () => {
+    const { auth, vehicles, model } = setup(true, [civic])
+    model.getState().start()
+    await auth.sendCode('b@example.com')
+    await auth.verifyCode('b@example.com', '123456')
+    expect(model.getState()).toMatchObject({ status: 'no-vehicles', vehicles: [] })
+    expect(model.getState().user?.email).toBe('b@example.com')
+    vehicles.set([civic])
+    expect(model.getState().selectedVehicleId).toBeUndefined()
+  })
+
+  it('ends signed out even when the server cannot be told', async () => {
+    const { auth, model } = setup(true, [civic])
+    model.getState().start()
+    auth.failNext('network')
+    await expect(model.getState().signOut()).resolves.toBeUndefined()
+    expect(model.getState().status).toBe('signed-out')
   })
 
   it('keeps the chosen car selected when the list changes', () => {

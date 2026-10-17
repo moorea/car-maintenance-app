@@ -20,6 +20,12 @@ export interface VehicleRepo {
   watchOwned(ownerId: string, onChange: (vehicles: Vehicle[]) => void): Unsubscribe
 }
 
+/** Whether this device's copy of the owner's data has finished its first download. */
+export interface SyncStatus {
+  /** Calls `onSynced` once the first full sync has completed (immediately if it already has). */
+  onFirstSync(onSynced: () => void): Unsubscribe
+}
+
 /** Passwordless email sign-in: the owner types their email, then the code they were sent. */
 export interface AuthPort {
   /** Calls `onChange` with the current user (or null) now and on every sign-in or sign-out. */

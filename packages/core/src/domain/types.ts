@@ -44,7 +44,8 @@ export interface AuthUser {
   email?: string
 }
 
-export type AuthErrorKind = 'invalid-code' | 'rate-limited' | 'network' | 'unknown'
+export type AuthErrorKind =
+  'invalid-email' | 'invalid-code' | 'rate-limited' | 'network' | 'unknown'
 
 /** A sign-in failure the screen can explain. Adapters translate their own errors into these. */
 export class AuthError extends Error {

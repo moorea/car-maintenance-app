@@ -20,6 +20,13 @@ export function RootView({ status, user, vehicles, selectedVehicleId, signOut }:
       </View>
       {status === 'ready' && vehicle ? (
         <ServiceLogScreen vehicleId={vehicle.id} />
+      ) : status === 'syncing' ? (
+        <View style={styles.waiting}>
+          <ActivityIndicator />
+          <Text style={styles.empty}>
+            Getting your cars. This needs a connection the first time.
+          </Text>
+        </View>
       ) : (
         <Text style={styles.empty}>
           You're signed in as {user?.email ?? 'you'}. Adding your car is coming next.
@@ -39,4 +46,5 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 18, fontWeight: '700' },
   empty: { padding: 16, fontSize: 15, color: '#444' },
+  waiting: { alignItems: 'center', paddingTop: 32 },
 })

@@ -2,6 +2,7 @@ import type {
   OdometerRepo,
   ScheduleRepo,
   ServiceRecordRepo,
+  SyncStatus,
   Unsubscribe,
   VehicleRepo,
 } from '@car/core'
@@ -19,6 +20,7 @@ export interface PowerSyncRepositories {
   records: ServiceRecordRepo
   odometer: OdometerRepo
   schedule: ScheduleRepo
+  sync: SyncStatus
 }
 
 const RECORDS_FOR_VEHICLE =
@@ -51,6 +53,23 @@ const watchRows = (
 export const createPowerSyncRepositories = (
   db: CommonPowerSyncDatabase,
 ): PowerSyncRepositories => ({
+  sync: {
+    onFirstSync: (onSynced) => {
+      if (db.currentStatus.hasSynced) {
+        onSynced()
+        return () => {}
+      }
+      const dispose = db.registerListener({
+        statusChanged: (status) => {
+          if (!status.hasSynced) return
+          dispose()
+          onSynced()
+        },
+      })
+      return dispose
+    },
+  },
+
   vehicles: {
     // Filtered by owner even though only the owner's rows sync: just after an account switch the
     // previous owner's copy may not be cleared yet.

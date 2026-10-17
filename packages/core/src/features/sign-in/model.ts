@@ -36,6 +36,7 @@ export interface SignInActions {
 export type SignInModel = StoreApi<SignInState & SignInActions>
 
 const MESSAGES: Record<AuthError['kind'], string> = {
+  'invalid-email': 'That email address was not accepted. Check it and try again.',
   'invalid-code': 'That code is wrong or has expired. Check the email or send a new one.',
   'rate-limited': 'Too many attempts. Wait a minute and try again.',
   network: 'Could not reach the server. Check your connection and try again.',

@@ -1,12 +1,12 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
 import type { AuthUser, Vehicle } from '../../domain/types'
-import type { AuthPort, Unsubscribe, VehicleRepo } from '../../ports'
+import type { AuthPort, SyncStatus, Unsubscribe, VehicleRepo } from '../../ports'
 
 /**
  * What the app shows at its root: nothing yet while the stored session loads, the sign-in screen,
- * a prompt to add a car, or the selected car.
+ * a wait while a new device downloads the owner's data, a prompt to add a car, or the selected car.
  */
-export type SessionStatus = 'starting' | 'signed-out' | 'no-vehicles' | 'ready'
+export type SessionStatus = 'starting' | 'signed-out' | 'syncing' | 'no-vehicles' | 'ready'
 
 export interface SessionState {
   status: SessionStatus
@@ -28,9 +28,14 @@ export type SessionModel = StoreApi<SessionState & SessionActions>
 export const createSessionModel = (deps: {
   auth: AuthPort
   vehicles: VehicleRepo
+  sync: SyncStatus
 }): SessionModel => {
   let stopAuth: Unsubscribe | undefined
   let stopVehicles: Unsubscribe | undefined
+  let stopSync: Unsubscribe | undefined
+  // An empty list means "no cars" only once the first sync is done; before that it means
+  // "not downloaded yet", and saying "add a car" would invite a duplicate.
+  let synced = false
   // undefined until the first auth callback; then the signed-in user's id, or null.
   let currentUserId: string | null | undefined
 
@@ -42,7 +47,7 @@ export const createSessionModel = (deps: {
       set({
         vehicles: sorted,
         selectedVehicleId: selected?.id,
-        status: selected ? 'ready' : 'no-vehicles',
+        status: selected ? 'ready' : synced ? 'no-vehicles' : 'syncing',
       })
     }
 
@@ -54,7 +59,10 @@ export const createSessionModel = (deps: {
       }
       currentUserId = id
       stopVehicles?.()
+      stopSync?.()
       stopVehicles = undefined
+      stopSync = undefined
+      synced = false
       if (!user) {
         set({ status: 'signed-out', user: undefined, vehicles: [], selectedVehicleId: undefined })
         return
@@ -62,6 +70,10 @@ export const createSessionModel = (deps: {
       // 'starting' until the vehicles arrive, so no screen flashes in between.
       set({ status: 'starting', user, vehicles: [], selectedVehicleId: undefined })
       stopVehicles = deps.vehicles.watchOwned(user.id, showVehicles)
+      stopSync = deps.sync.onFirstSync(() => {
+        synced = true
+        showVehicles(get().vehicles)
+      })
     }
 
     return {
@@ -77,13 +89,23 @@ export const createSessionModel = (deps: {
         if (get().vehicles.some((v) => v.id === id)) set({ selectedVehicleId: id })
       },
 
-      signOut: () => deps.auth.signOut(),
+      // A failure to revoke the session on the server still signs out locally, which is what
+      // the owner asked for, so it is not reported.
+      signOut: async () => {
+        try {
+          await deps.auth.signOut()
+        } catch {
+          // Signed out locally regardless.
+        }
+      },
 
       dispose: () => {
         stopAuth?.()
         stopVehicles?.()
+        stopSync?.()
         stopAuth = undefined
         stopVehicles = undefined
+        stopSync = undefined
         currentUserId = undefined
       },
     }

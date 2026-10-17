@@ -129,6 +129,15 @@ describe('PowerSync repositories', () => {
     ])
   })
 
+  it('does not report a first sync on a device that has never synced', async () => {
+    const repos = createPowerSyncRepositories(db)
+    let synced = false
+    const stop = repos.sync.onFirstSync(() => (synced = true))
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    stop()
+    expect(synced).toBe(false)
+  })
+
   it('reads vehicles, odometer readings and the schedule from synced rows', async () => {
     await db.execute(
       "insert into vehicles (id, config_id, nickname, severe_duty) values ('v1', 'c1', 'Civic', 1)",

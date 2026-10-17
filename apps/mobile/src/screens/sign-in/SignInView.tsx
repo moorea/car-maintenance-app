@@ -58,7 +58,12 @@ export function SignInView(props: Props) {
             disabled={busy}
             onPress={() => void props.resend()}
           />
-          <Button variant="link" label="Use a different email" onPress={props.changeEmail} />
+          <Button
+            variant="link"
+            label="Use a different email"
+            disabled={busy}
+            onPress={props.changeEmail}
+          />
         </>
       )}
     </View>
