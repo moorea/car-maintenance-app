@@ -1,4 +1,5 @@
-import { StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native'
+import { Column, Text, TextInput, useNativeState, type TextInputProps } from '@expo/ui'
+import { useEffect } from 'react'
 
 interface Props {
   label: string
@@ -11,38 +12,29 @@ interface Props {
   autoCapitalize?: TextInputProps['autoCapitalize']
 }
 
-export function TextField({
-  label,
-  value,
-  onChangeText,
-  error,
-  placeholder,
-  keyboardType,
-  autoComplete,
-  autoCapitalize,
-}: Props) {
+/** A labelled Expo UI text input. The screen model owns the text; the field follows `value`. */
+export function TextField({ label, value, onChangeText, error, ...input }: Props) {
+  const text = useNativeState(value)
+  // The model can change the text itself (a cleared code after a resend), so copy it in.
+  useEffect(() => {
+    if (text.get() !== value) text.set(value)
+  }, [text, value])
   return (
-    <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
+    <Column spacing={4}>
+      <Text textStyle={{ fontSize: 13, fontWeight: '600' }}>{label}</Text>
       <TextInput
-        accessibilityLabel={label}
-        style={[styles.input, error ? styles.inputError : undefined]}
-        value={value}
+        value={text}
         onChangeText={onChangeText}
-        keyboardType={keyboardType ?? 'default'}
-        placeholder={placeholder ?? ''}
-        autoComplete={autoComplete ?? 'off'}
-        autoCapitalize={autoCapitalize ?? 'sentences'}
+        placeholder={input.placeholder ?? ''}
+        keyboardType={input.keyboardType ?? 'default'}
+        autoComplete={input.autoComplete ?? 'off'}
+        autoCapitalize={input.autoCapitalize ?? 'sentences'}
+        autoCorrect={false}
+        style={{ width: '100%', ...(error ? { borderColor: ERROR } : {}) }}
       />
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-    </View>
+      {error ? <Text textStyle={{ fontSize: 12, color: ERROR }}>{error}</Text> : null}
+    </Column>
   )
 }
 
-const styles = StyleSheet.create({
-  field: { marginBottom: 12 },
-  label: { fontSize: 13, fontWeight: '600', marginBottom: 4 },
-  input: { borderWidth: 1, borderColor: '#c8c8c8', borderRadius: 8, padding: 10, fontSize: 16 },
-  inputError: { borderColor: '#c62828' },
-  error: { color: '#c62828', fontSize: 12, marginTop: 4 },
-})
+export const ERROR = '#c62828'

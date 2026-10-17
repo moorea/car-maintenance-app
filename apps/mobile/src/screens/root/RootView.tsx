@@ -1,6 +1,6 @@
 import type { SessionActions, SessionState } from '@car/core'
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native'
-import { Button } from '../../ui/Button'
+import { Button, Column, Host, Row, Spacer, Text } from '@expo/ui'
+import { ActivityIndicator, StyleSheet, View } from 'react-native'
 import { ServiceLogScreen } from '../service-log/ServiceLogScreen'
 import { SignInScreen } from '../sign-in/SignInScreen'
 
@@ -14,23 +14,34 @@ export function RootView({ status, user, vehicles, selectedVehicleId, signOut }:
   const vehicle = vehicles.find((v) => v.id === selectedVehicleId)
   return (
     <View style={styles.fill}>
-      <View style={styles.header}>
-        <Text style={styles.title}>{vehicle?.nickname ?? 'Your car'}</Text>
-        <Button variant="link" label="Sign out" onPress={() => void signOut()} />
-      </View>
+      <Host matchContents={{ vertical: true }}>
+        <Row
+          alignment="center"
+          style={{ width: '100%', paddingHorizontal: 16, paddingVertical: 8 }}
+        >
+          <Text textStyle={{ fontSize: 18, fontWeight: '700' }}>
+            {vehicle?.nickname ?? 'Your car'}
+          </Text>
+          <Spacer flexible />
+          <Button variant="text" label="Sign out" onPress={() => void signOut()} />
+        </Row>
+      </Host>
       {status === 'ready' && vehicle ? (
         <ServiceLogScreen vehicleId={vehicle.id} />
-      ) : status === 'syncing' ? (
-        <View style={styles.waiting}>
-          <ActivityIndicator />
-          <Text style={styles.empty}>
-            Getting your cars. This needs a connection the first time.
-          </Text>
-        </View>
       ) : (
-        <Text style={styles.empty}>
-          You're signed in as {user?.email ?? 'you'}. Adding your car is coming next.
-        </Text>
+        <View style={styles.fill}>
+          {status === 'syncing' ? <ActivityIndicator style={styles.spinner} /> : null}
+          <Host style={styles.fill}>
+            <Column spacing={16} alignment="center" style={{ padding: 16 }}>
+              <Text textStyle={{ textAlign: 'center' }}>
+                {status === 'syncing'
+                  ? 'Getting your cars. This needs a connection the first time.'
+                  : `You're signed in as ${user?.email ?? 'you'}. Adding your car is coming next.`}
+              </Text>
+              <Spacer flexible />
+            </Column>
+          </Host>
+        </View>
       )}
     </View>
   )
@@ -38,13 +49,5 @@ export function RootView({ status, user, vehicles, selectedVehicleId, signOut }:
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-  },
-  title: { fontSize: 18, fontWeight: '700' },
-  empty: { padding: 16, fontSize: 15, color: '#444' },
-  waiting: { alignItems: 'center', paddingTop: 32 },
+  spinner: { paddingTop: 32 },
 })
