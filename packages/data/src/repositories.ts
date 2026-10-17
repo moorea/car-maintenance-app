@@ -47,7 +47,7 @@ const READINGS_FOR_VEHICLE = 'select * from odometer_readings where vehicle_id =
 type Row = Record<string, unknown>
 
 /** Calls `onRows` with the query's rows now and whenever `table` changes, until unsubscribed. */
-const watchRows = (
+export const watchRows = (
   db: CommonPowerSyncDatabase,
   sql: string,
   params: unknown[],
@@ -113,7 +113,7 @@ const watchSafety = (
 }
 
 /** Same text format as synced timestamptz values, so local and synced rows sort alike. */
-const now = () => new Date().toISOString().replace('T', ' ')
+export const now = () => new Date().toISOString().replace('T', ' ')
 
 const insertReading = async (
   db: Pick<CommonPowerSyncDatabase, 'execute'>,

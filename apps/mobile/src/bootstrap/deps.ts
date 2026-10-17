@@ -8,6 +8,7 @@ import { localClock } from './clock'
 import { backendConfig } from './config'
 import { createDemoAssistant, createDemoRepositories } from './demo'
 import { createLiveRepositories } from './live'
+import { systemFilePicker, systemFilePreview } from './files'
 import { expoNotifier } from './notifications'
 import { expoPhotoPicker } from './photos'
 
@@ -42,6 +43,8 @@ export const deps = {
   notifier,
   reminderSettings,
   exporter: pdfReportExporter(),
+  picker: systemFilePicker(),
+  preview: systemFilePreview(),
   photos: expoPhotoPicker(),
   reminders: createReminderScheduler({
     ...repositories,

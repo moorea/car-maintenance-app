@@ -1,4 +1,6 @@
 import type {
+  Attachment,
+  AttachmentKind,
   ComplaintSummary,
   MaintenanceItem,
   OdometerReading,
@@ -120,6 +122,34 @@ export const fromWarranty = (w: Warranty) => ({
   end_miles: w.endMiles ?? null,
   policy_number: w.policyNumber ?? null,
   notes: w.notes ?? null,
+})
+
+const KINDS: readonly AttachmentKind[] = ['receipt', 'registration', 'insurance', 'other']
+const kind = (v: unknown): AttachmentKind => KINDS.find((k) => k === v) ?? 'other'
+
+export const toAttachment = (r: Row): Attachment =>
+  defined({
+    id: required(text(r.id), 'id'),
+    vehicleId: required(text(r.vehicle_id), 'vehicle_id'),
+    serviceRecordId: text(r.service_record_id),
+    kind: kind(r.kind),
+    name: text(r.name) ?? '',
+    contentType: text(r.content_type) ?? '',
+    sizeBytes: num(r.size_bytes) ?? 0,
+    addedOn: text(r.added_on) ?? '',
+  })
+
+/** The columns the device writes for a new attachment, given the owner of its car. */
+export const fromAttachment = (ownerId: string, a: Attachment) => ({
+  id: a.id,
+  owner_id: ownerId,
+  vehicle_id: a.vehicleId,
+  service_record_id: a.serviceRecordId ?? null,
+  kind: a.kind,
+  name: a.name,
+  content_type: a.contentType,
+  size_bytes: a.sizeBytes,
+  added_on: a.addedOn,
 })
 
 export const toOdometerReading = (r: Row): OdometerReading => ({

@@ -117,6 +117,20 @@ export const schema = new Schema({
     },
     { indexes: { by_vehicle: ['vehicle_id'] } },
   ),
+  attachments: new Table(
+    {
+      owner_id: column.text,
+      vehicle_id: column.text,
+      service_record_id: column.text,
+      kind: column.text,
+      name: column.text,
+      content_type: column.text,
+      size_bytes: column.integer,
+      added_on: column.text,
+      created_at: column.text,
+    },
+    { indexes: { by_vehicle: ['vehicle_id'] } },
+  ),
   // Never synced or uploaded: facts about this phone's copy, such as whose data it holds.
   device_state: new Table({ value: column.text }, { localOnly: true }),
 })
@@ -127,5 +141,6 @@ export const UPLOADABLE_TABLES = [
   'odometer_readings',
   'service_records',
   'warranties',
+  'attachments',
 ] as const
 export type UploadableTable = (typeof UPLOADABLE_TABLES)[number]

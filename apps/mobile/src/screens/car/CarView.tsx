@@ -18,19 +18,22 @@ import { Symbol } from '../../ui/Symbol'
 import { TAB_BAR_CLEARANCE } from '../../ui/TabBar'
 import { TextField } from '../../ui/TextField'
 import { Card, Dot, FillColumn, Separator } from '../../ui/surfaces'
+import type { AttachmentsProps } from '../attachments/AttachmentList'
+import { DocumentsSection } from '../attachments/DocumentsSection'
 import { ComplaintsSection, RecallsSection } from './SafetySections'
 
 interface Props {
   car: CarState & CarActions
   safety: SafetyState & Pick<SafetyActions, 'toggle'>
+  documents: AttachmentsProps
   onCheckQuote: () => void
   onWarranty: () => void
 }
 
 const OVERLINE = { fontSize: 13, fontWeight: '600', letterSpacing: 0.5 } as const
 
-/** Pure rendering of a car's page: odometer, then its schedule, recalls or known issues. */
-export function CarView({ car, safety, onCheckQuote, onWarranty }: Props) {
+/** Pure rendering of a car's page: odometer, documents, then schedule, recalls or known issues. */
+export function CarView({ car, safety, documents, onCheckQuote, onWarranty }: Props) {
   const colors = useColors()
   if (car.status === 'loading') return <ActivityIndicator style={styles.fill} />
 
@@ -56,6 +59,7 @@ export function CarView({ car, safety, onCheckQuote, onWarranty }: Props) {
           <OdometerCard {...car} />
           <QuoteCard onPress={onCheckQuote} />
           <WarrantyCard onPress={onWarranty} />
+          <DocumentsSection {...documents} />
           <SegmentedControl options={sections} selected={car.section} onSelect={car.showSection} />
           {car.section === 'schedule' ? (
             <Schedule {...car} />
