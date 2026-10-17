@@ -8,6 +8,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:ci": "vitest run --coverage",
     "build": "node build.mjs"
   },
   "dependencies": {
