@@ -2,6 +2,7 @@ import { strFromU8, strToU8, unzipSync, zipSync, type Zippable } from 'fflate'
 import { z } from 'zod'
 import type {
   Attachment,
+  FillUp,
   MaintenanceItem,
   OdometerReading,
   ServiceRecord,
@@ -28,6 +29,8 @@ export interface CarData {
   services: ServiceRecord[]
   attachments: Attachment[]
   warranties: Warranty[]
+  /** Fill-ups and charging sessions. Their mileage is not repeated in `readings`. */
+  fillUps: FillUp[]
   /** The car's schedule, to name each service's item. */
   items: MaintenanceItem[]
 }
@@ -83,6 +86,20 @@ const exportedWarranty = z
   })
   .refine((w) => w.months !== undefined || w.endMiles !== undefined, 'A warranty needs a limit')
 
+const exportedFillUp = z.object({
+  id: z.string().min(1),
+  filledOn: isoDate,
+  odometerMiles: z.number().int().min(0).max(2_000_000),
+  energy: z.enum(['fuel', 'electric']),
+  /** Gallons of fuel or kWh of charge. */
+  quantity: z.number().positive().max(1_000),
+  costCents: z.number().int().nonnegative().max(1_000_000).optional(),
+  full: z.boolean(),
+  missedPrevious: z.boolean(),
+  station: z.string().optional(),
+  notes: z.string().optional(),
+})
+
 const exportedCar = z.object({
   id: z.string().min(1),
   year: z.number().int(),
@@ -98,6 +115,8 @@ const exportedCar = z.object({
   services: z.array(exportedService),
   documents: z.array(exportedDocument),
   warranties: z.array(exportedWarranty),
+  // Exports made before fill-ups existed have none.
+  fillUps: z.array(exportedFillUp).default([]),
 })
 
 const exportFile = z.object({
@@ -111,6 +130,7 @@ export type ExportedCar = z.infer<typeof exportedCar>
 export type ExportedService = z.infer<typeof exportedService>
 export type ExportedDocument = z.infer<typeof exportedDocument>
 export type ExportedWarranty = z.infer<typeof exportedWarranty>
+export type ExportedFillUp = z.infer<typeof exportedFillUp>
 export type ExportFile = z.infer<typeof exportFile>
 
 /** A car's name in the export: its nickname, or year, make and model. */
@@ -167,6 +187,7 @@ cars.csv        Your cars.
 service-log.csv Every logged service, with its cost in US dollars.
 odometer.csv    Every odometer reading, in miles.
 warranties.csv  Every warranty, with when and at what mileage it ends.
+fill-ups.csv    Every fill-up and charging session: gallons or kWh, and its cost in US dollars.
 documents.csv   Every attached receipt, registration, insurance card or other file.
 documents/      The files themselves, in a folder per car.
 
@@ -214,10 +235,25 @@ export const buildArchive = (
     warranties: [
       ['car', 'kind', 'provider', 'starts_on', 'months', 'end_miles', 'policy_number', 'notes'],
     ],
+    fillUps: [
+      [
+        'car',
+        'date',
+        'odometer_miles',
+        'energy',
+        'quantity',
+        'unit',
+        'cost_usd',
+        'full',
+        'missed_previous',
+        'station',
+        'notes',
+      ],
+    ],
   }
 
   const exported: ExportedCar[] = cars.map(
-    ({ vehicle: v, readings, services, attachments, warranties, items }) => {
+    ({ vehicle: v, readings, services, attachments, warranties, fillUps, items }) => {
       const label = carName(safeName(carLabel(v)))
       const fileName = uniquely(true)
       const itemById = new Map(items.map((i) => [i.id, i]))
@@ -285,6 +321,23 @@ export const buildArchive = (
           w.policyNumber ?? '',
           w.notes ?? '',
         ])
+      const sortedFillUps = [...fillUps].sort(
+        (a, b) => a.filledOn.localeCompare(b.filledOn) || a.odometerMiles - b.odometerMiles,
+      )
+      for (const f of sortedFillUps)
+        rows.fillUps.push([
+          label,
+          f.filledOn,
+          String(f.odometerMiles),
+          f.energy,
+          String(f.quantity),
+          f.energy === 'fuel' ? 'gal' : 'kWh',
+          dollars(f.costCents),
+          f.full ? 'yes' : 'no',
+          f.missedPrevious ? 'yes' : 'no',
+          f.station ?? '',
+          f.notes ?? '',
+        ])
       rows.cars.push([
         label,
         String(v.year),
@@ -335,6 +388,18 @@ export const buildArchive = (
           ...(w.policyNumber && { policyNumber: w.policyNumber }),
           ...(w.notes && { notes: w.notes }),
         })),
+        fillUps: sortedFillUps.map((f) => ({
+          id: f.id,
+          filledOn: f.filledOn,
+          odometerMiles: f.odometerMiles,
+          energy: f.energy,
+          quantity: f.quantity,
+          ...(f.costCents !== undefined && { costCents: f.costCents }),
+          full: f.full,
+          missedPrevious: f.missedPrevious,
+          ...(f.station && { station: f.station }),
+          ...(f.notes && { notes: f.notes }),
+        })),
       }
     },
   )
@@ -351,6 +416,7 @@ export const buildArchive = (
   zip['service-log.csv'] = strToU8(csv(rows.services))
   zip['odometer.csv'] = strToU8(csv(rows.odometer))
   zip['warranties.csv'] = strToU8(csv(rows.warranties))
+  zip['fill-ups.csv'] = strToU8(csv(rows.fillUps))
   zip['documents.csv'] = strToU8(csv(rows.documents))
   return { bytes: zipSync(zip, { level: 6 }), missing }
 }

@@ -11,15 +11,15 @@ Questions or requests: **[CONTACT EMAIL]**.
 
 ## What we collect
 
-| What                                                                                | Why                                                                                                | Where it comes from                           |
-| ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| Your email address                                                                  | To sign you in with a one-time code and identify your account                                      | You, when you sign in                         |
-| An account identifier                                                               | To keep your data separate from everyone else's                                                    | Created when you first sign in                |
-| Your cars: year, make, model, trim, VIN if you enter one, nickname                  | To show the schedule, recalls and owner complaints for your car                                    | You                                           |
-| Odometer readings, service records (date, work done, cost, shop, notes), warranties | To work out what's due, remind you, and build your care report                                     | You                                           |
-| Photos and files you attach, such as receipts, registration and insurance           | To keep them with the car or service they belong to                                                | You, from your camera, photo library or Files |
-| Questions you ask in Ask, and the answers                                           | To answer you, keep the conversation going, and limit how many questions one account can ask a day | You                                           |
-| Photos of shop quotes you check                                                     | To read the quote's lines. They are not stored                                                     | You                                           |
+| What                                                                                                                                         | Why                                                                                                 | Where it comes from                           |
+| -------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| Your email address                                                                                                                           | To sign you in with a one-time code and identify your account                                       | You, when you sign in                         |
+| An account identifier                                                                                                                        | To keep your data separate from everyone else's                                                     | Created when you first sign in                |
+| Your cars: year, make, model, trim, VIN if you enter one, nickname                                                                           | To show the schedule, recalls and owner complaints for your car                                     | You                                           |
+| Odometer readings, service records (date, work done, cost, shop, notes), fill-ups and charging sessions (amount, price, mileage), warranties | To work out what's due, remind you, show fuel economy and running costs, and build your care report | You                                           |
+| Photos and files you attach, such as receipts, registration and insurance                                                                    | To keep them with the car or service they belong to                                                 | You, from your camera, photo library or Files |
+| Questions you ask in Ask, and the answers                                                                                                    | To answer you, keep the conversation going, and limit how many questions one account can ask a day  | You                                           |
+| Photos of shop quotes you check                                                                                                              | To read the quote's lines. They are not stored                                                      | You                                           |
 
 We do not collect your location, contacts, browsing history, advertising identifiers,
 diagnostics, or usage analytics. The app has no ads and no third-party analytics or tracking
@@ -67,8 +67,8 @@ about safety, have the car checked by a professional.
 
 We keep your data for as long as you have an account. When you delete your account in the app
 (**Account → Delete account**), we delete your account and everything stored for it from our
-database straight away: cars, odometer readings, service records, warranties, reminders and Ask
-conversations. Attached files are deleted from storage within a few hours. Copies in our
+database straight away: cars, odometer readings, service records, fill-ups, warranties, reminders
+and Ask conversations. Attached files are deleted from storage within a few hours. Copies in our
 providers' routine backups are overwritten on their normal schedule, within **[BACKUP PERIOD]**.
 
 ## Your choices and rights

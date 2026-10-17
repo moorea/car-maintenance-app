@@ -16,12 +16,12 @@ broker, so App Tracking Transparency is not needed.
 Every type below is **linked to the user** (it lives in their account), **not used for
 tracking**, and used only for **App Functionality**.
 
-| App Store category | Data type          | What it is in this app                                                                                       |
-| ------------------ | ------------------ | ------------------------------------------------------------------------------------------------------------ |
-| Contact Info       | Email Address      | The sign-in address                                                                                          |
-| Identifiers        | User ID            | The account id every row is stored under                                                                     |
-| User Content       | Photos or Videos   | Receipts and documents attached to cars and services; shop quote photos sent to be read                      |
-| User Content       | Other User Content | Cars (including a VIN if entered), odometer readings, service records, warranties, Ask questions and answers |
+| App Store category | Data type          | What it is in this app                                                                                                              |
+| ------------------ | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Contact Info       | Email Address      | The sign-in address                                                                                                                 |
+| Identifiers        | User ID            | The account id every row is stored under                                                                                            |
+| User Content       | Photos or Videos   | Receipts and documents attached to cars and services; shop quote photos sent to be read                                             |
+| User Content       | Other User Content | Cars (including a VIN if entered), odometer readings, service records, fill-ups and charging, warranties, Ask questions and answers |
 
 Leave everything else unchecked. In particular the app does **not** collect: location, contacts,
 health, financial info (service costs are the owner's own notes, not payment details),

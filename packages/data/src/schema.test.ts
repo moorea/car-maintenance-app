@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { fromAttachment, fromServiceRecord, fromVehicle, fromWarranty } from './rows'
+import { fromAttachment, fromFillUp, fromServiceRecord, fromVehicle, fromWarranty } from './rows'
 import { schema } from './schema'
 
 const migrations = fileURLToPath(new URL('../../../supabase/migrations/', import.meta.url))
@@ -57,6 +57,23 @@ describe('device schema', () => {
     const columns = synced.find((t) => t.name === 'warranties')?.columns.map((c) => c.name)
     const written = Object.keys(
       fromWarranty({ id: 'w', vehicleId: 'v', kind: 'basic', startsOn: 'd', months: 36 }),
+    )
+    expect(['id', ...(columns ?? [])]).toEqual(expect.arrayContaining(written))
+  })
+
+  it('stores every field the app writes for a fill-up', () => {
+    const columns = synced.find((t) => t.name === 'fill_ups')?.columns.map((c) => c.name)
+    const written = Object.keys(
+      fromFillUp({
+        id: 'f',
+        vehicleId: 'v',
+        filledOn: 'd',
+        odometerMiles: 1,
+        energy: 'fuel',
+        quantity: 1,
+        full: true,
+        missedPrevious: false,
+      }),
     )
     expect(['id', ...(columns ?? [])]).toEqual(expect.arrayContaining(written))
   })

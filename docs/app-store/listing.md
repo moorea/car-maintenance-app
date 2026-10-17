@@ -49,6 +49,7 @@ claim is something the app does today. `[Name]` waits on the app's name.
 >
 > OUT OF YOUR WAY
 > • A heads-up two weeks before a service is due, and on the day.
+> • Log fill-ups and charging to see fuel economy and what the car costs to run.
 > • Every car in your household in one garage.
 > • Works offline. Your garage, history and reminders live on your phone and sync when there's
 > signal.

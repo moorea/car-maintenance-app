@@ -1,7 +1,14 @@
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { OdometerReading, SafetyReport, ServiceRecord, Vehicle, Warranty } from '@car/core'
+import type {
+  FillUp,
+  OdometerReading,
+  SafetyReport,
+  ServiceRecord,
+  Vehicle,
+  Warranty,
+} from '@car/core'
 import { PowerSyncDatabase } from '@powersync/node'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { PowerSyncBackendConnector } from '@powersync/common'
@@ -173,6 +180,86 @@ describe('PowerSync repositories', () => {
     })
     const values = await updates.waitFor(2)
     expect(values.at(-1)?.map((w) => w.kind)).toEqual(['extended'])
+    updates.stop()
+  })
+
+  it('reads back fill-ups newest first, with switches and decimals intact', async () => {
+    const repos = createPowerSyncRepositories(db)
+    const older: FillUp = {
+      id: 'f1',
+      vehicleId: 'v1',
+      filledOn: '2026-09-01',
+      odometerMiles: 41_000,
+      energy: 'fuel',
+      quantity: 12.481,
+      costCents: 4_820,
+      full: true,
+      missedPrevious: false,
+      station: 'Costco',
+    }
+    const newer: FillUp = {
+      id: 'f2',
+      vehicleId: 'v1',
+      filledOn: '2026-09-10',
+      odometerMiles: 41_300,
+      energy: 'electric',
+      quantity: 40,
+      full: false,
+      missedPrevious: true,
+    }
+    await repos.fillUps.save(older)
+    await repos.fillUps.save(newer)
+    expect(await repos.fillUps.listForVehicle('v1')).toStrictEqual([newer, older])
+    expect(await repos.fillUps.listForVehicle('other')).toEqual([])
+  })
+
+  it('uploads a new fill-up as an insert, an edit as only what changed, and a delete', async () => {
+    const repos = createPowerSyncRepositories(db)
+    const fillUp: FillUp = {
+      id: 'f1',
+      vehicleId: 'v1',
+      filledOn: '2026-09-01',
+      odometerMiles: 41_000,
+      energy: 'fuel',
+      quantity: 12,
+      full: true,
+      missedPrevious: false,
+    }
+    await repos.fillUps.save(fillUp)
+    await repos.fillUps.save({ ...fillUp, odometerMiles: 41_100, full: false })
+    await repos.fillUps.save({ ...fillUp, odometerMiles: 41_100, full: false })
+    await repos.fillUps.remove('f1')
+    const ops: [string, Record<string, unknown> | undefined][] = []
+    for (let tx = await db.getNextCrudTransaction(); tx; tx = await db.getNextCrudTransaction()) {
+      ops.push(
+        ...tx.crud.map((c) => [c.op, c.opData] as [string, Record<string, unknown> | undefined]),
+      )
+      await tx.complete()
+    }
+    expect(ops.map(([op]) => op)).toEqual(['PUT', 'PATCH', 'DELETE'])
+    expect(Object.keys(ops[1]?.[1] ?? {}).sort()).toEqual([
+      'full_tank',
+      'odometer_miles',
+      'updated_at',
+    ])
+  })
+
+  it("tells a watcher about the car's fill-ups after each change", async () => {
+    const repos = createPowerSyncRepositories(db)
+    const updates = collect<FillUp[]>((cb) => repos.fillUps.watchForVehicle('v1', cb))
+    await updates.waitFor(1)
+    await repos.fillUps.save({
+      id: 'f1',
+      vehicleId: 'v1',
+      filledOn: '2026-09-01',
+      odometerMiles: 41_000,
+      energy: 'fuel',
+      quantity: 12,
+      full: true,
+      missedPrevious: false,
+    })
+    const values = await updates.waitFor(2)
+    expect(values.at(-1)?.map((f) => f.odometerMiles)).toEqual([41_000])
     updates.stop()
   })
 
