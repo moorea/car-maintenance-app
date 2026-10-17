@@ -99,14 +99,11 @@ const toFieldErrors = (error: z.ZodError): WarrantyFieldErrors =>
 
 const STATE_ORDER: Record<CoverageState, number> = { 'ending-soon': 0, active: 1, ended: 2 }
 
-/** "3" for 36 months, "2.5" for 30. */
-const yearsText = (months: number) => String(Math.round((months / 12) * 10) / 10)
-
 const draftFrom = (w: Warranty): WarrantyDraft => ({
   kind: w.kind,
   provider: w.provider ?? '',
   startsOn: w.startsOn,
-  years: w.months !== undefined ? yearsText(w.months) : '',
+  months: w.months !== undefined ? String(w.months) : '',
   endMiles: w.endMiles !== undefined ? w.endMiles.toLocaleString('en-US') : '',
   policyNumber: w.policyNumber ?? '',
   notes: w.notes ?? '',
@@ -129,7 +126,7 @@ export const createWarrantyModel = (deps: WarrantyDeps): WarrantyModel => {
     // A factory warranty starts on the in-service date; the owner corrects it from the paperwork.
     provider: vehicle.make,
     startsOn: deps.clock.today(),
-    years: '',
+    months: '',
     endMiles: '',
     policyNumber: '',
     notes: '',
@@ -216,7 +213,7 @@ export const createWarrantyModel = (deps: WarrantyDeps): WarrantyModel => {
         const form = get().form
         if (!form) return
         // The time limit's error also covers a missing mileage limit, so either field clears it.
-        const cleared = field === 'endMiles' ? ['endMiles', 'years'] : [field]
+        const cleared = field === 'endMiles' ? ['endMiles', 'months'] : [field]
         const fieldErrors: WarrantyFieldErrors = Object.fromEntries(
           Object.entries(form.fieldErrors).filter(([f]) => !cleared.includes(f)),
         )
@@ -247,7 +244,7 @@ export const createWarrantyModel = (deps: WarrantyDeps): WarrantyModel => {
           kind: d.kind,
           startsOn: d.startsOn,
           ...(d.provider !== undefined && { provider: d.provider }),
-          ...(d.years !== undefined && { months: Math.round(d.years * 12) }),
+          ...(d.months !== undefined && { months: d.months }),
           ...(d.endMiles !== undefined && { endMiles: d.endMiles }),
           ...(d.policyNumber !== undefined && { policyNumber: d.policyNumber }),
           ...(d.notes !== undefined && { notes: d.notes }),

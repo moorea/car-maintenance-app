@@ -72,8 +72,13 @@ export const coverageOf = ({ warranty, mileage, currentMiles, today }: CoverageI
         )
       : 0
     milesUsed = fraction(currentMiles - startMiles, warranty.endMiles - startMiles)
-    if (remaining <= 0) milesUsed = 1
   }
+  // Only a reading the owner took proves the limit is passed; a projection past it may be a car
+  // that has sat parked since its last reading, so it counts as ending soon, not ended.
+  const readPastLimit =
+    warranty.endMiles !== undefined &&
+    mileage.latest !== undefined &&
+    mileage.latest.miles >= warranty.endMiles
 
   const timeUsed =
     endsOn !== undefined
@@ -82,11 +87,7 @@ export const coverageOf = ({ warranty, mileage, currentMiles, today }: CoverageI
 
   const byMiles = milesReachedOn !== undefined && (endsOn === undefined || milesReachedOn < endsOn)
   const expectedEnd = byMiles ? milesReachedOn : endsOn
-  const ended =
-    (endsOn !== undefined && endsOn <= today) ||
-    (warranty.endMiles !== undefined &&
-      currentMiles !== undefined &&
-      currentMiles >= warranty.endMiles)
+  const ended = (endsOn !== undefined && endsOn <= today) || readPastLimit
   const state: CoverageState = ended
     ? 'ended'
     : expectedEnd !== undefined && daysBetween(today, expectedEnd) <= ENDING_SOON_DAYS
@@ -99,7 +100,7 @@ export const coverageOf = ({ warranty, mileage, currentMiles, today }: CoverageI
     milesReachedOn,
     endsBy: byMiles ? 'miles' : 'time',
     expectedEnd,
-    used: Math.max(timeUsed, milesUsed),
+    used: ended ? 1 : Math.max(timeUsed, milesUsed),
   }
 }
 
@@ -138,6 +139,8 @@ export const describeCoverage = (
       : `Ended at ${formatMiles(warranty.endMiles ?? 0)}`
   }
   if (coverage.state === 'ending-soon' && coverage.expectedEnd) {
+    if (coverage.endsBy === 'miles' && coverage.expectedEnd <= today)
+      return `Probably past ${formatMiles(warranty.endMiles ?? 0)} by now. Update the odometer to check`
     const when = roughly(daysBetween(today, coverage.expectedEnd))
     return coverage.endsBy === 'miles'
       ? `Ends ${when}, at ${formatMiles(warranty.endMiles ?? 0)}`

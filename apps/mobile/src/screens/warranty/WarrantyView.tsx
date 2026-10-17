@@ -208,12 +208,12 @@ function WarrantyForm({ form, kinds, setField, save, remove, closeForm }: Props)
         <Row spacing={10}>
           <FillColumn>
             <TextField
-              label="Years"
-              value={draft.years}
-              onChangeText={(v) => setField('years', v)}
-              error={errors.years}
-              placeholder="e.g. 3"
-              keyboardType="decimal-pad"
+              label="Months"
+              value={draft.months}
+              onChangeText={(v) => setField('months', v)}
+              error={errors.months}
+              placeholder="e.g. 36"
+              keyboardType="number-pad"
             />
           </FillColumn>
           <FillColumn>

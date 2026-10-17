@@ -253,7 +253,8 @@ export const buildCareReport = (input: CareReportInput): CareReport => {
           ? formatMiles(due.currentMiles)
           : `About ${formatMiles(roundTo(due.currentMiles, 10))}`,
     preparedOn: formatLongDate(today),
-    fileName: `Care report ${title} ${today}`,
+    // Characters a file system or mail client refuses are dropped, since make and model are typed.
+    fileName: `Care report ${title} ${today}`.replace(/[/\\:*?"<>|]/g, ''),
     summary: {
       services: records.length,
       diy: records.filter((r) => r.shop === undefined).length,

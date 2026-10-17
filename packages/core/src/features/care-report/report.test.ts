@@ -232,4 +232,16 @@ describe('care report layout', () => {
     expect(html).not.toContain('Maintenance against the schedule')
     expect(html).not.toContain('Records from')
   })
+
+  it('keeps the file name safe for a file system', () => {
+    const r = buildCareReport({
+      vehicle: { ...car, make: 'AC/DC', model: 'Mk: "2"?' },
+      items: [],
+      records: [],
+      readings: [],
+      warranties: [],
+      today: '2026-10-17',
+    })
+    expect(r.fileName).toBe('Care report 2021 ACDC Mk 2 2026-10-17')
+  })
 })

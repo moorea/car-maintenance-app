@@ -18,8 +18,7 @@ const optionalText = z
 
 /** Whole miles, allowing the thousands commas people copy from paperwork: "36,000". */
 const MILES = /^\d{1,3}(,\d{3})*$|^\d+$/
-/** Years with at most one decimal, such as "3" or "2.5". */
-const YEARS = /^\d+(\.\d)?$/
+const MONTHS = /^\d+$/
 
 /** What the owner types on the warranty form. Numbers arrive as text from inputs. */
 export const warrantyDraftSchema = z
@@ -27,15 +26,16 @@ export const warrantyDraftSchema = z
     kind: z.enum(KINDS, { error: 'Choose what it covers' }),
     provider: optionalText,
     startsOn: z.iso.date({ error: 'Enter the start date as YYYY-MM-DD' }),
-    years: z
+    // Months rather than years, so a 3-month dealer warranty is as easy to enter as a 3-year one.
+    months: z
       .string()
       .trim()
-      .transform((s) => (s === '' ? undefined : YEARS.test(s) ? Number(s) : Number.NaN))
+      .transform((s) => (s === '' ? undefined : MONTHS.test(s) ? Number(s) : Number.NaN))
       .pipe(
         z
-          .number({ error: 'Enter years like 3 or 2.5' })
-          .positive('Enter years like 3 or 2.5')
-          .max(100, 'That is longer than any warranty')
+          .number({ error: 'Enter whole months, like 36' })
+          .min(1, 'Enter whole months, like 36')
+          .max(1200, 'That is longer than any warranty')
           .optional(),
       ),
     endMiles: z
@@ -54,8 +54,8 @@ export const warrantyDraftSchema = z
     policyNumber: optionalText,
     notes: optionalText,
   })
-  .refine((d) => d.years !== undefined || d.endMiles !== undefined, {
-    path: ['years'],
+  .refine((d) => d.months !== undefined || d.endMiles !== undefined, {
+    path: ['months'],
     message: 'Enter how long it lasts, its mileage limit, or both',
   })
 

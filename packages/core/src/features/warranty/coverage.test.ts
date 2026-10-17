@@ -125,4 +125,16 @@ describe('warranty coverage', () => {
     expect(c.state).toBe('ending-soon')
     expect(describeCoverage(basic, c, '2026-01-01')).toBe('Ends in about 5 weeks, at 36,000 mi')
   })
+
+  it('does not call coverage ended on a projection alone', () => {
+    // One reading a year ago, projected on at the US average, passes the limit on paper only.
+    const mileage = learnMilesPerDay([{ vehicleId: 'v1', date: '2025-06-01', miles: 35_000 }])
+    const today = '2026-06-01'
+    const c = coverageOf({ warranty: basic, mileage, currentMiles: 48_505, today })
+    expect(c.state).toBe('ending-soon')
+    expect(c.used).toBe(1)
+    expect(describeCoverage(basic, c, today)).toBe(
+      'Probably past 36,000 mi by now. Update the odometer to check',
+    )
+  })
 })

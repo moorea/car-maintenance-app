@@ -105,7 +105,7 @@ describe('warranty screen', () => {
     expect(model.getState().form?.draft.startsOn).toBe('2026-10-17')
     model.getState().setField('kind', 'powertrain')
     model.getState().setField('startsOn', '2024-03-14')
-    model.getState().setField('years', '5')
+    model.getState().setField('months', '60')
     model.getState().setField('endMiles', '60,000')
     model.getState().setField('policyNumber', ' PT-1 ')
     expect(await model.getState().save()).toBe(true)
@@ -130,11 +130,11 @@ describe('warranty screen', () => {
     const { model, warranties } = setup()
     model.getState().openNew()
     expect(await model.getState().save()).toBe(false)
-    expect(model.getState().form?.fieldErrors.years).toBe(
+    expect(model.getState().form?.fieldErrors.months).toBe(
       'Enter how long it lasts, its mileage limit, or both',
     )
     model.getState().setField('endMiles', '100000')
-    expect(model.getState().form?.fieldErrors.years).toBeUndefined()
+    expect(model.getState().form?.fieldErrors.months).toBeUndefined()
     expect(await model.getState().save()).toBe(true)
     expect((await warranties.listForVehicle('v1'))[0]?.months).toBeUndefined()
   })
@@ -142,12 +142,12 @@ describe('warranty screen', () => {
   it('explains numbers it cannot read', async () => {
     const { model } = setup()
     model.getState().openNew()
-    model.getState().setField('years', 'three')
+    model.getState().setField('months', 'three')
     model.getState().setField('endMiles', '36k')
     model.getState().setField('startsOn', 'March 2024')
     expect(await model.getState().save()).toBe(false)
     expect(model.getState().form?.fieldErrors).toEqual({
-      years: 'Enter years like 3 or 2.5',
+      months: 'Enter whole months, like 36',
       endMiles: 'Enter whole miles, like 36,000',
       startsOn: 'Enter the start date as YYYY-MM-DD',
     })
@@ -158,11 +158,11 @@ describe('warranty screen', () => {
     await settle()
     model.getState().openEdit('w-basic')
     expect(model.getState().form?.draft).toMatchObject({
-      years: '3',
+      months: '36',
       endMiles: '36,000',
       kind: 'basic',
     })
-    model.getState().setField('years', '2.5')
+    model.getState().setField('months', '30')
     expect(await model.getState().save()).toBe(true)
     const saved = await warranties.listForVehicle('v1')
     expect(saved).toHaveLength(1)
@@ -184,7 +184,7 @@ describe('warranty screen', () => {
   it('keeps the form open with the error when saving fails', async () => {
     const { model, warranties } = setup()
     model.getState().openNew()
-    model.getState().setField('years', '3')
+    model.getState().setField('months', '36')
     warranties.failNext('Disk full')
     expect(await model.getState().save()).toBe(false)
     expect(model.getState().form).toMatchObject({ saving: false, error: 'Disk full' })
@@ -218,7 +218,7 @@ describe('warranty screen', () => {
   it('closes the form without saving', async () => {
     const { model, warranties } = setup()
     model.getState().openNew()
-    model.getState().setField('years', '3')
+    model.getState().setField('months', '36')
     model.getState().closeForm()
     expect(model.getState().form).toBeUndefined()
     expect(await warranties.listForVehicle('v1')).toEqual([])
@@ -299,5 +299,15 @@ describe('warranty screen', () => {
     })
     await model.getState().shareReport()
     expect(exporter.shared[0]?.schedule).toEqual([])
+  })
+
+  it('keeps a short dealer warranty exact through an edit', async () => {
+    const { model, warranties } = setup([{ ...basic, months: 3, endMiles: 3_000 }])
+    await settle()
+    model.getState().openEdit('w-basic')
+    expect(model.getState().form?.draft.months).toBe('3')
+    model.getState().setField('notes', 'Dealer used-car warranty')
+    expect(await model.getState().save()).toBe(true)
+    expect((await warranties.listForVehicle('v1'))[0]?.months).toBe(3)
   })
 })
