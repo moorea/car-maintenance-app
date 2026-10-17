@@ -21,6 +21,12 @@ export const formatMonth = (date: IsoDate): string => {
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
+/** "Mar 14, 2027", always with the year, for documents read long after they are made. */
+export const formatLongDate = (date: IsoDate): string => {
+  const d = parts(date)
+  return `${d.month} ${d.day}, ${d.year}`
+}
+
 /** "Saturday, Oct 17", for a heading about today. */
 export const formatWeekday = (date: IsoDate): string => {
   const d = parts(date)

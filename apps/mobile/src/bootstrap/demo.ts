@@ -1,4 +1,5 @@
 import {
+  memoryAttachments,
   memoryAccount,
   memoryAuth,
   memoryOdometer,
@@ -8,10 +9,11 @@ import {
   memorySync,
   memoryVehicles,
   memoryVinDecoder,
+  memoryWarranties,
   OWNER,
 } from '@car/core/testing'
 import { demoModel, localAssistant } from '@car/core/testing'
-import type { Clock, MaintenanceItem, SafetyReport } from '@car/core'
+import type { Attachment, AttachmentRepo, Clock, MaintenanceItem, SafetyReport } from '@car/core'
 
 /** A VIN the demo's offline decoder knows, for previews where the real lookup cannot run. */
 export const DEMO_VIN = '1HGCM82633A004352'
@@ -298,6 +300,51 @@ const DEMO_SCHEDULE: MaintenanceItem[] = [
   },
 ]
 
+/** Sample documents and a receipt for the demo car, for the web preview's screenshots. */
+export const DEMO_ATTACHMENTS: Attachment[] = [
+  {
+    id: 'demo-insurance',
+    vehicleId: 'demo',
+    kind: 'insurance',
+    name: 'Insurance card.pdf',
+    contentType: 'application/pdf',
+    sizeBytes: 182_000,
+    addedOn: '2026-09-01',
+  },
+  {
+    id: 'demo-registration',
+    vehicleId: 'demo',
+    kind: 'registration',
+    name: 'Registration.jpg',
+    contentType: 'image/jpeg',
+    sizeBytes: 1_240_000,
+    addedOn: '2026-03-02',
+  },
+  {
+    id: 'demo-receipt',
+    vehicleId: 'demo',
+    serviceRecordId: 'seed-1',
+    kind: 'receipt',
+    name: 'Receipt.jpg',
+    contentType: 'image/jpeg',
+    sizeBytes: 640_000,
+    addedOn: '2026-07-01',
+  },
+]
+
+/**
+ * Attachments kept in memory. Opening one gives back the picked file's own URI, or the sample
+ * file in `files` for the seeded ones; without `files` the demo starts with none.
+ */
+export const demoAttachments = (files?: Record<string, string>): AttachmentRepo => {
+  const repo = memoryAttachments(files ? DEMO_ATTACHMENTS : [])
+  return {
+    ...repo,
+    open: async (attachment) =>
+      repo.files.get(attachment.id)?.uri ?? files?.[attachment.id] ?? repo.open(attachment),
+  }
+}
+
 /** Sample data for running the app without a backend, e.g. before Supabase is set up. */
 export const createDemoRepositories = () => {
   // Already signed in, so the demo opens on the sample car. After signing out, any email with
@@ -331,6 +378,46 @@ export const createDemoRepositories = () => {
     ]),
     schedule: memorySchedule(DEMO_SCHEDULE),
     safety: memorySafety({ demo: DEMO_SAFETY }),
+    // Factory coverage as Toyota states it for a RAV4, from a sale in April 2022, plus a dealer's
+    // add-on, so the demo shows coverage that has ended, is ending soon and has years left.
+    warranties: memoryWarranties([
+      {
+        id: 'demo-w-basic',
+        vehicleId: 'demo',
+        kind: 'basic',
+        provider: 'Toyota',
+        startsOn: '2022-04-02',
+        months: 36,
+        endMiles: 36_000,
+      },
+      {
+        id: 'demo-w-powertrain',
+        vehicleId: 'demo',
+        kind: 'powertrain',
+        provider: 'Toyota',
+        startsOn: '2022-04-02',
+        months: 60,
+        endMiles: 60_000,
+      },
+      {
+        id: 'demo-w-corrosion',
+        vehicleId: 'demo',
+        kind: 'corrosion',
+        provider: 'Toyota',
+        startsOn: '2022-04-02',
+        months: 60,
+      },
+      {
+        id: 'demo-w-tires',
+        vehicleId: 'demo',
+        kind: 'other',
+        provider: 'Demo Garage tire and wheel plan',
+        startsOn: '2024-01-10',
+        months: 36,
+        policyNumber: 'TW-20431',
+      },
+    ]),
+    attachments: demoAttachments(),
     records: memoryServiceRecords([
       {
         id: 'seed-1',

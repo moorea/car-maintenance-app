@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { OdometerReading, SafetyReport, ServiceRecord, Vehicle } from '@car/core'
+import type { OdometerReading, SafetyReport, ServiceRecord, Vehicle, Warranty } from '@car/core'
 import { PowerSyncDatabase } from '@powersync/node'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { PowerSyncBackendConnector } from '@powersync/common'
@@ -116,6 +116,64 @@ describe('PowerSync repositories', () => {
     await repos.odometer.add({ vehicleId: 'v1', date: '2026-09-01', miles: 42_000 })
     const tx = await db.getNextCrudTransaction()
     expect(tx?.crud.map((c) => [c.op, c.table])).toEqual([['PUT', 'service_records']])
+  })
+
+  it('reads back a saved warranty, leaving optional fields absent', async () => {
+    const repos = createPowerSyncRepositories(db)
+    const warranty: Warranty = {
+      id: 'w1',
+      vehicleId: 'v1',
+      kind: 'powertrain',
+      startsOn: '2024-03-14',
+      endMiles: 60_000,
+    }
+    await repos.warranties.save(warranty)
+    expect(await repos.warranties.listForVehicle('v1')).toStrictEqual([warranty])
+    expect(await repos.warranties.listForVehicle('other')).toEqual([])
+  })
+
+  it('uploads a new warranty as an insert, an edit as only what changed, and a delete', async () => {
+    const repos = createPowerSyncRepositories(db)
+    const warranty: Warranty = {
+      id: 'w1',
+      vehicleId: 'v1',
+      kind: 'basic',
+      provider: 'Toyota',
+      startsOn: '2024-03-14',
+      months: 36,
+      endMiles: 36_000,
+    }
+    await repos.warranties.save(warranty)
+    await repos.warranties.save({ ...warranty, months: 30 })
+    // Saving it unchanged queues nothing.
+    await repos.warranties.save({ ...warranty, months: 30 })
+    await repos.warranties.remove('w1')
+    const ops: [string, Record<string, unknown> | undefined][] = []
+    for (let tx = await db.getNextCrudTransaction(); tx; tx = await db.getNextCrudTransaction()) {
+      ops.push(
+        ...tx.crud.map((c) => [c.op, c.opData] as [string, Record<string, unknown> | undefined]),
+      )
+      await tx.complete()
+    }
+    expect(ops.map(([op]) => op)).toEqual(['PUT', 'PATCH', 'DELETE'])
+    expect(Object.keys(ops[1]?.[1] ?? {}).sort()).toEqual(['months', 'updated_at'])
+    expect(await repos.warranties.listForVehicle('v1')).toEqual([])
+  })
+
+  it("tells a watcher about the car's warranties after each change", async () => {
+    const repos = createPowerSyncRepositories(db)
+    const updates = collect<Warranty[]>((cb) => repos.warranties.watchForVehicle('v1', cb))
+    await updates.waitFor(1)
+    await repos.warranties.save({
+      id: 'w1',
+      vehicleId: 'v1',
+      kind: 'extended',
+      startsOn: '2026-01-01',
+      months: 48,
+    })
+    const values = await updates.waitFor(2)
+    expect(values.at(-1)?.map((w) => w.kind)).toEqual(['extended'])
+    updates.stop()
   })
 
   it('remembers whose data the local copy holds, without queueing it for upload', async () => {

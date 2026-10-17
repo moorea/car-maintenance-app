@@ -2,7 +2,7 @@ name: Import NHTSA bulletins
 
 # NHTSA publishes manufacturer communications (service bulletins, warranty extensions) and the
 # mileage of each owner complaint only as bulk files, so this job downloads them and stores the
-# rows for model years someone owns (packages/importer, ADR 0012). It checks the files' ETags
+# rows for model years someone owns (packages/importer, ADR 0013). It checks the files' ETags
 # first, so a run with nothing new and no new car takes about a minute.
 on:
   schedule:

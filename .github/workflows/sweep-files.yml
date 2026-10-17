@@ -1,0 +1,48 @@
+name: Sweep orphaned files
+
+# Deletes attachment files whose car or account was deleted, or whose row never arrived, from the
+# hosted Supabase project's Storage. Rows cascade in Postgres but files do not, and Supabase only
+# lets the Storage API delete them. See packages/server/src/sweep.ts and ADR 0012.
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sweep-files
+  cancel-in-progress: false
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJECT_REF: vdklyvktmbcocwmiqkze
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @car/server build
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.121.0
+      # The service role key comes from the project itself, through the access token the deploy
+      # workflows already use, so there is no second copy of it to keep in sync.
+      - name: Read the service role key
+        run: |
+          key=$(supabase projects api-keys --project-ref "$PROJECT_REF" --reveal --output json \
+            | jq -r '.[] | select(.name == "service_role") | .api_key')
+          if [ -z "$key" ]; then echo "The project has no service_role key"; exit 1; fi
+          echo "::add-mask::$key"
+          echo "SUPABASE_SERVICE_ROLE_KEY=$key" >> "$GITHUB_ENV"
+      - name: Sweep
+        env:
+          SUPABASE_URL: https://${{ env.PROJECT_REF }}.supabase.co
+        run: node packages/server/dist/sweep-files.mjs

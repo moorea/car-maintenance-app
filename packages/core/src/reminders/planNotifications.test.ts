@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import type { Vehicle } from '../domain/types'
 import { addDays } from '../lib/date'
-import { MAX_SCHEDULED_REMINDERS, planNotifications } from './planNotifications'
+import {
+  MAX_SCHEDULED_REMINDERS,
+  planNotifications,
+  type WarrantyEnding,
+} from './planNotifications'
 import type { DueProjection } from './projectDue'
 
 const rav4: Vehicle = {
@@ -167,5 +171,62 @@ describe('planNotifications', () => {
     expect(dates).toEqual([...dates].sort())
     // 28 due-date and 33 heads-up reminders fall on or before 2027-03-23.
     expect(plan.at(-1)?.id).toBe('reminder:v1:due:2027-03-23')
+  })
+
+  describe('warranties', () => {
+    const powertrain: WarrantyEnding = {
+      id: 'w1',
+      coverage: 'Powertrain coverage',
+      endsOn: '2027-03-14',
+      endsBy: 'time',
+      endMiles: 60_000,
+    }
+
+    it('warns a month and a week before a coverage ends', () => {
+      const plan = planNotifications(
+        [{ vehicle: rav4, due: [], warranties: [powertrain] }],
+        '2026-10-01',
+      )
+      expect(plan).toEqual([
+        {
+          id: 'warranty:v1:w1:30',
+          date: '2027-02-12',
+          hour: 9,
+          title: 'RAV4: warranty ending',
+          body: 'Powertrain coverage ends in about a month, on Mar 14, 2027. Have anything it covers looked at before then.',
+          vehicleId: 'v1',
+        },
+        {
+          id: 'warranty:v1:w1:7',
+          date: '2027-03-07',
+          hour: 9,
+          title: 'RAV4: warranty ending',
+          body: 'Powertrain coverage ends in about a week, on Mar 14, 2027. Have anything it covers looked at before then.',
+          vehicleId: 'v1',
+        },
+      ])
+    })
+
+    it('gives the mileage when the car will reach the limit first', () => {
+      const plan = planNotifications(
+        [{ vehicle: rav4, due: [], warranties: [{ ...powertrain, endsBy: 'miles' }] }],
+        '2027-02-20',
+      )
+      expect(plan.map((n) => n.body)).toEqual([
+        'Powertrain coverage ends at 60,000 mi, about a week away at your usual driving. Have anything it covers looked at before then.',
+      ])
+    })
+
+    it('shares the cap with service reminders, soonest first', () => {
+      const services = Array.from({ length: MAX_SCHEDULED_REMINDERS }, (_, i) =>
+        due({ itemId: `item${i}`, dueDate: addDays('2027-04-01', i) }),
+      )
+      const plan = planNotifications(
+        [{ vehicle: rav4, due: services, warranties: [powertrain] }],
+        '2026-10-01',
+      )
+      expect(plan).toHaveLength(MAX_SCHEDULED_REMINDERS)
+      expect(plan[0]?.id).toBe('warranty:v1:w1:30')
+    })
   })
 })

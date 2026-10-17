@@ -1,17 +1,21 @@
 import type { IsoDate } from '../lib/date'
 import type {
   AnswerSource,
+  Attachment,
   AuthUser,
   DecodedVin,
   MaintenanceItem,
   OdometerReading,
+  PickedFile,
   QuoteLine,
   QuotePhoto,
   SafetyReport,
   ServiceRecord,
   Vehicle,
   VehicleId,
+  Warranty,
 } from '../domain/types'
+import type { CareReport } from '../features/care-report/report'
 
 /**
  * Ports are the only way core reaches storage, the network or the clock. The app supplies
@@ -83,6 +87,66 @@ export interface OdometerRepo {
     onChange: (readings: OdometerReading[]) => void,
   ): Unsubscribe
   add(reading: OdometerReading): Promise<void>
+}
+
+/** The warranties the owner has entered for their cars. Editable, unlike the service history. */
+export interface WarrantyRepo {
+  listForVehicle(vehicleId: VehicleId): Promise<Warranty[]>
+  /** Calls `onChange` with the car's warranties now and after every change, like a live query. */
+  watchForVehicle(vehicleId: VehicleId, onChange: (warranties: Warranty[]) => void): Unsubscribe
+  /** Adds the warranty, or replaces the one with the same id. */
+  save(warranty: Warranty): Promise<void>
+  remove(id: string): Promise<void>
+}
+
+/** Turns a care report into a file the owner can send, such as a PDF in the share sheet. */
+export interface CareReportExporter {
+  /** Resolves once the owner has been offered the file, whether or not they sent it. */
+  share(report: CareReport): Promise<void>
+}
+
+/**
+ * Photos and PDFs attached to cars and services. The details sync like any other row; each file
+ * uploads after it is attached and downloads to another phone the first time it is opened there.
+ */
+export interface AttachmentRepo {
+  /** Everything attached to the car or its services, newest first. */
+  listForVehicle(vehicleId: VehicleId): Promise<Attachment[]>
+  /**
+   * Calls `onChange` with everything attached to the car or its services, now and after every
+   * change.
+   */
+  watchForVehicle(vehicleId: VehicleId, onChange: (attachments: Attachment[]) => void): Unsubscribe
+  /** Keeps a copy of `file` on this phone and saves the attachment; works offline. */
+  add(attachment: Attachment, file: PickedFile): Promise<void>
+  /**
+   * Resolves with a local URI of the file, downloading it first if this phone has no copy. Rejects
+   * with AttachmentError.
+   */
+  open(attachment: Attachment): Promise<string>
+  /** Deletes the attachment and its file, on this phone and on the server. */
+  remove(attachment: Attachment): Promise<void>
+}
+
+/** Shows a file full screen in the system's viewer (Quick Look on iOS). */
+export interface FilePreview {
+  /**
+   * Resolves once the viewer is showing. `file` gives the viewer its title and type, since the
+   * copy on the phone is named by attachment id.
+   */
+  show(uri: string, file: { name: string; contentType: string }): Promise<void>
+}
+
+/** Where the owner gets a file from. */
+export type FileSource = 'camera' | 'photos' | 'files'
+
+/** The system camera, photo library and file picker. */
+export interface FilePicker {
+  /**
+   * Resolves with the photo or file, or undefined if the owner cancelled. Rejects with
+   * AttachmentError('denied') when the owner has refused access.
+   */
+  pick(source: FileSource): Promise<PickedFile | undefined>
 }
 
 export interface ScheduleRepo {

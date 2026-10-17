@@ -3,7 +3,7 @@
 -- files, not through its API, so a GitHub Actions job (packages/importer) downloads them, keeps
 -- the rows for model years someone owns, and stores them through the functions below. Bulletins
 -- and per-mileage complaint counts sync to the phone; complaint mileages stay here for the
--- assistant. See ADR 0012.
+-- assistant. See ADR 0013.
 
 alter table public.vehicle_configs
   -- When the importer last stored this model year's bulletins, so the phone can tell "no
