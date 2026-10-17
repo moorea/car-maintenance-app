@@ -2,6 +2,7 @@ import { createStore, type StoreApi } from 'zustand/vanilla'
 import {
   AssistantError,
   type AssistantErrorKind,
+  type Bulletin,
   type QuotePhoto,
   type Recall,
   type Vehicle,
@@ -102,6 +103,7 @@ export const createQuoteCheckModel = (deps: QuoteCheckDeps): QuoteCheckModel => 
   const { vehicle } = deps
   const unmatched = vehicle.configId === undefined
   let recalls: Recall[] = []
+  let bulletins: Bulletin[] = []
   let stopSafety: Unsubscribe | undefined
   let reading: { cancel: () => void } | undefined
   // True while the camera or photo picker is open, so a second tap does not open another.
@@ -136,6 +138,7 @@ export const createQuoteCheckModel = (deps: QuoteCheckDeps): QuoteCheckModel => 
           records,
           readings,
           recalls,
+          bulletins,
           lines,
           today: deps.clock.today(),
         })
@@ -203,6 +206,7 @@ export const createQuoteCheckModel = (deps: QuoteCheckDeps): QuoteCheckModel => 
         disposed = false
         stopSafety = deps.safety.watchForConfig(vehicle.configId, (report) => {
           recalls = report.recalls
+          bulletins = report.bulletins ?? []
         })
       },
 

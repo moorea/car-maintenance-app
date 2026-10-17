@@ -14,6 +14,7 @@ import { readOwner } from './session'
 import {
   fromServiceRecord,
   fromVehicle,
+  toBulletin,
   toComplaintSummary,
   toMaintenanceItem,
   toOdometerReading,
@@ -61,8 +62,8 @@ const watchRows = (
 }
 
 /**
- * Calls `onChange` with a configuration's recalls, complaint summaries and check times once all
- * three have been read, and again whenever one of them changes.
+ * Calls `onChange` with a configuration's recalls, complaint summaries, bulletins and check times
+ * once all four have been read, and again whenever one of them changes.
  */
 const watchSafety = (
   db: CommonPowerSyncDatabase,
@@ -72,9 +73,17 @@ const watchSafety = (
   let config: Row | undefined
   let recalls: Row[] | undefined
   let complaints: Row[] | undefined
+  let bulletins: Row[] | undefined
   const emit = () => {
-    if (!config || !recalls || !complaints) return
-    onChange(toSafetyReport(config, recalls.map(toRecall), complaints.map(toComplaintSummary)))
+    if (!config || !recalls || !complaints || !bulletins) return
+    onChange(
+      toSafetyReport(
+        config,
+        recalls.map(toRecall),
+        complaints.map(toComplaintSummary),
+        bulletins.map(toBulletin),
+      ),
+    )
   }
   const stops = [
     watchRows(
@@ -98,6 +107,16 @@ const watchSafety = (
       'complaint_summaries',
       (rows) => {
         complaints = rows
+        emit()
+      },
+    ),
+    watchRows(
+      db,
+      'select * from bulletins where config_id = ?',
+      [configId],
+      'bulletins',
+      (rows) => {
+        bulletins = rows
         emit()
       },
     ),

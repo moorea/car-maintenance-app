@@ -14,6 +14,7 @@ export const schema = new Schema({
     drivetrain: column.text,
     recalls_checked_at: column.text,
     complaints_checked_at: column.text,
+    bulletins_checked_at: column.text,
   }),
   recalls: new Table(
     {
@@ -44,6 +45,22 @@ export const schema = new Schema({
       latest_filed_on: column.text,
       // JSON text: [{ "filed_on": "2024-05-01", "summary": "..." }]
       recent: column.text,
+      // JSON text: [{ "from": 80000, "complaints": 4 }]
+      by_mileage: column.text,
+    },
+    { indexes: { by_config: ['config_id'] } },
+  ),
+  bulletins: new Table(
+    {
+      config_id: column.text,
+      nhtsa_id: column.integer,
+      document_id: column.text,
+      kind: column.text,
+      issued_on: column.text,
+      // JSON text: ["ENGINE", "POWER TRAIN"]
+      components: column.text,
+      system: column.text,
+      summary: column.text,
     },
     { indexes: { by_config: ['config_id'] } },
   ),

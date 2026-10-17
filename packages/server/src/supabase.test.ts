@@ -24,6 +24,16 @@ const fakeClient = (
         return builder
       },
       order: (...args: unknown[]) => (calls.push({ table, op: 'order', args }), builder),
+      gte: (column: string, value: number) => {
+        calls.push({ table, op: 'gte', args: [column, value] })
+        result = result.filter((r) => typeof r[column] === 'number' && r[column] >= value)
+        return builder
+      },
+      lte: (column: string, value: number) => {
+        calls.push({ table, op: 'lte', args: [column, value] })
+        result = result.filter((r) => typeof r[column] === 'number' && r[column] <= value)
+        return builder
+      },
       limit: (n: number) => ((result = result.slice(0, n)), builder),
       insert: (value: Row | Row[]) => {
         const added = (Array.isArray(value) ? value : [value]).map((r, i) => ({
@@ -113,10 +123,29 @@ const tables: Record<string, Row[]> = {
       deaths: 0,
       latest_filed_on: null,
       recent: [{ filed_on: '2025-01-01', summary: 'Stalls' }, { bad: true }],
+      by_mileage: [{ from: 30_000, complaints: 2 }, { from: 'x' }],
+    },
+  ],
+  bulletins: [
+    {
+      id: 'b1',
+      config_id: 'c1',
+      nhtsa_id: 10181234,
+      document_id: '19-047',
+      kind: 'warranty',
+      issued_on: '2019-05-01',
+      components: ['ENGINE'],
+      system: null,
+      summary: 'Coverage extended.',
     },
   ],
   vehicle_configs: [
-    { id: 'c1', recalls_checked_at: '2026-10-16T00:00:00+00:00', complaints_checked_at: null },
+    {
+      id: 'c1',
+      recalls_checked_at: '2026-10-16T00:00:00+00:00',
+      complaints_checked_at: null,
+      bulletins_checked_at: '2026-10-17T00:00:00+00:00',
+    },
   ],
 }
 
@@ -124,7 +153,7 @@ describe('supabaseStore', () => {
   it("reads the owner's car with their token and raw complaints with the service role", async () => {
     const user = fakeClient(tables)
     const admin = fakeClient({
-      complaints: [
+      complaints_with_miles: [
         {
           odi_number: 11,
           config_id: 'c1',
@@ -135,6 +164,7 @@ describe('supabaseStore', () => {
           fire: true,
           injuries: 0,
           deaths: 0,
+          miles: 31_000,
         },
       ],
     })
@@ -156,14 +186,50 @@ describe('supabaseStore', () => {
         recallsCheckedAt: '2026-10-16T00:00:00+00:00',
         recalls: [{ campaign: '24V001000', parkIt: true }],
         complaints: [
-          { component: 'ENGINE', recent: [{ filedOn: '2025-01-01', summary: 'Stalls' }] },
+          {
+            component: 'ENGINE',
+            recent: [{ filedOn: '2025-01-01', summary: 'Stalls' }],
+            byMileage: [{ from: 30_000, complaints: 2 }],
+          },
+        ],
+        bulletinsCheckedAt: '2026-10-17T00:00:00+00:00',
+        bulletins: [
+          { nhtsaId: 10181234, documentId: '19-047', kind: 'warranty', components: ['ENGINE'] },
         ],
       },
-      complaints: [{ odiNumber: 11, components: ['ENGINE'], fire: true }],
+      complaints: [{ odiNumber: 11, components: ['ENGINE'], fire: true, miles: 31_000 }],
     })
     expect(facts?.vehicle).not.toHaveProperty('vin')
     expect(facts?.safety).not.toHaveProperty('complaintsCheckedAt')
     expect(user.calls.some((c) => c.table === 'complaints')).toBe(false)
+  })
+
+  it("adds the complaints that happened near the car's mileage to the newest", async () => {
+    const complaint = (odi: number, filed: string, miles: number | null) => ({
+      odi_number: odi,
+      config_id: 'c1',
+      components: ['ENGINE'],
+      summary: `Complaint ${odi}`,
+      filed_on: filed,
+      crash: false,
+      fire: false,
+      injuries: 0,
+      deaths: 0,
+      miles,
+    })
+    const newest = Array.from({ length: 30 }, (_, i) => complaint(100 + i, '2026-01-01', null))
+    const admin = fakeClient({
+      complaints_with_miles: [
+        ...newest,
+        complaint(1, '2015-01-01', 31_500),
+        complaint(2, '2015-01-01', 90_000),
+      ],
+    })
+    const facts = await supabaseStore(fakeClient(tables).client, admin.client, 'u1').facts('v1')
+    const odis = facts?.complaints.map((c) => c.odiNumber) ?? []
+    expect(odis).toHaveLength(31)
+    expect(odis).toContain(1)
+    expect(odis).not.toContain(2)
   })
 
   it('finds no car the owner cannot see', async () => {

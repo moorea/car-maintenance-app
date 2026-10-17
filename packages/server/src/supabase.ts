@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type {
   AnswerSource,
+  Bulletin,
+  BulletinKind,
   ChatTurn,
   Complaint,
   ComplaintSummary,
@@ -10,7 +12,7 @@ import type {
   ServiceRecord,
   Vehicle,
 } from '@car/core'
-import { MAX_COMPLAINTS, MAX_HISTORY_TURNS } from '@car/core'
+import { MAX_COMPLAINTS, MAX_HISTORY_TURNS, MAX_NEARBY_COMPLAINTS, MILEAGE_BAND } from '@car/core'
 import type { AssistantStore } from './handler'
 
 /** PostgREST returns JSON: null for missing values, numbers, booleans and ISO date strings. */
@@ -109,7 +111,31 @@ const toSummary = (r: Row): ComplaintSummary =>
             : [],
         )
       : [],
+    byMileage: Array.isArray(r.by_mileage)
+      ? (r.by_mileage as Row[]).flatMap((b) =>
+          typeof b.from === 'number' && typeof b.complaints === 'number'
+            ? [{ from: b.from, complaints: b.complaints }]
+            : [],
+        )
+      : undefined,
   })
+
+const KINDS = new Set<BulletinKind>(['bulletin', 'warranty', 'campaign', 'software', 'emissions'])
+
+const toBulletin = (r: Row): Bulletin => {
+  const kind = text(r.kind) as BulletinKind | undefined
+  return defined({
+    id: String(r.id),
+    configId: String(r.config_id),
+    nhtsaId: num(r.nhtsa_id) ?? 0,
+    documentId: text(r.document_id),
+    kind: kind && KINDS.has(kind) ? kind : 'other',
+    issuedOn: text(r.issued_on),
+    components: Array.isArray(r.components) ? r.components.map(String) : [],
+    system: text(r.system),
+    summary: text(r.summary) ?? '',
+  })
+}
 
 const toComplaint = (r: Row): Complaint =>
   defined({
@@ -117,6 +143,7 @@ const toComplaint = (r: Row): Complaint =>
     components: Array.isArray(r.components) ? r.components.map(String) : [],
     summary: text(r.summary) ?? '',
     filedOn: text(r.filed_on),
+    miles: num(r.miles),
     crash: r.crash === true,
     fire: r.fire === true,
     injuries: num(r.injuries) ?? 0,
@@ -148,27 +175,43 @@ export const supabaseStore = (
     const forConfig = async (table: string) =>
       configId === undefined ? [] : rows(user.from(table).select('*').eq('config_id', configId))
 
-    const [readings, records, schedule, recalls, summaries, configs, complaints] =
-      await Promise.all([
+    const [readings, records, schedule, recalls, summaries, bulletins, configs] = await Promise.all(
+      [
         rows(user.from('odometer_readings').select('*').eq('vehicle_id', vehicleId)),
         rows(user.from('service_records').select('*').eq('vehicle_id', vehicleId)),
         forConfig('maintenance_items'),
         forConfig('recalls'),
         forConfig('complaint_summaries'),
+        forConfig('bulletins'),
         configId === undefined
           ? []
           : rows(user.from('vehicle_configs').select('*').eq('id', configId)),
-        configId === undefined
-          ? []
-          : rows(
-              admin
-                .from('complaints')
-                .select('*')
-                .eq('config_id', configId)
-                .order('filed_on', { ascending: false, nullsFirst: false })
-                .limit(MAX_COMPLAINTS),
-            ),
-      ])
+      ],
+    )
+    // The newest complaints, and the newest of those that happened near the car's last reading,
+    // from which the grounding picks its sample.
+    const latest = readings.map(toReading).sort((a, b) => b.date.localeCompare(a.date))[0]?.miles
+    const complaintsQuery = () =>
+      admin
+        .from('complaints_with_miles')
+        .select('*')
+        .eq('config_id', configId)
+        .order('filed_on', { ascending: false, nullsFirst: false })
+    const [newest, near] =
+      configId === undefined
+        ? [[], []]
+        : await Promise.all([
+            rows(complaintsQuery().limit(MAX_COMPLAINTS)),
+            latest === undefined
+              ? []
+              : rows(
+                  complaintsQuery()
+                    .gte('miles', latest - MILEAGE_BAND)
+                    .lte('miles', latest + 2 * MILEAGE_BAND)
+                    .limit(MAX_NEARBY_COMPLAINTS * 2),
+                ),
+          ])
+    const complaints = [...new Map([...newest, ...near].map((r) => [r.odi_number, r])).values()]
     const config = configs[0] ?? {}
     return {
       vehicle,
@@ -179,8 +222,10 @@ export const supabaseStore = (
       safety: defined({
         recallsCheckedAt: text(config.recalls_checked_at),
         complaintsCheckedAt: text(config.complaints_checked_at),
+        bulletinsCheckedAt: text(config.bulletins_checked_at),
         recalls: recalls.map(toRecall),
         complaints: summaries.map(toSummary),
+        bulletins: bulletins.map(toBulletin),
       }),
       complaints: complaints.map(toComplaint),
     }

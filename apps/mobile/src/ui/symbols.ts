@@ -50,6 +50,18 @@ export const SYMBOLS = {
   },
   photo: { ios: 'photo', paths: ['M3 5h18v14H3z', 'M3 16l5-5 4 4 3-3 6 6', 'M15 9h.01'] },
   quote: { ios: 'list.bullet.clipboard', paths: ['M7 4h10v17H7z', 'M10 9h5M10 13h5M10 17h3'] },
+  bulletin: {
+    ios: 'wrench.and.screwdriver',
+    paths: ['M14 6a4 4 0 0 0 5 5l-9 9-3-3 9-9a4 4 0 0 0-2-2z', 'M4 4l6 6'],
+  },
+  shield: {
+    ios: 'checkmark.shield',
+    paths: ['M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z', 'M8.5 12l2.5 2.5 4.5-5'],
+  },
+  gauge: {
+    ios: 'gauge.with.dots.needle.67percent',
+    paths: ['M4 17a8 8 0 1 1 16 0', 'M12 17l4-5', 'M12 17h.01'],
+  },
 } satisfies Record<string, { ios: SFSymbol; paths: string[] }>
 
 export type SymbolName = keyof typeof SYMBOLS

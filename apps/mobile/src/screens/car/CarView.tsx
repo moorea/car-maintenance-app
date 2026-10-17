@@ -18,7 +18,8 @@ import { Symbol } from '../../ui/Symbol'
 import { TAB_BAR_CLEARANCE } from '../../ui/TabBar'
 import { TextField } from '../../ui/TextField'
 import { Card, Dot, FillColumn, Separator } from '../../ui/surfaces'
-import { ComplaintsSection, RecallsSection } from './SafetySections'
+import { KnownIssuesSection } from './KnownIssues'
+import { RecallsSection } from './SafetySections'
 
 interface Props {
   car: CarState & CarActions
@@ -60,7 +61,7 @@ export function CarView({ car, safety, onCheckQuote }: Props) {
           ) : car.section === 'recalls' ? (
             <RecallsSection {...safety} />
           ) : (
-            <ComplaintsSection {...safety} />
+            <KnownIssuesSection {...safety} />
           )}
         </Column>
       </ScrollView>

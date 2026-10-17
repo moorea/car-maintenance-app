@@ -13,6 +13,12 @@ export const formatDay = (date: IsoDate, today: IsoDate): string => {
   return d.year === parts(today).year ? `${d.month} ${d.day}` : `${d.month} ${d.day}, ${d.year}`
 }
 
+/** "Sep 2025". */
+export const formatMonth = (date: IsoDate): string => {
+  const d = parts(date)
+  return `${d.month} ${d.year}`
+}
+
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
 /** "Saturday, Oct 17", for a heading about today. */

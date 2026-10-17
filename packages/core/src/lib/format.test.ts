@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { formatAgo, formatCents, formatDay, formatMiles, formatWeekday } from './format'
+import {
+  formatAgo,
+  formatCents,
+  formatDay,
+  formatMiles,
+  formatMonth,
+  formatWeekday,
+} from './format'
 
 describe('formatting', () => {
   it('leaves the year off dates in the current year', () => {
@@ -27,5 +34,11 @@ describe('formatting', () => {
     expect(formatAgo('2026-09-17', '2026-10-17')).toBe('4 weeks ago')
     expect(formatAgo('2026-04-17', '2026-10-17')).toBe('6 months ago')
     expect(formatAgo('2023-10-17', '2026-10-17')).toBe('3 years ago')
+  })
+})
+
+describe('formatMonth', () => {
+  it('names the month and year', () => {
+    expect(formatMonth('2025-09-12')).toBe('Sep 2025')
   })
 })

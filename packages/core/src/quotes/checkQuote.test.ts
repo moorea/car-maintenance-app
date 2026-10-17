@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { MaintenanceItem, Recall, ServiceRecord } from '../domain/types'
+import type { Bulletin, MaintenanceItem, Recall, ServiceRecord } from '../domain/types'
 import { checkQuote, type QuoteCheckInput } from './checkQuote'
 
 const item = (kind: string, task: string, fields: Partial<MaintenanceItem>): MaintenanceItem => ({
@@ -284,5 +284,51 @@ describe('checking a shop quote', () => {
     expect(check(['Oil change']).generalSchedule).toBe(true)
     const own = schedule.map((i) => ({ ...i, source: 'dataone' }))
     expect(check(['Oil change'], { items: own }).generalSchedule).toBe(false)
+  })
+
+  const bulletin = (nhtsaId: number, extra: Partial<Bulletin>): Bulletin => ({
+    id: `b${nhtsaId}`,
+    configId: 'c1',
+    nhtsaId,
+    kind: 'bulletin',
+    components: ['ENGINE'],
+    summary: 'Coolant may leak from the water pump. Replace the pump.',
+    ...extra,
+  })
+
+  it('names a warranty extension that may make a repair free', () => {
+    const [line] = check(['Replace water pump'], {
+      bulletins: [
+        bulletin(1, { documentId: 'T-SB-0101' }),
+        bulletin(2, {
+          kind: 'warranty',
+          documentId: 'ZJT',
+          components: ['ENGINE AND ENGINE COOLING'],
+        }),
+      ],
+    }).lines
+    expect(line?.bulletins.map((b) => [b.name, b.mayBeFree])).toEqual([
+      ['Warranty extension ZJT', true],
+      ['Service bulletin T-SB-0101', false],
+    ])
+    expect(line?.detail).toContain(
+      "Toyota's warranty extension ZJT may cover this: ask the shop before paying.",
+    )
+  })
+
+  it('shows bulletins only beside repairs, not scheduled maintenance', () => {
+    const result = check(['Oil change', 'Replace water pump'], {
+      bulletins: [bulletin(1, { components: ['ENGINE'] })],
+    })
+    expect(result.lines[0]?.bulletins).toEqual([])
+    expect(result.lines[1]?.bulletins).toHaveLength(1)
+  })
+
+  it('shows no bulletins about other parts of the car', () => {
+    const [line] = check(['Replace water pump'], {
+      bulletins: [bulletin(1, { components: ['SERVICE BRAKES'] })],
+    }).lines
+    expect(line?.bulletins).toEqual([])
+    expect(line?.detail).not.toContain('may cover')
   })
 })

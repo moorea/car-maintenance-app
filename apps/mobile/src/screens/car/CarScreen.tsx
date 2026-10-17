@@ -16,8 +16,6 @@ export function CarScreen({
   // intervals, so either starts fresh models.
   const key = `${vehicle.id}:${vehicle.configId ?? ''}:${vehicle.severeDuty}`
   const car = useStore(useScreenModel(key, () => createCarModel({ vehicle, ...deps })))
-  const safety = useStore(
-    useScreenModel(key, () => createSafetyModel({ vehicle, safety: deps.safety })),
-  )
+  const safety = useStore(useScreenModel(key, () => createSafetyModel({ vehicle, ...deps })))
   return <CarView car={car} safety={safety} onCheckQuote={onCheckQuote} />
 }
