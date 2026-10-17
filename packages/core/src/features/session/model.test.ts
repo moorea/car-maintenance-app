@@ -190,6 +190,15 @@ describe('session model, adding a car', () => {
     expect(model.getState()).toMatchObject({ status: 'ready', selectedVehicleId: 'v-civic' })
   })
 
+  it('keeps a car the owner picks while a just-added car has not shown up yet', () => {
+    const { vehicles, model } = setup(true, [civic, accord])
+    model.getState().start()
+    model.getState().carAdded('v-new')
+    model.getState().selectVehicle('v-civic')
+    vehicles.set([civic, accord, { ...civic, id: 'v-new', nickname: 'New' }])
+    expect(model.getState().selectedVehicleId).toBe('v-civic')
+  })
+
   it('does not open "add your car" for someone signed out, and closes it on sign-out', async () => {
     const { model } = setup(true, [civic])
     model.getState().start()

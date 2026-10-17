@@ -2,7 +2,12 @@ import { createStore, type StoreApi } from 'zustand/vanilla'
 import { z } from 'zod'
 import { VinDecodeError, type DecodedVin, type Vehicle } from '../../domain/types'
 import type { Clock, IdGenerator, Unsubscribe, VehicleRepo, VinDecoder } from '../../ports'
-import { vehicleDetailsSchema, vinSchema, type VehicleDetailsDraft } from '../../schemas/vehicle'
+import {
+  NICKNAME_MAX,
+  vehicleDetailsSchema,
+  vinSchema,
+  type VehicleDetailsDraft,
+} from '../../schemas/vehicle'
 
 /** First the VIN (or a choice to skip it), then the car's details to check and save. */
 export type AddCarStep = 'vin' | 'details'
@@ -68,6 +73,12 @@ const LOOKUP_MESSAGES: Record<VinDecodeError['kind'], string> = {
   unknown: 'Something went wrong looking up that VIN. Try again, or enter the details yourself.',
 }
 const DUPLICATE = "You've already added this car."
+
+/** "2019 Toyota RAV4", shortened to fit the 40-character nickname limit. */
+export const defaultNickname = (year: number, make: string, model: string): string => {
+  const names = [`${year} ${make} ${model}`, `${make} ${model}`, model]
+  return (names.find((n) => n.length <= NICKNAME_MAX) ?? model).slice(0, NICKNAME_MAX).trim()
+}
 
 const toFieldErrors = (error: z.ZodError): AddCarFieldErrors =>
   Object.fromEntries(
@@ -183,7 +194,7 @@ export const createAddCarModel = (deps: AddCarDeps): AddCarModel => {
         year: d.year,
         make: d.make,
         model: d.model,
-        nickname: d.nickname ?? `${d.year} ${d.make} ${d.model}`,
+        nickname: d.nickname ?? defaultNickname(d.year, d.make, d.model),
         severeDuty,
         ...(d.trim !== undefined && { trim: d.trim }),
         ...(decoded && { vin: decoded.vin }),

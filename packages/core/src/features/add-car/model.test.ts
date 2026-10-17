@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { DecodedVin, Vehicle } from '../../domain/types'
 import { fixedClock, memoryVehicles, memoryVinDecoder, OWNER, sequentialIds } from '../../testing'
-import { createAddCarModel } from './model'
+import { createAddCarModel, defaultNickname } from './model'
 
 const ACCORD_VIN = '1HGCM82633A004352'
 const accord: DecodedVin = {
@@ -206,5 +206,19 @@ describe('add car model', () => {
     model.getState().setVin(ACCORD_VIN)
     // Not told about the car added elsewhere, so the lookup goes ahead.
     expect(await model.getState().lookUpVin()).toBe(true)
+  })
+})
+
+describe('default nickname', () => {
+  it('is the year, make and model when that fits the 40-character limit', () => {
+    expect(defaultNickname(2019, 'Toyota', 'RAV4')).toBe('2019 Toyota RAV4')
+  })
+
+  it('drops the year, then the make, to fit a long model name', () => {
+    expect(defaultNickname(2024, 'Mercedes-Benz', 'Sprinter 2500 Crew Van')).toBe(
+      'Mercedes-Benz Sprinter 2500 Crew Van',
+    )
+    const long = 'Sprinter 2500 Crew Van 170 High Roof AWD Extended'
+    expect(defaultNickname(2024, 'Mercedes-Benz', long)).toHaveLength(40)
   })
 })

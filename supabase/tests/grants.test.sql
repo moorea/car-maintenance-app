@@ -1,7 +1,7 @@
 -- Run with `supabase test db`. Proves table access exists only where a migration grants it.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(14);
+select plan(15);
 
 select ok(
   not exists (
@@ -12,7 +12,12 @@ select ok(
   'anonymous users have no access to any table'
 );
 select table_privs_are('public', 'vehicles', 'authenticated',
-  array['SELECT', 'INSERT', 'UPDATE', 'DELETE'], 'owners manage their vehicles');
+  array['SELECT', 'INSERT', 'DELETE'], 'owners manage their vehicles');
+select ok(
+  has_column_privilege('authenticated', 'public.vehicles', 'nickname', 'update')
+    and not has_column_privilege('authenticated', 'public.vehicles', 'config_id', 'update'),
+  'owners can edit their car but not repoint its config'
+);
 select table_privs_are('public', 'conversations', 'authenticated',
   array['SELECT', 'INSERT', 'UPDATE', 'DELETE'], 'owners manage their conversations');
 select table_privs_are('public', 'service_records', 'authenticated',

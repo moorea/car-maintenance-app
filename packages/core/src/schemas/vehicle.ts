@@ -25,6 +25,9 @@ const optionalText = (max: number) =>
     .max(max, 'That is too long')
     .transform((s) => (s === '' ? undefined : s))
 
+/** Matches the vehicles_nickname_check constraint in Postgres. */
+export const NICKNAME_MAX = 40
+
 /** Oldest model year with a 17-character VIN, which the shared configs require. */
 export const FIRST_MODEL_YEAR = 1981
 
@@ -48,7 +51,7 @@ export const vehicleDetailsSchema = (maxYear: number) =>
     make: requiredText('make'),
     model: requiredText('model'),
     trim: optionalText(60),
-    nickname: optionalText(40),
+    nickname: optionalText(NICKNAME_MAX),
     odometerMiles: z
       .string()
       .trim()

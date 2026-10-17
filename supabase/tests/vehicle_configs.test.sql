@@ -1,7 +1,7 @@
 -- Run with `supabase test db`. Proves a car added from the phone is matched to a shared config.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(11);
+select plan(13);
 
 insert into auth.users (id) values
   ('00000000-0000-0000-0000-00000000000a'),
@@ -75,6 +75,21 @@ select throws_ok(
 select ok(
   not has_function_privilege('authenticated', 'public.assign_vehicle_config()', 'execute'),
   'owners cannot call the config trigger function'
+);
+
+select throws_ok(
+  $$ update public.vehicles set config_id = '10000000-0000-0000-0000-000000000001'
+     where id = '20000000-0000-0000-0000-00000000000b' $$,
+  '42501', null, 'owners cannot repoint a car at another config'
+);
+
+reset role;
+update public.vehicles set config_id = '10000000-0000-0000-0000-000000000001'
+ where id = '20000000-0000-0000-0000-00000000000b';
+select is(
+  (select config_id from public.vehicles where id = '20000000-0000-0000-0000-00000000000b'),
+  '10000000-0000-0000-0000-000000000001'::uuid,
+  'a server job can point a car at another config'
 );
 
 select * from finish();

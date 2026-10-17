@@ -115,7 +115,10 @@ export const createSessionModel = (deps: {
       },
 
       selectVehicle: (id) => {
-        if (get().vehicles.some((v) => v.id === id)) set({ selectedVehicleId: id })
+        if (!get().vehicles.some((v) => v.id === id)) return
+        // The owner's own choice wins over a car added earlier that has not shown up yet.
+        justAdded = undefined
+        set({ selectedVehicleId: id })
       },
 
       addCar: () => {
