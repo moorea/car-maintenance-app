@@ -11,6 +11,8 @@ interface Props {
   keyboardType?: TextInputProps['keyboardType']
   autoComplete?: TextInputProps['autoComplete']
   autoCapitalize?: TextInputProps['autoCapitalize']
+  /** Lines of text the field shows; more than one makes it a multi-line field. */
+  lines?: number
 }
 
 /** A labelled Expo UI text input. The screen model owns the text; the field follows `value`. */
@@ -40,13 +42,17 @@ export function TextField({ label, value, onChangeText, error, ...input }: Props
         autoComplete={input.autoComplete ?? 'off'}
         autoCapitalize={input.autoCapitalize ?? 'sentences'}
         autoCorrect={false}
+        {...(input.lines !== undefined && input.lines > 1
+          ? { multiline: true, numberOfLines: input.lines }
+          : {})}
         // Filled like an iOS search field. Without a fill the native field draws nothing, so an
-        // empty field with no placeholder is invisible on iOS.
+        // empty field with no placeholder is invisible on iOS. Padding rather than a fixed height
+        // so multiline fields and large text sizes still fit.
         style={{
           width: '100%',
-          height: 44,
-          borderRadius: 12,
+          paddingVertical: 11,
           paddingHorizontal: 14,
+          borderRadius: 12,
           backgroundColor: colors.neutralSubtle,
           ...(error ? { borderWidth: 1, borderColor: colors.danger } : { borderWidth: 0 }),
         }}

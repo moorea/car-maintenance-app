@@ -10,6 +10,16 @@
       "bundleIdentifier": "com.moorea.carmaintenance"
     },
     "android": {},
-    "plugins": ["expo-notifications"]
+    "plugins": [
+      "expo-notifications",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Choose photos of receipts, documents and shop quotes for your car.",
+          "cameraPermission": "Photograph receipts, documents and shop quotes for your car.",
+          "microphonePermission": false
+        }
+      ]
+    ]
   }
 }

@@ -11,6 +11,8 @@ issues, with reminders and an AI assistant grounded in that data. US only at lau
 - `packages/data`: real adapters for the core ports over PowerSync (on-device SQLite) and the
   Supabase upload connector. Headless too: takes the database as a parameter and is tested on
   Node with `@powersync/node`. See ADR 0004.
+- `packages/server`: the AI assistant's edge function (ADR 0009). Bundled into
+  `supabase/functions/assistant` by `pnpm --filter @car/server build`; tested on Node.
 - `powersync/sync-rules.yaml`: which rows sync to each user's phone. Tested in `packages/data`.
 - `apps/mobile`: Expo (React Native) app. Thin: screens wire models to pure views.
   `src/bootstrap/deps.ts` is the composition root that picks real or demo adapters.

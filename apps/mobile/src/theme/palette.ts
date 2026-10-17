@@ -31,6 +31,9 @@ export const palette = {
   red200: '#F2B8B5',
   red700: '#B3261E',
 
+  // No fill at all.
+  clear: 'transparent',
+
   // Translucent fills for Liquid Glass where the platform has no native glass (web, Android).
   whiteGlass: 'rgba(255, 255, 255, 0.62)',
   whiteGlassEdge: 'rgba(255, 255, 255, 0.85)',

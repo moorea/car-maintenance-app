@@ -1,4 +1,6 @@
 import type {
+  Attachment,
+  AttachmentKind,
   ComplaintSummary,
   MaintenanceItem,
   OdometerReading,
@@ -6,6 +8,8 @@ import type {
   SafetyReport,
   ServiceRecord,
   Vehicle,
+  Warranty,
+  WarrantyKind,
 } from '@car/core'
 
 /** SQLite returns NULL for missing values; the domain uses absent properties. */
@@ -82,6 +86,72 @@ export const fromServiceRecord = (s: ServiceRecord) => ({
   notes: s.notes ?? null,
 })
 
+const WARRANTY_KINDS = new Set<string>([
+  'basic',
+  'powertrain',
+  'corrosion',
+  'emissions',
+  'hybrid-battery',
+  'extended',
+  'other',
+] satisfies WarrantyKind[])
+
+export const toWarranty = (r: Row): Warranty => {
+  const kind = text(r.kind)
+  return defined({
+    id: required(text(r.id), 'id'),
+    vehicleId: required(text(r.vehicle_id), 'vehicle_id'),
+    // A kind added by a newer app version reads as "other" rather than hiding the warranty.
+    kind: kind !== undefined && WARRANTY_KINDS.has(kind) ? (kind as WarrantyKind) : 'other',
+    provider: text(r.provider),
+    startsOn: required(text(r.starts_on), 'starts_on'),
+    months: num(r.months),
+    endMiles: num(r.end_miles),
+    policyNumber: text(r.policy_number),
+    notes: text(r.notes),
+  })
+}
+
+export const fromWarranty = (w: Warranty) => ({
+  id: w.id,
+  vehicle_id: w.vehicleId,
+  kind: w.kind,
+  provider: w.provider ?? null,
+  starts_on: w.startsOn,
+  months: w.months ?? null,
+  end_miles: w.endMiles ?? null,
+  policy_number: w.policyNumber ?? null,
+  notes: w.notes ?? null,
+})
+
+const KINDS: readonly AttachmentKind[] = ['receipt', 'registration', 'insurance', 'other']
+const kind = (v: unknown): AttachmentKind => KINDS.find((k) => k === v) ?? 'other'
+
+export const toAttachment = (r: Row): Attachment =>
+  defined({
+    id: required(text(r.id), 'id'),
+    vehicleId: required(text(r.vehicle_id), 'vehicle_id'),
+    serviceRecordId: text(r.service_record_id),
+    kind: kind(r.kind),
+    name: text(r.name) ?? '',
+    contentType: text(r.content_type) ?? '',
+    sizeBytes: num(r.size_bytes) ?? 0,
+    addedOn: text(r.added_on) ?? '',
+  })
+
+/** The columns the device writes for a new attachment, given the owner of its car. */
+export const fromAttachment = (ownerId: string, a: Attachment) => ({
+  id: a.id,
+  owner_id: ownerId,
+  vehicle_id: a.vehicleId,
+  service_record_id: a.serviceRecordId ?? null,
+  kind: a.kind,
+  name: a.name,
+  content_type: a.contentType,
+  size_bytes: a.sizeBytes,
+  added_on: a.addedOn,
+})
+
 export const toOdometerReading = (r: Row): OdometerReading => ({
   vehicleId: required(text(r.vehicle_id), 'vehicle_id'),
   date: required(text(r.read_on), 'read_on'),
@@ -93,6 +163,8 @@ export const toMaintenanceItem = (r: Row): MaintenanceItem =>
     id: required(text(r.id), 'id'),
     configId: required(text(r.config_id), 'config_id'),
     task: required(text(r.task), 'task'),
+    kind: text(r.kind),
+    source: text(r.source),
     intervalMiles: num(r.interval_miles),
     intervalMonths: num(r.interval_months),
     severeMiles: num(r.severe_miles),

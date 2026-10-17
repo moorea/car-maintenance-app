@@ -287,6 +287,33 @@ describe('session model, adding a car', () => {
     expect(model.getState().tab).toBe('log')
   })
 
+  it('goes back from Ask to the quote it was asked from, then to the car', () => {
+    const { model } = setup(true, [civic])
+    model.getState().start()
+    model.getState().openTab('car')
+    model.getState().openTab('quote')
+    model.getState().openTab('ask')
+    model.getState().back()
+    expect(model.getState().tab).toBe('quote')
+    model.getState().back()
+    expect(model.getState().tab).toBe('car')
+    model.getState().back()
+    expect(model.getState().tab).toBe('garage')
+  })
+
+  it('forgets where Ask was opened from once the owner switches tabs', () => {
+    const { model } = setup(true, [civic])
+    model.getState().start()
+    model.getState().openTab('car')
+    model.getState().openTab('ask')
+    model.getState().openTab('log')
+    model.getState().openTab('ask')
+    model.getState().back()
+    expect(model.getState().tab).toBe('log')
+    model.getState().back()
+    expect(model.getState().tab).toBe('garage')
+  })
+
   it("opens a car's page from the garage, selecting that car", () => {
     const { model } = setup(true, [civic, accord])
     model.getState().start()

@@ -179,6 +179,25 @@ export function FillColumn({ children, spacing }: { children: ReactNode; spacing
   )
 }
 
+interface FillRowProps {
+  children: ReactNode
+  spacing?: number
+  onPress?: () => void
+}
+
+/** A row that takes its parent row's leftover width, tappable across all of it. */
+export function FillRow({ children, spacing, onPress }: FillRowProps) {
+  return (
+    <Row
+      alignment="center"
+      spacing={spacing ?? 0}
+      modifiers={[frame({ maxWidth: Infinity, alignment: 'leading' }), ...tappable(onPress)]}
+    >
+      {children}
+    </Row>
+  )
+}
+
 /** A small filled circle, such as a status dot beside a row. */
 export function Dot({ color, size = 10 }: { color: ColorRole; size?: number }) {
   const colors = useColors()
@@ -186,5 +205,105 @@ export function Dot({ color, size = 10 }: { color: ColorRole; size?: number }) {
     <Row
       style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: colors[color] }}
     />
+  )
+}
+
+/** A chat bubble that hugs its text. Place it in a row with a spacer to push it to one side. */
+export function Bubble({ children, fill }: { children: ReactNode; fill: ColorRole }) {
+  const colors = useColors()
+  return (
+    <Column
+      spacing={10}
+      alignment="start"
+      modifiers={[
+        paddingModifier({ horizontal: 14, vertical: 10 }),
+        background(colors[fill], shapes.roundedRectangle({ cornerRadius: 20 })),
+      ]}
+    >
+      {children}
+    </Column>
+  )
+}
+
+/** A small label in a capsule, such as a source an answer cites. */
+export function Chip({ label, symbol }: { label: string; symbol: SymbolName }) {
+  const colors = useColors()
+  return (
+    <Row
+      spacing={4}
+      alignment="center"
+      modifiers={[
+        paddingModifier({ horizontal: 10, vertical: 4 }),
+        background(colors.neutralSubtle, shapes.capsule()),
+      ]}
+    >
+      <Symbol name={symbol} size={12} color={colors.textSecondary} />
+      <Text textStyle={{ fontSize: 13, color: colors.textSecondary }}>{label}</Text>
+    </Row>
+  )
+}
+
+/** A Liquid Glass capsule button with a short label, such as a suggested question. */
+export function GlassPill({ label, onPress }: { label: string; onPress: () => void }) {
+  const colors = useColors()
+  return (
+    <Button
+      onPress={onPress}
+      modifiers={[buttonStyle(hasGlass ? 'glass' : 'bordered'), buttonBorderShape('capsule')]}
+    >
+      <Text textStyle={{ fontSize: 14, color: colors.textPrimary }}>{label}</Text>
+    </Button>
+  )
+}
+
+interface FilledIconButtonProps {
+  symbol: SymbolName
+  onPress: () => void
+  disabled?: boolean
+  size?: number
+}
+
+/** A round button filled with the accent, for the one main action, such as sending. */
+export function FilledIconButton({ symbol, onPress, disabled, size = 44 }: FilledIconButtonProps) {
+  const colors = useColors()
+  return (
+    <Button
+      onPress={onPress}
+      disabled={disabled ?? false}
+      modifiers={[
+        buttonStyle(hasGlass ? 'glassProminent' : 'borderedProminent'),
+        buttonBorderShape('circle'),
+        tintModifier(colors.accent),
+      ]}
+    >
+      <Column alignment="center" modifiers={[frame({ width: size - 16, height: size - 16 })]}>
+        <Symbol name={symbol} size={size * 0.42} color={colors.onAccent} />
+      </Column>
+    </Button>
+  )
+}
+
+/** A padded row inside a card that responds to a tap across its whole width. */
+export function TappableRow({
+  children,
+  onPress,
+  spacing,
+}: {
+  children: ReactNode
+  onPress: () => void
+  spacing?: number
+}) {
+  return (
+    <Column
+      spacing={spacing ?? 0}
+      alignment="start"
+      modifiers={[
+        paddingModifier({ horizontal: 16, vertical: 12 }),
+        frame({ maxWidth: Infinity, alignment: 'leading' }),
+        ...tappable(onPress),
+      ]}
+    >
+      {children}
+    </Column>
   )
 }

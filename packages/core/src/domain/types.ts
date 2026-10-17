@@ -51,11 +51,21 @@ export interface OdometerReading {
   miles: number
 }
 
-/** One OEM schedule line for a vehicle configuration. Either interval may be absent. */
+/**
+ * Where a configuration's schedule came from: `baseline` for the app's general intervals, or the
+ * name of the data provider that supplied the manufacturer's schedule.
+ */
+export type ScheduleSource = 'baseline' | (string & {})
+
+/** One schedule line for a vehicle configuration. Either interval may be absent. */
 export interface MaintenanceItem {
   id: MaintenanceItemId
   configId: string
   task: string
+  /** What the item is, the same across providers, such as "engine-oil". */
+  kind?: string
+  /** Absent for items stored before schedules had providers. */
+  source?: ScheduleSource
   intervalMiles?: number
   intervalMonths?: number
   severeMiles?: number
@@ -71,6 +81,78 @@ export interface ServiceRecord {
   costCents?: number
   shop?: string
   notes?: string
+}
+
+/** What a warranty covers. Factory warranties usually come as several of these at once. */
+export type WarrantyKind =
+  'basic' | 'powertrain' | 'corrosion' | 'emissions' | 'hybrid-battery' | 'extended' | 'other'
+
+/**
+ * One warranty coverage on a car, as the owner typed it from the paperwork. It ends at its time
+ * limit or its mileage limit, whichever comes first; it has at least one of the two.
+ */
+export interface Warranty {
+  id: string
+  vehicleId: VehicleId
+  kind: WarrantyKind
+  /** Who honours it: the manufacturer, or an extended-warranty company. */
+  provider?: string
+  /** When coverage started: the in-service date for a factory warranty. */
+  startsOn: IsoDate
+  /** Length from `startsOn`, in months. */
+  months?: number
+  /** The odometer reading at which coverage ends, such as 36,000. */
+  endMiles?: number
+  /** Contract or policy number, for a claim. */
+  policyNumber?: string
+  notes?: string
+}
+
+/**
+ * What an attached file is. Receipts and photos belong to a logged service; the rest are the car's
+ * own documents.
+ */
+export type AttachmentKind = 'receipt' | 'registration' | 'insurance' | 'other'
+
+/** A photo or PDF the owner attached to a car, or to a service in its log. */
+export interface Attachment {
+  id: string
+  vehicleId: VehicleId
+  /** The service it belongs to; absent for the car's own documents. */
+  serviceRecordId?: string
+  kind: AttachmentKind
+  /** The file's name, such as "IMG_2041.jpg" or "Insurance card.pdf". */
+  name: string
+  /** One of ATTACHMENT_TYPES. */
+  contentType: string
+  sizeBytes: number
+  addedOn: IsoDate
+}
+
+/** A photo or file the owner just took or picked, still where the system put it. */
+export interface PickedFile {
+  uri: string
+  name: string
+  contentType: string
+  sizeBytes: number
+}
+
+/**
+ * - `offline`: the file is not on this phone yet and there is no connection to download it.
+ * - `not-uploaded`: it was attached on another phone that has not uploaded it yet.
+ * - `denied`: the owner has not let the app use the camera or photos.
+ */
+export type AttachmentErrorKind = 'offline' | 'not-uploaded' | 'denied' | 'unknown'
+
+/** Why a file could not be picked or shown. Adapters translate their own errors into these. */
+export class AttachmentError extends Error {
+  constructor(
+    readonly kind: AttachmentErrorKind,
+    message: string = kind,
+  ) {
+    super(message)
+    this.name = 'AttachmentError'
+  }
 }
 
 /**
@@ -141,4 +223,60 @@ export class AuthError extends Error {
     super(message)
     this.name = 'AuthError'
   }
+}
+
+/** One owner complaint filed with NHTSA, as the server keeps it for the assistant. */
+export interface Complaint {
+  /** NHTSA's ODI number, which identifies the complaint. */
+  odiNumber: number
+  /** NHTSA's components, upper case, such as "ENGINE". */
+  components: string[]
+  summary: string
+  filedOn?: IsoDate
+  crash: boolean
+  fire: boolean
+  injuries: number
+  deaths: number
+}
+
+/** What a stored fact an answer cites is. */
+export type AnswerSourceKind =
+  'car' | 'schedule' | 'service' | 'recall' | 'complaints' | 'complaint'
+
+/** A stored fact about the owner's car that an assistant answer was drawn from. */
+export interface AnswerSource {
+  kind: AnswerSourceKind
+  /** Identifies the fact within its kind, such as a recall's campaign number. */
+  id: string
+  /** A few words for the chip under the answer, such as "Recall 23V123000". */
+  label: string
+}
+
+export type AssistantErrorKind =
+  'offline' | 'signed-out' | 'not-found' | 'rate-limited' | 'unavailable' | 'declined' | 'unknown'
+
+/** Why a question got no answer. Adapters translate their own errors into these. */
+export class AssistantError extends Error {
+  constructor(
+    readonly kind: AssistantErrorKind,
+    message: string = kind,
+  ) {
+    super(message)
+    this.name = 'AssistantError'
+  }
+}
+
+/** One line of a shop's quote or recommendation list, as the owner typed it or a photo read it. */
+export interface QuoteLine {
+  /** The work as the shop wrote it, such as "Front brake pads & rotors". */
+  text: string
+  /** The line's price, when the quote shows one. */
+  priceCents?: number
+}
+
+/** A photo of a shop's quote, as the phone's camera or photo library returned it. */
+export interface QuotePhoto {
+  mediaType: 'image/jpeg' | 'image/png' | 'image/webp'
+  /** The image file, base64-encoded, without a `data:` prefix. */
+  base64: string
 }

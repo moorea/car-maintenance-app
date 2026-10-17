@@ -201,6 +201,26 @@ export function FillColumn({ children, spacing }: { children: ReactNode; spacing
   )
 }
 
+interface FillRowProps {
+  children: ReactNode
+  spacing?: number
+  onPress?: () => void
+}
+
+/** A row that takes its parent row's leftover width, tappable across all of it. */
+export function FillRow({ children, spacing, onPress }: FillRowProps) {
+  return (
+    <Row
+      alignment="center"
+      spacing={spacing ?? 0}
+      {...(onPress ? { onPress } : {})}
+      style={{ flex: 1, minWidth: 0, ...(onPress ? { cursor: 'pointer' } : {}) } as UniversalStyle}
+    >
+      {children}
+    </Row>
+  )
+}
+
 /** A small filled circle, such as a status dot beside a row. */
 export function Dot({ color, size = 10 }: { color: ColorRole; size?: number }) {
   const colors = useColors()
@@ -214,5 +234,124 @@ export function Dot({ color, size = 10 }: { color: ColorRole; size?: number }) {
         backgroundColor: colors[color],
       }}
     />
+  )
+}
+
+/** A chat bubble that hugs its text. Place it in a row with a spacer to push it to one side. */
+export function Bubble({ children, fill }: { children: ReactNode; fill: ColorRole }) {
+  const colors = useColors()
+  return (
+    <Column
+      spacing={10}
+      alignment="start"
+      style={{
+        ...({ maxWidth: '86%' } as UniversalStyle),
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        borderRadius: 20,
+        backgroundColor: colors[fill],
+      }}
+    >
+      {children}
+    </Column>
+  )
+}
+
+/** A small label in a capsule, such as a source an answer cites. */
+export function Chip({ label, symbol }: { label: string; symbol: SymbolName }) {
+  const colors = useColors()
+  return (
+    <Row
+      spacing={4}
+      alignment="center"
+      style={{
+        ...({ flexShrink: 0 } as UniversalStyle),
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 12,
+        backgroundColor: colors.neutralSubtle,
+      }}
+    >
+      <Symbol name={symbol} size={12} color={colors.textSecondary} />
+      <Text textStyle={{ fontSize: 13, color: colors.textSecondary }}>{label}</Text>
+    </Row>
+  )
+}
+
+/** A Liquid Glass capsule button with a short label, such as a suggested question. */
+export function GlassPill({ label, onPress }: { label: string; onPress: () => void }) {
+  const colors = useColors()
+  return (
+    <Button
+      variant="text"
+      onPress={onPress}
+      style={{
+        ...({ flexShrink: 0 } as UniversalStyle),
+        height: 36,
+        paddingHorizontal: 14,
+        borderRadius: 18,
+        backgroundColor: colors.glass,
+        borderWidth: 0.5,
+        borderColor: colors.glassEdge,
+        ...webGlass(colors.glassShadow),
+      }}
+    >
+      <Text textStyle={{ fontSize: 14, color: colors.textPrimary }}>{label}</Text>
+    </Button>
+  )
+}
+
+interface FilledIconButtonProps {
+  symbol: SymbolName
+  onPress: () => void
+  disabled?: boolean
+  size?: number
+}
+
+/** A round button filled with the accent, for the one main action, such as sending. */
+export function FilledIconButton({ symbol, onPress, disabled, size = 44 }: FilledIconButtonProps) {
+  const colors = useColors()
+  return (
+    <Button
+      variant="text"
+      onPress={onPress}
+      disabled={disabled ?? false}
+      style={{
+        ...({ flexShrink: 0 } as UniversalStyle),
+        width: size,
+        height: size,
+        padding: 0,
+        borderRadius: size / 2,
+        backgroundColor: colors.accent,
+        opacity: disabled ? 0.4 : 1,
+      }}
+    >
+      <Symbol name={symbol} size={size * 0.42} color={colors.onAccent} />
+    </Button>
+  )
+}
+
+/** A padded row inside a card that responds to a tap across its whole width. */
+export function TappableRow({
+  children,
+  onPress,
+  spacing,
+}: {
+  children: ReactNode
+  onPress: () => void
+  spacing?: number
+}) {
+  return (
+    <Column
+      spacing={spacing ?? 0}
+      onPress={onPress}
+      style={{
+        ...({ cursor: 'pointer' } as UniversalStyle),
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+      }}
+    >
+      {children}
+    </Column>
   )
 }

@@ -5,20 +5,23 @@ import type {
   Notifier,
   ReminderSettingsRepo,
   Unsubscribe,
+  WarrantyRepo,
 } from '../ports'
-import { getDueItems, type GetDueItemsDeps } from './getDueItems'
+import { upcomingWarrantyEnds } from '../features/warranty/coverage'
+import { getDueSummary, type GetDueItemsDeps } from './getDueItems'
 import { planNotifications } from './planNotifications'
 
 export interface ReminderSchedulerDeps extends GetDueItemsDeps {
   auth: AuthPort
   notifier: Notifier
   settings: ReminderSettingsRepo
+  warranties: WarrantyRepo
   /** Where failures go; a reminder that cannot be planned must not crash the app. */
   log?: (message: string, error: unknown) => void
 }
 
 export interface ReminderScheduler {
-  /** Follows sign-in, the owner's cars, their service logs and the reminder setting. */
+  /** Follows sign-in, the owner's cars, their service logs, warranties and the reminder setting. */
   start: () => void
   /**
    * Plans again now. Call when the app returns to the foreground, since a new day or a changed
@@ -38,8 +41,9 @@ const sameNotification = (a: LocalNotification, b: LocalNotification) =>
   a.vehicleId === b.vehicleId
 
 /**
- * Keeps this device's scheduled reminders in step with the owner's cars: re-plans whenever a car
- * or a service record changes, and schedules or cancels only the notifications that differ.
+ * Keeps this device's scheduled reminders in step with the owner's cars: re-plans whenever a car,
+ * a service record, an odometer reading or a warranty changes, and schedules or cancels only the
+ * notifications that differ.
  * Nothing is scheduled while signed out, while reminders are off or without permission, so
  * signing out or turning reminders off cancels them all.
  */
@@ -52,7 +56,7 @@ export const createReminderScheduler = (deps: ReminderSchedulerDeps): ReminderSc
   let vehicles: Vehicle[] | undefined
   let stops: Unsubscribe[] = []
   let stopVehicles: Unsubscribe | undefined
-  const stopRecords = new Map<string, Unsubscribe>()
+  const stopCarData = new Map<string, Unsubscribe>()
   let scheduled: LocalNotification[] = []
   const watchers = new Set<(scheduled: LocalNotification[]) => void>()
   let running: Promise<void> | undefined
@@ -64,11 +68,23 @@ export const createReminderScheduler = (deps: ReminderSchedulerDeps): ReminderSc
     if (!userId || !enabled) return { active: false, desired: [] }
     if ((await deps.notifier.permission()) !== 'granted') return { active: false, desired: [] }
     if (vehicles === undefined) return undefined
-    const due = getDueItems(deps)
+    const summaryOf = getDueSummary(deps)
+    const today = deps.clock.today()
     const cars = await Promise.all(
-      vehicles.map(async (vehicle) => ({ vehicle, due: await due(vehicle.id) })),
+      vehicles.map(async (vehicle) => {
+        const [summary, warranties] = await Promise.all([
+          summaryOf(vehicle.id),
+          deps.warranties.listForVehicle(vehicle.id),
+        ])
+        const { mileage, currentMiles } = summary
+        return {
+          vehicle,
+          due: summary.items,
+          warranties: upcomingWarrantyEnds(warranties, { mileage, currentMiles, today }),
+        }
+      }),
     )
-    return { active: true, desired: planNotifications(cars, deps.clock.today()) }
+    return { active: true, desired: planNotifications(cars, today) }
   }
 
   const apply = async () => {
@@ -112,29 +128,34 @@ export const createReminderScheduler = (deps: ReminderSchedulerDeps): ReminderSc
     return running
   }
 
-  const watchRecords = (owned: Vehicle[]) => {
+  const watchCarData = (owned: Vehicle[]) => {
     const ids = new Set(owned.map((v) => v.id))
-    for (const [id, stop] of stopRecords) {
+    for (const [id, stop] of stopCarData) {
       if (ids.has(id)) continue
       stop()
-      stopRecords.delete(id)
+      stopCarData.delete(id)
     }
     for (const id of ids) {
-      if (stopRecords.has(id)) continue
-      // Every callback re-plans, the first included: it may carry a change made since the last
-      // plan read the records, and a pass with nothing new changes nothing on the device.
-      stopRecords.set(
-        id,
+      if (stopCarData.has(id)) continue
+      // A service or an odometer reading can move a due date or a warranty's mileage end. Every callback re-plans, the first
+      // included: it may carry a change made since the last plan read the data, and a pass with
+      // nothing new changes nothing on the device.
+      const stops = [
         deps.records.watchForVehicle(id, () => void refresh()),
-      )
+        deps.odometer.watchForVehicle(id, () => void refresh()),
+        deps.warranties.watchForVehicle(id, () => void refresh()),
+      ]
+      stopCarData.set(id, () => {
+        for (const stop of stops) stop()
+      })
     }
   }
 
   const stopFollowingCars = () => {
     stopVehicles?.()
     stopVehicles = undefined
-    for (const stop of stopRecords.values()) stop()
-    stopRecords.clear()
+    for (const stop of stopCarData.values()) stop()
+    stopCarData.clear()
     vehicles = undefined
   }
 
@@ -145,7 +166,7 @@ export const createReminderScheduler = (deps: ReminderSchedulerDeps): ReminderSc
     if (id) {
       stopVehicles = deps.vehicles.watchOwned(id, (owned) => {
         vehicles = owned
-        watchRecords(owned)
+        watchCarData(owned)
         void refresh()
       })
     } else void refresh()

@@ -32,6 +32,8 @@ const pairs: [text: ColorRole, fill: ColorRole][] = [
   ['danger', 'background'],
   ['danger', 'surface'],
   ['danger', 'warningSubtle'],
+  ['onDanger', 'danger'],
+  ['danger', 'neutralSubtle'],
   ['textSecondary', 'neutralSubtle'],
   ['textPrimary', 'neutralSubtle'],
 ]

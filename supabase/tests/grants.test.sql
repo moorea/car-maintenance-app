@@ -1,7 +1,7 @@
 -- Run with `supabase test db`. Proves table access exists only where a migration grants it.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(18);
+select plan(20);
 
 select ok(
   not exists (
@@ -22,6 +22,8 @@ select table_privs_are('public', 'conversations', 'authenticated',
   array['SELECT', 'INSERT', 'UPDATE', 'DELETE'], 'owners manage their conversations');
 select table_privs_are('public', 'service_records', 'authenticated',
   array['SELECT', 'INSERT', 'DELETE'], 'service records are append-only');
+select table_privs_are('public', 'warranties', 'authenticated',
+  array['SELECT', 'INSERT', 'UPDATE', 'DELETE'], 'owners can correct their warranties');
 select table_privs_are('public', 'odometer_readings', 'authenticated',
   array['SELECT', 'INSERT'], 'odometer readings are append-only');
 select table_privs_are('public', 'reminders', 'authenticated',
@@ -42,6 +44,8 @@ select table_privs_are('public', 'complaints', 'authenticated', array[]::text[],
   'raw complaints stay on the server');
 select table_privs_are('public', 'nhtsa_fetches', 'authenticated', array[]::text[],
   'the NHTSA fetch queue is private');
+select table_privs_are('public', 'baseline_schedule', 'authenticated', array[]::text[],
+  'owners see baseline intervals only as their car''s schedule');
 select table_privs_are('public', 'reminders', 'service_role',
   array['SELECT', 'INSERT', 'UPDATE', 'DELETE'], 'the reminder job can write reminders');
 select table_privs_are('public', 'messages', 'service_role',

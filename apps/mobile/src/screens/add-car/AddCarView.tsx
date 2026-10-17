@@ -1,14 +1,19 @@
 import type { AddCarActions, AddCarState } from '@car/core'
-import { Button, Column, ScrollView, Switch, Text } from '@expo/ui'
+import { Button, Column, Row, ScrollView, Spacer, Switch, Text } from '@expo/ui'
 import { Host } from '../../ui/Host'
 import { ErrorText, Note } from '../../ui/Note'
+import { GlassIconButton } from '../../ui/surfaces'
 import { TextField } from '../../ui/TextField'
 
 type Props = AddCarState &
   Pick<
     AddCarActions,
     'setVin' | 'lookUpVin' | 'enterManually' | 'back' | 'setField' | 'setSevereDuty' | 'save'
-  > & { onCancel?: (() => void) | undefined }
+  > & {
+    onCancel?: (() => void) | undefined
+    /** Opens the account, so an owner with no car can still sign out or delete it. */
+    onAccount?: (() => void) | undefined
+  }
 
 const TITLE = { fontSize: 24, fontWeight: '700' } as const
 
@@ -18,6 +23,12 @@ export function AddCarView(props: Props) {
     <Host style={{ flex: 1 }}>
       <ScrollView>
         <Column spacing={16} style={{ padding: 16 }}>
+          {props.onAccount ? (
+            <Row alignment="center">
+              <Spacer flexible />
+              <GlassIconButton symbol="person" onPress={props.onAccount} />
+            </Row>
+          ) : null}
           {props.step === 'vin' ? <VinStep {...props} /> : <DetailsStep {...props} />}
         </Column>
       </ScrollView>

@@ -1,14 +1,21 @@
 import type { IsoDate } from '../lib/date'
 import type {
+  AnswerSource,
+  Attachment,
   AuthUser,
   DecodedVin,
   MaintenanceItem,
   OdometerReading,
+  PickedFile,
+  QuoteLine,
+  QuotePhoto,
   SafetyReport,
   ServiceRecord,
   Vehicle,
   VehicleId,
+  Warranty,
 } from '../domain/types'
+import type { CareReport } from '../features/care-report/report'
 
 /**
  * Ports are the only way core reaches storage, the network or the clock. The app supplies
@@ -54,6 +61,17 @@ export interface AuthPort {
   signOut(): Promise<void>
 }
 
+/** The owner's account itself, as opposed to signing in and out of it. */
+export interface AccountPort {
+  /**
+   * Permanently deletes the signed-in owner's account and everything stored for it on the
+   * server, then signs this phone out and erases its copy of their data, including changes not
+   * uploaded yet. Needs a connection. Throws AuthError, leaving the account as it was, if the
+   * server did not delete it.
+   */
+  deleteAccount(): Promise<void>
+}
+
 export interface ServiceRecordRepo {
   listForVehicle(vehicleId: VehicleId): Promise<ServiceRecord[]>
   /** Calls `onChange` with the full list now and after every change, like a live query. */
@@ -69,6 +87,81 @@ export interface OdometerRepo {
     onChange: (readings: OdometerReading[]) => void,
   ): Unsubscribe
   add(reading: OdometerReading): Promise<void>
+}
+
+/** The warranties the owner has entered for their cars. Editable, unlike the service history. */
+export interface WarrantyRepo {
+  listForVehicle(vehicleId: VehicleId): Promise<Warranty[]>
+  /** Calls `onChange` with the car's warranties now and after every change, like a live query. */
+  watchForVehicle(vehicleId: VehicleId, onChange: (warranties: Warranty[]) => void): Unsubscribe
+  /** Adds the warranty, or replaces the one with the same id. */
+  save(warranty: Warranty): Promise<void>
+  remove(id: string): Promise<void>
+}
+
+/** Turns a care report into a file the owner can send, such as a PDF in the share sheet. */
+export interface CareReportExporter {
+  /** Resolves once the owner has been offered the file, whether or not they sent it. */
+  share(report: CareReport): Promise<void>
+}
+
+/**
+ * Photos and PDFs attached to cars and services. The details sync like any other row; each file
+ * uploads after it is attached and downloads to another phone the first time it is opened there.
+ */
+export interface AttachmentRepo {
+  /** Everything attached to the car or its services, newest first. */
+  listForVehicle(vehicleId: VehicleId): Promise<Attachment[]>
+  /**
+   * Calls `onChange` with everything attached to the car or its services, now and after every
+   * change.
+   */
+  watchForVehicle(vehicleId: VehicleId, onChange: (attachments: Attachment[]) => void): Unsubscribe
+  /** Keeps a copy of `file` on this phone and saves the attachment; works offline. */
+  add(attachment: Attachment, file: PickedFile): Promise<void>
+  /**
+   * Resolves with a local URI of the file, downloading it first if this phone has no copy. Rejects
+   * with AttachmentError.
+   */
+  open(attachment: Attachment): Promise<string>
+  /** Deletes the attachment and its file, on this phone and on the server. */
+  remove(attachment: Attachment): Promise<void>
+}
+
+/** Shows a file full screen in the system's viewer (Quick Look on iOS). */
+export interface FilePreview {
+  /**
+   * Resolves once the viewer is showing. `file` gives the viewer its title and type, since the
+   * copy on the phone is named by attachment id.
+   */
+  show(uri: string, file: { name: string; contentType: string }): Promise<void>
+}
+
+/** Where the owner gets a file from. */
+export type FileSource = 'camera' | 'photos' | 'files'
+
+/** The system camera, photo library and file picker. */
+export interface FilePicker {
+  /**
+   * Resolves with the photo or file, or undefined if the owner cancelled. Rejects with
+   * AttachmentError('denied') when the owner has refused access.
+   */
+  pick(source: FileSource): Promise<PickedFile | undefined>
+}
+
+/** Files moving between the app and the rest of the phone, for exporting and importing data. */
+export interface DataFiles {
+  /** The bytes of a file on this phone, by a URI such as AttachmentRepo.open resolves with. */
+  read(uri: string): Promise<Uint8Array>
+  /**
+   * Saves `bytes` as a file called `name` and offers it in the share sheet (Save to Files, AirDrop,
+   * Mail). Resolves once the sheet closes, whether or not the owner sent it anywhere.
+   */
+  share(bytes: Uint8Array, name: string): Promise<void>
+  /** Opens the file picker for a zip; resolves with its bytes, or undefined if cancelled. */
+  pickArchive(): Promise<Uint8Array | undefined>
+  /** Writes `bytes` to a temporary file that AttachmentRepo.add can keep a copy of. */
+  stage(bytes: Uint8Array, file: { name: string; contentType: string }): Promise<PickedFile>
 }
 
 export interface ScheduleRepo {
@@ -133,4 +226,108 @@ export interface ReminderSettingsRepo {
   /** Calls `onChange` with the settings now and after every change. */
   watch(onChange: (settings: ReminderSettings) => void): Unsubscribe
   set(settings: ReminderSettings): Promise<void>
+}
+
+/** The part of the platform's AbortSignal that core relies on; core has no DOM types. */
+export interface CancelSignal {
+  readonly aborted: boolean
+  addEventListener(type: 'abort', listener: () => void): void
+  removeEventListener(type: 'abort', listener: () => void): void
+}
+
+/** One question to the assistant about one of the owner's cars. */
+export interface AskRequest {
+  vehicleId: VehicleId
+  /** Continues an earlier conversation about the same car; absent to start a new one. */
+  conversationId?: string
+  question: string
+}
+
+/** What arrives while an answer streams in. */
+export type AnswerEvent =
+  /** The conversation this question belongs to, sent first. */
+  | { type: 'conversation'; id: string }
+  /** The next piece of the answer's text. */
+  | { type: 'text'; text: string }
+  /** A stored fact the answer has just cited. */
+  | { type: 'source'; source: AnswerSource }
+  /**
+   * Forget the answer so far: the model declined partway and another model is answering from
+   * the start.
+   */
+  | { type: 'reset' }
+
+/** The AI assistant, answering from what is stored about the owner's car. Needs a connection. */
+export interface Assistant {
+  /**
+   * Streams the answer to `onEvent` and resolves once it is complete. Rejects with
+   * AssistantError. Once `signal` aborts it stops calling `onEvent` and may settle either way.
+   */
+  ask(
+    request: AskRequest,
+    onEvent: (event: AnswerEvent) => void,
+    signal?: CancelSignal,
+  ): Promise<void>
+}
+
+/** One turn of a conversation as the model sees it. */
+export interface ChatTurn {
+  role: 'user' | 'assistant'
+  text: string
+}
+
+/** A stored fact handed to the model as a citable document. */
+export interface ModelDocument {
+  /** Short, shown to the model; the model can cite the text but not the title. */
+  title: string
+  text: string
+}
+
+export interface ModelRequest {
+  system: string
+  /** Facts the model may cite, by their index in this list. */
+  documents: ModelDocument[]
+  /** The conversation so far, ending with the owner's question. */
+  turns: ChatTurn[]
+}
+
+export type ModelEvent =
+  | { type: 'text'; text: string }
+  /** The text since the previous event is drawn from `documents[documentIndex]`. */
+  | { type: 'citation'; documentIndex: number }
+  /** The model declined partway and a fallback model starts the answer again. */
+  | { type: 'reset' }
+
+/**
+ * - `end`: the model finished its answer.
+ * - `max-tokens`: the answer was cut off at the length limit.
+ * - `declined`: the model's safety checks declined to answer.
+ */
+export type ModelStopReason = 'end' | 'max-tokens' | 'declined'
+
+/** A language model that answers from documents with citations. Runs on the server. */
+export interface LanguageModel {
+  /** Streams the answer to `onEvent`. Throws AssistantError for failures the owner should see. */
+  stream(
+    request: ModelRequest,
+    onEvent: (event: ModelEvent) => void,
+    signal?: CancelSignal,
+  ): Promise<ModelStopReason>
+}
+
+/** Reads the lines of a shop's quote from a photo, on the server. Needs a connection. */
+export interface QuoteReader {
+  /**
+   * Resolves with the quote's lines in order, empty when the photo shows no quote. Rejects with
+   * AssistantError, since it shares the assistant's service and daily limit.
+   */
+  read(photo: QuotePhoto, signal?: CancelSignal): Promise<QuoteLine[]>
+}
+
+/** The phone's camera and photo library. */
+export interface PhotoPicker {
+  /** Opens the camera; resolves with the photo, or undefined if the owner cancelled. */
+  take(): Promise<QuotePhoto | undefined>
+  /** Opens the photo library; resolves with the photo, or undefined if the owner cancelled. */
+  choose(): Promise<QuotePhoto | undefined>
 }

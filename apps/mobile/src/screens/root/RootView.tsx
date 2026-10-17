@@ -1,21 +1,26 @@
 import type { AppTab, SessionActions, SessionState, Vehicle } from '@car/core'
-import { Row, Text } from '@expo/ui'
+import { Button, Row, Text } from '@expo/ui'
 import { ActivityIndicator, StyleSheet, View } from 'react-native'
+import { AccountScreen } from '../account/AccountScreen'
 import { AddCarScreen } from '../add-car/AddCarScreen'
-import { AskView } from '../ask/AskView'
+import { AskScreen } from '../ask/AskScreen'
 import { CarScreen } from '../car/CarScreen'
 import { GarageScreen } from '../garage/GarageScreen'
+import { QuoteCheckScreen } from '../quote-check/QuoteCheckScreen'
 import { RemindersScreen } from '../reminders/RemindersScreen'
 import { ServiceLogScreen } from '../service-log/ServiceLogScreen'
 import { SignInScreen } from '../sign-in/SignInScreen'
+import { WarrantyScreen } from '../warranty/WarrantyScreen'
+import { YourDataScreen } from '../your-data/YourDataScreen'
+import { askModelFor } from '../../models/askModels'
 import { Host } from '../../ui/Host'
 import { TabBar, type TabBarItem } from '../../ui/TabBar'
 
 type Props = SessionState &
   Pick<
     SessionActions,
-    | 'signOut'
     | 'openTab'
+    | 'back'
     | 'openCar'
     | 'logService'
     | 'logRequestHandled'
@@ -41,18 +46,34 @@ export function RootView(props: Props) {
     return (
       <View style={styles.fill}>
         <TabContent {...props} vehicle={vehicle} />
-        <TabBar
-          tabs={TABS}
-          selected={props.tab}
-          onSelect={props.openTab}
-          action={{
-            symbol: 'ask',
-            onPress: () => props.openTab('ask'),
-            selected: props.tab === 'ask',
-          }}
-        />
+        {/* Ask and the quote checker fill the screen with their own back button, as in the mockup. */}
+        {props.tab === 'ask' || props.tab === 'quote' ? null : (
+          <TabBar
+            tabs={TABS}
+            // The warranty page belongs to the car, so the car's tab stays selected there.
+            selected={props.tab === 'warranty' ? 'car' : props.tab}
+            onSelect={props.openTab}
+            action={{ symbol: 'ask', onPress: () => props.openTab('ask'), selected: false }}
+          />
+        )}
       </View>
     )
+  }
+  // Without a car there is no garage to open the account from, yet the owner must still be able
+  // to sign out or delete it (App Store guideline 5.1.1(v)), so it opens over the first screens.
+  if (props.tab === 'account') {
+    return (
+      <AccountScreen
+        onBack={() => props.openTab('garage')}
+        // Until the first sync is done the garage looks empty, so an import would add every car
+        // again and an export would leave them out.
+        onYourData={status === 'no-vehicles' ? () => props.openTab('data') : undefined}
+      />
+    )
+  }
+  // An owner starting over can bring back the cars they exported before adding any.
+  if (props.tab === 'data' && status === 'no-vehicles') {
+    return <YourDataScreen onBack={() => props.openTab('account')} />
   }
   if (status === 'syncing') {
     return (
@@ -64,6 +85,7 @@ export function RootView(props: Props) {
               Getting your cars. This needs a connection the first time.
             </Text>
           </Row>
+          <Button variant="text" label="Account" onPress={() => props.openTab('account')} />
         </Host>
       </View>
     )
@@ -73,6 +95,7 @@ export function RootView(props: Props) {
       ownerId={user.id}
       onAdded={props.carAdded}
       onCancel={status === 'ready' ? props.cancelAddCar : undefined}
+      onAccount={status === 'ready' ? undefined : () => props.openTab('account')}
     />
   )
 }
@@ -90,7 +113,7 @@ function TabContent(props: Props & { vehicle: Vehicle }) {
           onReminders={() => props.openTab('reminders')}
           onLogService={props.logService}
           onAsk={() => props.openTab('ask')}
-          onSignOut={() => void props.signOut()}
+          onAccount={() => props.openTab('account')}
         />
       )
     case 'log':
@@ -102,11 +125,42 @@ function TabContent(props: Props & { vehicle: Vehicle }) {
         />
       )
     case 'car':
-      return <CarScreen vehicle={vehicle} />
+      return (
+        <CarScreen
+          vehicle={vehicle}
+          onCheckQuote={() => props.openTab('quote')}
+          onWarranty={() => props.openTab('warranty')}
+        />
+      )
+    case 'warranty':
+      return <WarrantyScreen vehicle={vehicle} onBack={() => props.openTab('car')} />
     case 'ask':
-      return <AskView carName={vehicle.nickname} />
+      return <AskScreen vehicle={vehicle} onBack={props.back} />
+    case 'quote':
+      return (
+        <QuoteCheckScreen
+          vehicle={vehicle}
+          onBack={props.back}
+          onAsk={(question) => {
+            props.openTab('ask')
+            const ask = askModelFor(vehicle).getState()
+            // While Ask is still answering, the question waits in the composer to send.
+            if (ask.status === 'ready') ask.ask(question)
+            else ask.setDraft(question)
+          }}
+        />
+      )
     case 'reminders':
       return <RemindersScreen />
+    case 'account':
+      return (
+        <AccountScreen
+          onReminders={() => props.openTab('reminders')}
+          onYourData={() => props.openTab('data')}
+        />
+      )
+    case 'data':
+      return <YourDataScreen onBack={() => props.openTab('account')} />
   }
 }
 

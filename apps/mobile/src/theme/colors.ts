@@ -27,6 +27,8 @@ export interface Colors {
   warningSubtle: string
   /** Something is wrong or unsafe: form errors, do-not-drive recalls. */
   danger: string
+  /** Text on a `danger` fill, such as the button that deletes an account. */
+  onDanger: string
   /** Quiet grey fill behind low-priority labels, such as a "later" status pill. */
   neutralSubtle: string
   /** Liquid Glass fill where the platform draws no native glass (web, Android). */
@@ -37,6 +39,8 @@ export interface Colors {
   glassShadow: string
   /** Behind the selected item in a tab bar or segmented control. */
   selectedFill: string
+  /** No fill, for a field drawn inside another control, such as the text in a chat composer. */
+  clear: string
 }
 
 export type ColorRole = keyof Colors
@@ -53,11 +57,13 @@ export const lightColors: Colors = {
   warning: p.orange700,
   warningSubtle: p.orange50,
   danger: p.red700,
+  onDanger: p.white,
   neutralSubtle: p.gray75,
   glass: p.whiteGlass,
   glassEdge: p.whiteGlassEdge,
   glassShadow: p.shadowSoft,
   selectedFill: p.graySelected,
+  clear: p.clear,
 }
 
 export const darkColors: Colors = {
@@ -72,9 +78,11 @@ export const darkColors: Colors = {
   warning: p.orange300,
   warningSubtle: p.orange950,
   danger: p.red200,
+  onDanger: p.black,
   neutralSubtle: p.gray850,
   glass: p.charcoalGlass,
   glassEdge: p.charcoalGlassEdge,
   glassShadow: p.shadowDark,
   selectedFill: p.graySelectedDark,
+  clear: p.clear,
 }
