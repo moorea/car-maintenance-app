@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import type { Complaint, MaintenanceItem, Vehicle } from '../domain/types'
-import { groundingDocuments, MAX_COMPLAINTS, type CarFacts } from './grounding'
+import {
+  ASSISTANT_SYSTEM_PROMPT,
+  groundingDocuments,
+  MAX_COMPLAINTS,
+  type CarFacts,
+} from './grounding'
 
 const vehicle: Vehicle = {
   id: 'v1',
@@ -135,6 +140,12 @@ describe('groundingDocuments', () => {
     const schedule = groundingDocuments(facts({ schedule: [{ ...oil, source: 'baseline' }] }))[1]
     expect(schedule?.text.split('\n')[1]).toBe(
       "This is the app's general guidance for most cars, not Toyota's own schedule for this car, which the owner's manual has.",
+    )
+  })
+
+  it('tells the model to say so when it quotes general guidance', () => {
+    expect(ASSISTANT_SYSTEM_PROMPT).toContain(
+      "when you quote one, say it is general guidance and that the owner's manual has the exact interval",
     )
   })
 

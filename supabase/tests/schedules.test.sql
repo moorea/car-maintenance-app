@@ -2,7 +2,7 @@
 -- without losing the owner's service history.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(19);
+select plan(26);
 
 select is(public.powertrain_of('Toyota', 'RAV4', '2.5L 4-cyl'), 'gas', 'a decoded engine is gas');
 select is(public.powertrain_of('Toyota', 'RAV4', '2.5L 4-cyl hybrid'), 'hybrid',
@@ -18,6 +18,20 @@ select is(public.powertrain_of('Ford', 'Mustang Mach-E', null), 'electric',
 select is(public.powertrain_of('Ford', 'Mustang', null), 'gas', 'a typed-in car is gas by default');
 select is(public.powertrain_of('Kia', 'Sorento', null), 'gas',
   'a model name containing "ev" letters is not taken for electric');
+select is(public.powertrain_of('Chevrolet', 'Equinox', null), 'gas',
+  'a typed-in Equinox is gas, unlike an Equinox EV');
+select is(public.powertrain_of('Chevrolet', 'Equinox EV', null), 'electric',
+  'a typed-in Equinox EV is electric');
+select is(public.powertrain_of('Infiniti', 'I35', null), 'gas', 'only BMW''s i models are electric');
+select is(public.powertrain_of('Audi', 'A3 Sportback e-tron', null), 'gas',
+  'a plug-in Audi e-tron is not taken for electric');
+select is(public.powertrain_of('Chevrolet', 'Volt', null), 'hybrid', 'a typed-in Volt is a hybrid');
+select is(
+  (select pg_catalog.count(*) from public.baseline_schedule a join public.baseline_schedule b
+       on a.kind = b.kind and a.years && b.years and a.years <> b.years)::int,
+  0,
+  'a kind''s baseline rows never cover the same model year twice'
+);
 
 insert into auth.users (id) values ('00000000-0000-0000-0000-00000000000a');
 set local role authenticated;
@@ -26,7 +40,8 @@ select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a
 insert into public.vehicles (id, year, make, model, engine, nickname) values
   ('20000000-0000-0000-0000-000000000001', 2021, 'Toyota', 'RAV4', '2.5L 4-cyl', 'Rav'),
   ('20000000-0000-0000-0000-000000000002', 2023, 'Tesla', 'Model 3', 'Electric', 'Tess'),
-  ('20000000-0000-0000-0000-000000000003', 2019, 'Ram', '2500', '6.7L 6-cyl diesel', 'Truck');
+  ('20000000-0000-0000-0000-000000000003', 2019, 'Ram', '2500', '6.7L 6-cyl diesel', 'Truck'),
+  ('20000000-0000-0000-0000-000000000004', 1998, 'Honda', 'Civic', '1.6L 4-cyl', 'Old');
 
 create temporary view schedule_of as
   select v.nickname, m.*
@@ -36,7 +51,7 @@ grant select on schedule_of to authenticated;
 select is(
   (select pg_catalog.string_agg(kind, ' ' order by kind) from schedule_of where nickname = 'Rav'),
   'battery-test brake-fluid brake-inspection cabin-air-filter engine-air-filter engine-coolant '
-  'engine-oil spark-plugs tire-rotation transmission-fluid',
+  'engine-oil spark-plugs timing-belt tire-rotation transmission-fluid',
   'a gas car gets the baseline schedule as soon as it is added'
 );
 select ok(
@@ -59,6 +74,12 @@ select ok(
   exists (select 1 from schedule_of where nickname = 'Truck' and kind = 'fuel-filter')
   and not exists (select 1 from schedule_of where nickname = 'Truck' and kind = 'spark-plugs'),
   'a diesel gets a fuel filter and no spark plugs'
+);
+select is(
+  (select pg_catalog.string_agg(kind || ' ' || interval_miles, ', ' order by kind)
+     from schedule_of where nickname = 'Old' and kind in ('engine-coolant', 'spark-plugs')),
+  'engine-coolant 30000, spark-plugs 30000',
+  'an older car gets the shorter coolant and spark plug intervals'
 );
 
 insert into public.service_records (id, vehicle_id, item_id, performed_on, odometer_miles)

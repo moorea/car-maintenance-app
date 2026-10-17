@@ -198,6 +198,15 @@ const DEMO_SCHEDULE: MaintenanceItem[] = [
     intervalMiles: 60_000,
     intervalMonths: 60,
   },
+  {
+    id: 'demo-timing-belt',
+    configId: 'demo',
+    kind: 'timing-belt',
+    source: 'baseline',
+    task: 'Timing belt (if equipped)',
+    intervalMiles: 60_000,
+    intervalMonths: 72,
+  },
 ]
 
 /** Sample data for running the app without a backend, e.g. before Supabase is set up. */

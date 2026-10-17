@@ -13,6 +13,7 @@ interface VpicResult {
   DisplacementL?: string
   EngineCylinders?: string
   FuelTypePrimary?: string
+  FuelTypeSecondary?: string
   ElectrificationLevel?: string
   DriveType?: string
 }
@@ -43,7 +44,10 @@ const value = (s: string | undefined) => {
  */
 const engineKindOf = (r: VpicResult): string | undefined => {
   const electrification = value(r.ElectrificationLevel) ?? ''
-  if (electrification.startsWith('PHEV')) return 'plug-in hybrid'
+  // A range extender (Volt, i3 REx) is listed as electric first and gasoline second.
+  const rangeExtender =
+    value(r.FuelTypePrimary) === 'Electric' && value(r.FuelTypeSecondary)?.startsWith('Gasoline')
+  if (electrification.startsWith('PHEV') || rangeExtender) return 'plug-in hybrid'
   if (electrification.startsWith('Strong HEV')) return 'hybrid'
   if (value(r.FuelTypePrimary) === 'Diesel') return 'diesel'
   return undefined
@@ -54,14 +58,18 @@ const engineKindOf = (r: VpicResult): string | undefined => {
  * does not say. The server reads the kind to pick a schedule (ADR 0010).
  */
 const engineOf = (r: VpicResult): string | undefined => {
-  if (value(r.FuelTypePrimary) === 'Electric' || value(r.ElectrificationLevel)?.startsWith('BEV'))
+  const kind = engineKindOf(r)
+  if (
+    kind === undefined &&
+    (value(r.FuelTypePrimary) === 'Electric' || value(r.ElectrificationLevel)?.startsWith('BEV'))
+  )
     return 'Electric'
   const litres = Number(value(r.DisplacementL))
   const cylinders = value(r.EngineCylinders)
   const parts = [
     Number.isFinite(litres) && litres > 0 ? `${litres.toFixed(1)}L` : undefined,
     cylinders ? `${cylinders}-cyl` : undefined,
-    engineKindOf(r),
+    kind,
   ].filter(Boolean)
   const engine = parts.join(' ')
   return engine ? engine.charAt(0).toUpperCase() + engine.slice(1) : undefined

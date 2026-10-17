@@ -104,6 +104,23 @@ describe('NHTSA VIN decoder', () => {
         ElectrificationLevel: 'BEV (Battery Electric Vehicle)',
       }),
     ).toBe('Electric')
+    // A range extender keeps its engine's maintenance.
+    expect(
+      await engineOf({
+        DisplacementL: '1.5',
+        EngineCylinders: '4',
+        FuelTypePrimary: 'Electric',
+        FuelTypeSecondary: 'Gasoline',
+      }),
+    ).toBe('1.5L 4-cyl plug-in hybrid')
+    expect(
+      await engineOf({
+        DisplacementL: '1.5',
+        EngineCylinders: '4',
+        FuelTypePrimary: 'Electric',
+        ElectrificationLevel: 'PHEV (Plug-in Hybrid Electric Vehicle)',
+      }),
+    ).toBe('1.5L 4-cyl plug-in hybrid')
   })
 
   it('reports a VIN vPIC cannot place as not found', async () => {

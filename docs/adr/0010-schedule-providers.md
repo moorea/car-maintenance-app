@@ -16,10 +16,12 @@ rewritten.
 Until a commercial feed is chosen, the only provider is the baseline (`source = 'baseline'`). A
 trigger gives every new config the baseline in the same transaction that creates it, so a new car
 syncs back with a schedule, and the migration backfills existing configs. The intervals live in
-`baseline_schedule`: general, conservative ones (at or ahead of what most manufacturers ask) for
-oil, tires, brakes, filters, fluids, plugs and the 12-volt battery, chosen by powertrain. The
+`baseline_schedule`: general, conservative ones (at or ahead of what most manufacturers ask for
+cars of that era) for oil, tires, brakes, filters, fluids, plugs, the timing belt (if equipped)
+and the 12-volt battery, chosen by powertrain and, for coolant and plugs, model year. The
 powertrain comes from the decoded engine ("Electric", "2.5L 4-cyl hybrid", "6.7L 6-cyl diesel")
-or, for a car typed in without one, from the make and model; anything unknown is gas. The
+or, for a car typed in without one, from makes and model names that are electric in every year;
+anything unknown is gas, because calling a gas car electric would drop its engine maintenance. The
 baseline never overwrites another provider's schedule.
 
 The phone and the assistant treat `source = 'baseline'` as general guidance: the car page titles

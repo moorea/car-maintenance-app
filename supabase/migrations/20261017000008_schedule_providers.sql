@@ -102,20 +102,27 @@ as $$
     when p_engine ~* 'diesel' then 'diesel'
     when p_engine ~* 'electric' then 'electric'
     when p_engine is not null then 'gas'
-    when lower(p_make) in ('tesla', 'rivian', 'lucid', 'polestar', 'fisker') then 'electric'
-    when p_model ~* '(^|[^a-z])(ev\d*|electric|e-tron|leaf|bolt|mach-e|lightning|ioniq ?[5-9]|bz4x|lyriq|ariya|id\.\d|taycan|i[x3-7]|eq[a-z]+|prologue)([^a-z]|$)'
+    -- Typed in: only names that are electric in every model year, since calling a gas car
+    -- electric would drop its engine maintenance, while the reverse only adds reminders.
+    when p_model ~* 'hybrid|prius|plug-in|phev|(^|[^a-z])volt([^a-z]|$)' then 'hybrid'
+    when lower(p_make) in ('tesla', 'rivian', 'lucid') then 'electric'
+    when lower(p_make) = 'bmw' and p_model ~* '^i[x3-7]([^a-z0-9]|$)' then 'electric'
+    when p_model ~* '(^|[^a-z])(ev\d*|electric|leaf|bolt|mach-e|ioniq [5-9]|bz4x|lyriq|ariya|id\.\d|taycan|prologue|eq[sebg]( suv)?)([^a-z]|$)'
       then 'electric'
-    when p_model ~* 'hybrid|prius|plug-in|phev' then 'hybrid'
+    when p_model ~* '^(s?q[48] )?e-tron' then 'electric'
     else 'gas'
   end
 $$;
 
--- General, conservative intervals: at or ahead of what most manufacturers ask, so following them
--- never lets an item lapse. Severe intervals apply to cars marked as driven in severe conditions
+-- General, conservative intervals: at or ahead of what most manufacturers ask for cars of that
+-- era, so following them rarely lets an item lapse. Older cars get the shorter coolant and spark
+-- plug intervals of green coolant and copper plugs. Severe intervals apply to cars marked as driven in severe conditions
 -- (towing, short trips, dust, extreme heat or cold). Not readable by owners; they see the copies
 -- in maintenance_items.
 create table public.baseline_schedule (
-  kind            text primary key,
+  kind            text not null,
+  -- The model years the row applies to. A kind's rows never overlap.
+  years           int4range not null default int4range(1981, null),
   task            text not null,
   interval_miles  int check (interval_miles > 0),
   interval_months int check (interval_months > 0),
@@ -123,7 +130,8 @@ create table public.baseline_schedule (
   severe_months   int check (severe_months > 0),
   powertrains     text[] not null
     check (powertrains <@ array['gas', 'hybrid', 'diesel', 'electric'] and powertrains <> '{}'),
-  check (interval_miles is not null or interval_months is not null)
+  check (interval_miles is not null or interval_months is not null),
+  primary key (kind, years)
 );
 alter table public.baseline_schedule enable row level security;
 revoke all on table public.baseline_schedule from public, anon, authenticated;
@@ -132,6 +140,7 @@ grant select, insert, update, delete on public.baseline_schedule to service_role
 insert into public.baseline_schedule
   (kind, task, interval_miles, interval_months, severe_miles, severe_months, powertrains)
 values
+  ('timing-belt', 'Timing belt (if equipped)', 60000, 72, null, null, '{gas,hybrid,diesel}'),
   ('engine-oil', 'Oil & filter change', 5000, 6, 3000, 6, '{gas,hybrid,diesel}'),
   ('tire-rotation', 'Tire rotation', 5000, 6, null, null, '{gas,hybrid,diesel,electric}'),
   ('brake-inspection', 'Brake inspection', 12000, 12, 6000, 6, '{gas,hybrid,diesel,electric}'),
@@ -140,9 +149,15 @@ values
   ('fuel-filter', 'Fuel filter', 15000, 24, null, null, '{diesel}'),
   ('brake-fluid', 'Brake fluid', 30000, 24, null, null, '{gas,hybrid,diesel,electric}'),
   ('battery-test', '12-volt battery test', null, 12, null, null, '{gas,hybrid,diesel,electric}'),
-  ('spark-plugs', 'Spark plugs', 60000, null, null, null, '{gas,hybrid}'),
-  ('transmission-fluid', 'Transmission fluid', 60000, null, 30000, null, '{gas,hybrid,diesel}'),
-  ('engine-coolant', 'Engine coolant', 60000, 60, null, null, '{gas,hybrid,diesel}');
+  ('transmission-fluid', 'Transmission fluid', 60000, null, 30000, null, '{gas,hybrid,diesel}');
+
+insert into public.baseline_schedule
+  (kind, years, task, interval_miles, interval_months, severe_miles, severe_months, powertrains)
+values
+  ('spark-plugs', '[1981,2005)', 'Spark plugs', 30000, null, null, null, '{gas,hybrid}'),
+  ('spark-plugs', '[2005,)', 'Spark plugs', 60000, null, null, null, '{gas,hybrid}'),
+  ('engine-coolant', '[1981,2005)', 'Engine coolant', 30000, 24, null, null, '{gas,hybrid,diesel}'),
+  ('engine-coolant', '[2005,)', 'Engine coolant', 60000, 60, null, null, '{gas,hybrid,diesel}');
 
 -- Gives a config the baseline schedule for its powertrain, unless another provider has already
 -- set its schedule.
@@ -151,8 +166,9 @@ create function public.fill_baseline_schedule(p_config uuid) returns void
 as $$
 declare
   powertrain text;
+  model_year int;
 begin
-  select public.powertrain_of(c.make, c.model, c.engine) into powertrain
+  select public.powertrain_of(c.make, c.model, c.engine), c.year into powertrain, model_year
     from public.vehicle_configs c
    where c.id = p_config;
   if not found then
@@ -174,7 +190,7 @@ begin
                 'interval_miles', b.interval_miles, 'interval_months', b.interval_months,
                 'severe_miles', b.severe_miles, 'severe_months', b.severe_months))
          from public.baseline_schedule b
-        where powertrain = any (b.powertrains)),
+        where powertrain = any (b.powertrains) and b.years @> model_year),
       '[]'::jsonb
     )
   );
