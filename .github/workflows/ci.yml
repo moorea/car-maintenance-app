@@ -58,11 +58,16 @@ jobs:
   # the web build. Needs no Apple account: simulator builds are not code signed.
   ios:
     runs-on: macos-26
+    permissions:
+      contents: write
     timeout-minutes: 75
     env:
       CI: 1
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The job can write (for the screenshots branch); keep the token away from install scripts.
+          persist-credentials: false
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -107,15 +112,30 @@ jobs:
           find . "$RUNNER_TEMP/maestro" -name '*.png' -newer package.json -not -path '*/node_modules/*' \
             -exec cp {} "$RUNNER_TEMP/screenshots/" \; || true
           xcrun simctl io booted screenshot "$RUNNER_TEMP/screenshots/last.png" || true
-      # Small JPEG copies in the log, for reviewers (and agents) who cannot download artifacts.
-      - name: Print screenshots as base64
-        if: always()
-        working-directory: ${{ runner.temp }}/screenshots
+      # Also keep the screenshots on the ios-screenshots branch, one folder per commit, so a PR can
+      # show them inline and they can be fetched with plain git. Skipped for forks (no write token).
+      - name: Publish screenshots to the ios-screenshots branch
+        if: always() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
+        env:
+          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          TOKEN: ${{ github.token }}
         run: |
-          for f in *.png; do
-            sips -s format jpeg -s formatOptions 55 -Z 1000 "$f" --out "/tmp/${f%.png}.jpg" > /dev/null
-            echo "SCREENSHOT ${f%.png} $(base64 -i "/tmp/${f%.png}.jpg" | tr -d '\n')"
+          dir="$RUNNER_TEMP/ios-screenshots"
+          remote="https://x-access-token:$TOKEN@github.com/$GITHUB_REPOSITORY.git"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git fetch --depth 1 "$remote" ios-screenshots; then
+            git worktree add "$dir" FETCH_HEAD --detach
+          else
+            git worktree add --detach "$dir" && git -C "$dir" checkout --orphan tmp && git -C "$dir" rm -rfq .
+          fi
+          mkdir -p "$dir/$SHA" && cp "$RUNNER_TEMP"/screenshots/*.png "$dir/$SHA/"
+          git -C "$dir" add "$SHA" && git -C "$dir" commit -qm "iOS simulator screenshots for $SHA"
+          for attempt in 1 2 3; do
+            git -C "$dir" push "$remote" HEAD:refs/heads/ios-screenshots && exit 0
+            git -C "$dir" fetch --depth 1 "$remote" ios-screenshots && git -C "$dir" rebase FETCH_HEAD
           done
+          exit 1
       - uses: actions/upload-artifact@v4
         if: always()
         with:
