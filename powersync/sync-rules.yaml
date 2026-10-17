@@ -1,5 +1,5 @@
 # PowerSync Sync Streams: which Postgres rows each signed-in user gets on their phone.
-# Deploys to the hosted instance after it merges (.github/workflows/deploy-sync-rules.yml); never
+# Deploys to the hosted instance after it merges (.github/workflows/deploy-db.yml); never
 # edit it in the PowerSync dashboard, since the next deploy replaces what is there.
 # Row-level security does not apply to sync, so these queries are the read boundary for the
 # device: every stream must be scoped by auth.user_id(). Writes go through PostgREST, where

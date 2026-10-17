@@ -24,8 +24,8 @@ Screens read and write SQLite only; PowerSync syncs it with Supabase Postgres in
   to the Data API by default, and anonymous users get nothing. Migrations deploy to the hosted
   project from `.github/workflows/deploy-db.yml` after they merge. PowerSync replicates the
   tables in the `powersync` publication, which must match the sync rules. The sync rules are
-  checked against the hosted instance on pull requests and deploy to it after they merge, from
-  `.github/workflows/deploy-sync-rules.yml`, once any pending migrations have applied.
+  checked against the hosted instance on pull requests (`.github/workflows/sync-rules.yml`) and
+  deploy to it after the migrations, from the same `deploy-db.yml` run.
 - **Ids** are UUIDs generated on the device, so rows created offline never collide.
 - `packages/data` takes the database as a parameter and imports only `@powersync/common`. The app
   passes the React Native database; tests pass `@powersync/node` with a temporary file.
