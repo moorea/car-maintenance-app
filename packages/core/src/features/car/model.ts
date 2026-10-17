@@ -1,7 +1,7 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
 import { daysBetween, type IsoDate } from '../../lib/date'
 import { formatMiles } from '../../lib/format'
-import type { MaintenanceItem, OdometerReading, ServiceRecord, Vehicle } from '../../domain/types'
+import type { MaintenanceItem, OdometerReading, Vehicle } from '../../domain/types'
 import type { Unsubscribe } from '../../ports'
 import { getDueItems, type GetDueItemsDeps } from '../../reminders/getDueItems'
 import { MAX_PLAUSIBLE_MILES_PER_DAY } from '../../reminders/mileage'

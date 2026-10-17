@@ -1,7 +1,7 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
 import type { IsoDate } from '../../lib/date'
 import { formatAgo, formatMiles, formatWeekday } from '../../lib/format'
-import type { MaintenanceItem, OdometerReading, ServiceRecord, Vehicle } from '../../domain/types'
+import type { MaintenanceItem, OdometerReading, Vehicle } from '../../domain/types'
 import type { SafetyRepo, Unsubscribe } from '../../ports'
 import { getDueItems, type GetDueItemsDeps } from '../../reminders/getDueItems'
 import { currentOdometer } from './odometer'
