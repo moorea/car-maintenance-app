@@ -271,6 +271,7 @@ export const memoryNotifier = (
   const pending = new Map<string, LocalNotification>()
   const log: string[] = []
   let nextFailure: string | undefined
+  const openWatchers = new Set<(vehicleId: string) => void>()
   const notifier: Notifier & {
     /** Every schedule and cancel, in order, as "schedule <id>" or "cancel <id>". */
     log: string[]
@@ -278,6 +279,8 @@ export const memoryNotifier = (
     settingsOpened: number
     setPermission: (p: NotificationPermission) => void
     failNextSchedule: (message: string) => void
+    /** The owner taps a reminder about `vehicleId`. */
+    tap: (vehicleId: string) => void
   } = {
     log,
     prompts: 0,
@@ -315,6 +318,13 @@ export const memoryNotifier = (
     },
     openSettings: async () => {
       notifier.settingsOpened++
+    },
+    watchOpened: (onOpen) => {
+      openWatchers.add(onOpen)
+      return () => openWatchers.delete(onOpen)
+    },
+    tap: (vehicleId) => {
+      for (const w of openWatchers) w(vehicleId)
     },
   }
   return notifier

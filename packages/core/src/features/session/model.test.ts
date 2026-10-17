@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Vehicle } from '../../domain/types'
-import { memoryAuth, memorySync, memoryVehicles } from '../../testing'
+import { memoryAuth, memoryNotifier, memorySync, memoryVehicles } from '../../testing'
 import { createSessionModel } from './model'
 
 const car = { year: 2020, make: 'Honda', severeDuty: false }
@@ -17,8 +17,9 @@ const setup = (signedIn: boolean, owned: Vehicle[] = [], synced = true) => {
   const auth = memoryAuth(signedIn ? { user: { id: 'u1', email: 'a@example.com' } } : {})
   const vehicles = memoryVehicles(owned)
   const sync = memorySync({ synced })
-  const model = createSessionModel({ auth, vehicles, sync })
-  return { auth, vehicles, sync, model }
+  const notifier = memoryNotifier()
+  const model = createSessionModel({ auth, vehicles, sync, notifier })
+  return { auth, vehicles, sync, notifier, model }
 }
 
 describe('session model', () => {
@@ -207,5 +208,47 @@ describe('session model, adding a car', () => {
     expect(model.getState().addingCar).toBe(false)
     model.getState().addCar()
     expect(model.getState().addingCar).toBe(false)
+  })
+
+  it('opens the car a tapped reminder is about', () => {
+    const { model, notifier } = setup(true, [civic, accord])
+    model.getState().start()
+    model.getState().addCar()
+    notifier.tap('v-civic')
+    expect(model.getState()).toMatchObject({ selectedVehicleId: 'v-civic', addingCar: false })
+  })
+
+  it('opens the tapped car once the cars load when a reminder launched the app', () => {
+    const auth = memoryAuth({ user: { id: 'u1' } })
+    const vehicles = memoryVehicles([])
+    const model = createSessionModel({
+      auth,
+      vehicles,
+      sync: memorySync({ synced: false }),
+      // The launching tap is reported as soon as anyone listens, before sign-in is known.
+      notifier: { watchOpened: (onOpen) => (onOpen('v-civic'), () => {}) },
+    })
+    model.getState().start()
+    expect(model.getState().status).toBe('syncing')
+    vehicles.set([civic, accord])
+    expect(model.getState()).toMatchObject({ status: 'ready', selectedVehicleId: 'v-civic' })
+    // The tap is used up: later changes keep the owner's own choice.
+    model.getState().selectVehicle('v-accord')
+    vehicles.set([civic, accord])
+    expect(model.getState().selectedVehicleId).toBe('v-accord')
+  })
+
+  it('ignores a tapped reminder about a car the owner does not have', () => {
+    const { model, notifier } = setup(true, [civic, accord])
+    model.getState().start()
+    notifier.tap('someone-elses-car')
+    expect(model.getState().selectedVehicleId).toBe('v-accord')
+  })
+
+  it('opens nothing from a reminder tapped while signed out', () => {
+    const { model, notifier } = setup(false)
+    model.getState().start()
+    notifier.tap('v-civic')
+    expect(model.getState().status).toBe('signed-out')
   })
 })

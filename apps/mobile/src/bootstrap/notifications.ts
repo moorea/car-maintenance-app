@@ -86,5 +86,18 @@ export const expoNotifier = (): Notifier => {
     },
     cancel: (id) => Notifications.cancelScheduledNotificationAsync(id),
     openSettings: () => Linking.openSettings(),
+    watchOpened: (onOpen) => {
+      const open = (response: Notifications.NotificationResponse | null) => {
+        if (response?.actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER) return
+        const [reminder] = fromRequest(response.notification.request)
+        if (reminder) onOpen(reminder.vehicleId)
+      }
+      // The tap that launched the app arrived before anyone was listening. Cleared once used, so
+      // a later listener does not reopen that car.
+      open(Notifications.getLastNotificationResponse())
+      Notifications.clearLastNotificationResponse()
+      const sub = Notifications.addNotificationResponseReceivedListener(open)
+      return () => sub.remove()
+    },
   }
 }

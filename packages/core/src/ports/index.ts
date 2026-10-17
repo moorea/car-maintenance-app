@@ -112,6 +112,11 @@ export interface Notifier {
   cancel(id: string): Promise<void>
   /** Opens this app's page in the system settings, where a denial can be undone. */
   openSettings(): Promise<void>
+  /**
+   * Calls `onOpen` with the car a reminder is about when the owner taps it, including the tap
+   * that launched the app.
+   */
+  watchOpened(onOpen: (vehicleId: VehicleId) => void): Unsubscribe
 }
 
 /** The owner's reminder choices, kept on this device. */
