@@ -39,6 +39,8 @@ export interface Colors {
   glassShadow: string
   /** Behind the selected item in a tab bar or segmented control. */
   selectedFill: string
+  /** The second series in a chart, beside `accent`: service costs beside fuel. */
+  chartSecondary: string
   /** No fill, for a field drawn inside another control, such as the text in a chat composer. */
   clear: string
 }
@@ -63,6 +65,7 @@ export const lightColors: Colors = {
   glassEdge: p.whiteGlassEdge,
   glassShadow: p.shadowSoft,
   selectedFill: p.graySelected,
+  chartSecondary: p.indigo600,
   clear: p.clear,
 }
 
@@ -84,5 +87,6 @@ export const darkColors: Colors = {
   glassEdge: p.charcoalGlassEdge,
   glassShadow: p.shadowDark,
   selectedFill: p.graySelectedDark,
+  chartSecondary: p.indigo300,
   clear: p.clear,
 }

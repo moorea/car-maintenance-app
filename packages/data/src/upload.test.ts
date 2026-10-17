@@ -112,6 +112,16 @@ describe('applyCrud', () => {
     expect(calls).toEqual([['update', 'warranties', 'row1', { months: 30 }]])
   })
 
+  it('uploads a fill-up correction as an update, since fill-ups are editable', async () => {
+    const { backend, calls } = fakeBackend()
+    await applyCrud(
+      backend,
+      entry(UpdateType.PATCH, 'fill_ups', { odometer_miles: 41_100 }),
+      context(),
+    )
+    expect(calls).toEqual([['update', 'fill_ups', 'row1', { odometer_miles: 41_100 }]])
+  })
+
   it('never uploads tables that are read-only on the device', async () => {
     const { backend, calls } = fakeBackend()
     const dropped = await applyCrud(

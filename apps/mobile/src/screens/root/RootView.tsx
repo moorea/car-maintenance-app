@@ -11,6 +11,7 @@ import { RemindersScreen } from '../reminders/RemindersScreen'
 import { ServiceLogScreen } from '../service-log/ServiceLogScreen'
 import { SignInScreen } from '../sign-in/SignInScreen'
 import { WarrantyScreen } from '../warranty/WarrantyScreen'
+import { FuelScreen } from '../fuel/FuelScreen'
 import { YourDataScreen } from '../your-data/YourDataScreen'
 import { askModelFor } from '../../models/askModels'
 import { Host } from '../../ui/Host'
@@ -50,8 +51,8 @@ export function RootView(props: Props) {
         {props.tab === 'ask' || props.tab === 'quote' ? null : (
           <TabBar
             tabs={TABS}
-            // The warranty page belongs to the car, so the car's tab stays selected there.
-            selected={props.tab === 'warranty' ? 'car' : props.tab}
+            // The warranty and fuel pages belong to the car, so the car's tab stays selected there.
+            selected={props.tab === 'warranty' || props.tab === 'fuel' ? 'car' : props.tab}
             onSelect={props.openTab}
             action={{ symbol: 'ask', onPress: () => props.openTab('ask'), selected: false }}
           />
@@ -130,8 +131,11 @@ function TabContent(props: Props & { vehicle: Vehicle }) {
           vehicle={vehicle}
           onCheckQuote={() => props.openTab('quote')}
           onWarranty={() => props.openTab('warranty')}
+          onFuel={() => props.openTab('fuel')}
         />
       )
+    case 'fuel':
+      return <FuelScreen vehicle={vehicle} onBack={() => props.openTab('car')} />
     case 'warranty':
       return <WarrantyScreen vehicle={vehicle} onBack={() => props.openTab('car')} />
     case 'ask':

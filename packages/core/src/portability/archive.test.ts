@@ -71,6 +71,31 @@ const rav4: CarData = {
       endMiles: 60_000,
     },
   ],
+  fillUps: [
+    {
+      id: 'f-2',
+      vehicleId: 'car-1',
+      filledOn: '2026-02-20',
+      odometerMiles: 30_100,
+      energy: 'fuel',
+      quantity: 11.204,
+      full: false,
+      missedPrevious: true,
+      notes: 'Forgot the receipt',
+    },
+    {
+      id: 'f-1',
+      vehicleId: 'car-1',
+      filledOn: '2026-02-01',
+      odometerMiles: 29_800,
+      energy: 'fuel',
+      quantity: 12.5,
+      costCents: 4250,
+      full: true,
+      missedPrevious: false,
+      station: 'Costco',
+    },
+  ],
   items: [{ id: 'item-oil', configId: 'cfg', task: 'Engine oil and filter', kind: 'engine-oil' }],
 }
 
@@ -95,6 +120,7 @@ describe('buildArchive', () => {
       'documents.csv',
       'documents/Blue -Bessie-/Card.pdf',
       'documents/Blue -Bessie-/Oil change.jpg',
+      'fill-ups.csv',
       'odometer.csv',
       'service-log.csv',
       'warranties.csv',
@@ -135,6 +161,10 @@ describe('buildArchive', () => {
     expect(textOf(bytes, 'warranties.csv')).toContain(
       'Blue -Bessie-,powertrain,Toyota,2021-06-01,60,60000,,',
     )
+    expect(textOf(bytes, 'fill-ups.csv').split('\r\n').slice(1, 3)).toEqual([
+      'Blue -Bessie-,2026-02-01,29800,fuel,12.5,gal,42.50,yes,no,Costco,',
+      'Blue -Bessie-,2026-02-20,30100,fuel,11.204,gal,,no,yes,,Forgot the receipt',
+    ])
   })
 
   it('names each service by its schedule item in the JSON, so it means something elsewhere', () => {
@@ -209,8 +239,21 @@ describe('readArchive', () => {
     const archive = readArchive(buildArchive([rav4], files, '2026-10-17').bytes)
 
     expect(archive.data.cars[0]).toMatchObject({ vin: RAV4.vin, nickname: RAV4.nickname })
+    expect(archive.data.cars[0]?.fillUps).toEqual([
+      expect.objectContaining({ filledOn: '2026-02-01', quantity: 12.5, costCents: 4250 }),
+      expect.objectContaining({ filledOn: '2026-02-20', full: false, missedPrevious: true }),
+    ])
     expect(archive.file('documents/Blue -Bessie-/Card.pdf')).toEqual(new Uint8Array([4, 5, 6, 7]))
     expect(archive.file('documents/nope.pdf')).toBeUndefined()
+  })
+
+  it('reads an export made before fill-ups existed as a car without fill-ups', () => {
+    const json = JSON.parse(
+      textOf(buildArchive([{ ...rav4, fillUps: [] }], files, '2026-10-17').bytes, 'car-data.json'),
+    )
+    delete json.cars[0].fillUps
+
+    expect(readArchive(zipOf(json)).data.cars[0]?.fillUps).toEqual([])
   })
 
   const kindOf = (bytes: Uint8Array) => {

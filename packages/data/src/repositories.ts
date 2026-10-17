@@ -1,4 +1,5 @@
 import type {
+  FillUpRepo,
   OdometerReading,
   OdometerRepo,
   SafetyReport,
@@ -14,9 +15,11 @@ import type { CommonPowerSyncDatabase } from '@powersync/common'
 import { readOwner } from './session'
 import {
   fromServiceRecord,
+  fromFillUp,
   fromVehicle,
   fromWarranty,
   toComplaintSummary,
+  toFillUp,
   toMaintenanceItem,
   toOdometerReading,
   toRecall,
@@ -33,6 +36,7 @@ export interface PowerSyncRepositories {
   schedule: ScheduleRepo
   safety: SafetyRepo
   warranties: WarrantyRepo
+  fillUps: FillUpRepo
   sync: SyncStatus
 }
 
@@ -41,6 +45,9 @@ const RECORDS_FOR_VEHICLE =
 
 const WARRANTIES_FOR_VEHICLE =
   'select * from warranties where vehicle_id = ? order by starts_on, kind, id'
+
+const FILL_UPS_FOR_VEHICLE =
+  'select * from fill_ups where vehicle_id = ? order by filled_on desc, odometer_miles desc'
 
 const READINGS_FOR_VEHICLE = 'select * from odometer_readings where vehicle_id = ? order by read_on'
 
@@ -113,6 +120,38 @@ const watchSafety = (
 }
 
 /** Same text format as synced timestamptz values, so local and synced rows sort alike. */
+/**
+ * Saves a row of a table the owner can edit: an insert for a new row, and an update of only the
+ * changed columns for an edit, so the upload is a PUT or a PATCH as it would be for a car. Saving
+ * a row unchanged queues nothing.
+ */
+const saveEditable = async (
+  db: CommonPowerSyncDatabase,
+  table: 'warranties' | 'fill_ups',
+  row: { id: string } & Row,
+) => {
+  await db.writeTransaction(async (tx) => {
+    const existing = await tx.getOptional<Row>(`select * from ${table} where id = ?`, [row.id])
+    if (!existing) {
+      const inserted = { ...row, updated_at: now() }
+      const columns = Object.keys(inserted)
+      await tx.execute(
+        `insert into ${table} (${columns.join(', ')}) values (${columns.map(() => '?').join(', ')})`,
+        Object.values(inserted),
+      )
+      return
+    }
+    const { id: _id, ...fields } = row
+    const changed = Object.entries(fields).filter(([column, value]) => existing[column] !== value)
+    if (changed.length === 0) return
+    changed.push(['updated_at', now()])
+    await tx.execute(
+      `update ${table} set ${changed.map(([column]) => `${column} = ?`).join(', ')} where id = ?`,
+      [...changed.map(([, value]) => value), row.id],
+    )
+  })
+}
+
 export const now = () => new Date().toISOString().replace('T', ' ')
 
 const insertReading = async (
@@ -260,39 +299,26 @@ export const createPowerSyncRepositories = (
         onChange(rows.map(toWarranty)),
       ),
 
-    // An insert for a new warranty and an update of only the changed columns for an edit, so
-    // the upload is a PUT or a PATCH as it would be for a car.
-    save: async (warranty) => {
-      const row = fromWarranty(warranty)
-      await db.writeTransaction(async (tx) => {
-        const existing = await tx.getOptional<Record<string, unknown>>(
-          'select * from warranties where id = ?',
-          [warranty.id],
-        )
-        if (!existing) {
-          const inserted = { ...row, updated_at: now() }
-          const columns = Object.keys(inserted)
-          await tx.execute(
-            `insert into warranties (${columns.join(', ')}) values (${columns.map(() => '?').join(', ')})`,
-            Object.values(inserted),
-          )
-          return
-        }
-        const { id: _id, ...fields } = row
-        const changed = Object.entries(fields).filter(
-          ([column, value]) => existing[column] !== value,
-        )
-        if (changed.length === 0) return
-        changed.push(['updated_at', now()])
-        await tx.execute(
-          `update warranties set ${changed.map(([column]) => `${column} = ?`).join(', ')} where id = ?`,
-          [...changed.map(([, value]) => value), warranty.id],
-        )
-      })
-    },
+    save: (warranty) => saveEditable(db, 'warranties', fromWarranty(warranty)),
 
     remove: async (id) => {
       await db.execute('delete from warranties where id = ?', [id])
+    },
+  },
+
+  fillUps: {
+    listForVehicle: async (vehicleId) =>
+      (await db.getAll<Record<string, unknown>>(FILL_UPS_FOR_VEHICLE, [vehicleId])).map(toFillUp),
+
+    watchForVehicle: (vehicleId, onChange) =>
+      watchRows(db, FILL_UPS_FOR_VEHICLE, [vehicleId], 'fill_ups', (rows) =>
+        onChange(rows.map(toFillUp)),
+      ),
+
+    save: (fillUp) => saveEditable(db, 'fill_ups', fromFillUp(fillUp)),
+
+    remove: async (id) => {
+      await db.execute('delete from fill_ups where id = ?', [id])
     },
   },
 

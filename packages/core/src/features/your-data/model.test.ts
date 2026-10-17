@@ -1,11 +1,12 @@
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate'
 import { describe, expect, it } from 'vitest'
-import type { Attachment, ServiceRecord, Vehicle, Warranty } from '../../domain/types'
+import type { Attachment, FillUp, ServiceRecord, Vehicle, Warranty } from '../../domain/types'
 import {
   fixedClock,
   memoryAttachments,
   memoryAuth,
   memoryDataFiles,
+  memoryFillUps,
   memoryOdometer,
   memorySchedule,
   memoryServiceRecords,
@@ -87,6 +88,7 @@ const phone = (
     services?: ServiceRecord[]
     attachments?: Attachment[]
     warranties?: Warranty[]
+    fillUps?: FillUp[]
     remote?: string[]
     files?: Record<string, Uint8Array>
   } = {},
@@ -104,6 +106,7 @@ const phone = (
   const services = memoryServiceRecords(data.services ?? [])
   const attachments = memoryAttachments(data.attachments ?? [], { remote: data.remote ?? [] })
   const warranties = memoryWarranties(data.warranties ?? [])
+  const fillUps = memoryFillUps(data.fillUps ?? [])
   const files = memoryDataFiles(data.files ?? {})
   const schedule = memorySchedule([
     { id: 'item-oil', configId: 'cfg-civic', task: 'Engine oil', kind: 'engine-oil' },
@@ -115,13 +118,14 @@ const phone = (
     services,
     attachments,
     warranties,
+    fillUps,
     schedule,
     files,
     clock: fixedClock('2026-10-17'),
     ids: sequentialIds('new'),
   })
   model.getState().start()
-  return { auth, vehicles, odometer, services, attachments, warranties, files, model }
+  return { auth, vehicles, odometer, services, attachments, warranties, fillUps, files, model }
 }
 
 const samsPhone = () =>
@@ -290,6 +294,40 @@ describe('your data model', () => {
           text: 'Added 2 cars with 1 service, 1 warranty and 2 documents.',
         },
       })
+    })
+
+    it('adds fill-ups under new ids, without copying their mileage in as readings', async () => {
+      const fill: FillUp = {
+        id: 'f-1',
+        vehicleId: 'civic',
+        filledOn: '2026-04-02',
+        odometerMiles: 41_000,
+        energy: 'fuel',
+        quantity: 10.5,
+        costCents: 3990,
+        full: true,
+        missedPrevious: false,
+        station: 'Costco',
+      }
+      // The phone's readings already hold the fill-up's mileage, as the app's do.
+      const sam = phone(SAM, { vehicles: [civic], fillUps: [fill] })
+      await sam.model.getState().exportAll()
+      expect(sam.model.getState().message?.text).toBe(
+        'Exported 1 car, 0 services, 0 warranties, 1 fill-up and 0 documents.',
+      )
+      const alex = phone({ id: 'alex' })
+      alex.files.queueArchive(got(sam.files.shared[0]).bytes)
+
+      await alex.model.getState().chooseImport()
+      await alex.model.getState().confirmImport()
+
+      expect(await alex.fillUps.listForVehicle('new-1')).toEqual([
+        { ...fill, id: 'new-2', vehicleId: 'new-1' },
+      ])
+      expect(await alex.odometer.listForVehicle('new-1')).toEqual([])
+      expect(alex.model.getState().message?.text).toBe(
+        'Added 1 car with 0 services, 0 warranties, 1 fill-up and 0 documents.',
+      )
     })
 
     it('leaves cars already in the garage as they are, so importing twice adds nothing twice', async () => {

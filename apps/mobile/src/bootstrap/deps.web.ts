@@ -1,4 +1,4 @@
-import { createReminderScheduler, type IdGenerator } from '@car/core'
+import { createReminderScheduler, withFillUpReadings, type IdGenerator } from '@car/core'
 import {
   demoQuoteReader,
   memoryNotifier,
@@ -22,7 +22,13 @@ import { systemFilePicker, systemFilePreview } from './files'
 // native SQLite does not run in a browser, so it never uses the live backend.
 const clock = localClock
 const ids: IdGenerator = { next: () => randomUUID() }
-const repositories = { ...createDemoRepositories(), attachments: demoAttachments(sampleFiles()) }
+const demo = createDemoRepositories()
+const repositories = {
+  ...demo,
+  // Every fill-up's mileage is an odometer reading, as in the app.
+  odometer: withFillUpReadings(demo.odometer, demo.fillUps),
+  attachments: demoAttachments(sampleFiles()),
+}
 // Browsers cannot schedule notifications for a future date, so the preview pretends.
 const notifier = memoryNotifier()
 const reminderSettings = memoryReminderSettings()
