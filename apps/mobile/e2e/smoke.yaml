@@ -1,0 +1,26 @@
+# Smoke test for the iOS simulator build (CI job `ios`). The build has no backend settings, so the
+# app opens on demo data, already signed in. Run locally with `maestro test apps/mobile/e2e`.
+appId: com.moorea.carmaintenance
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+- extendedWaitUntil:
+    visible: 'Demo car'
+    timeout: 60000
+- takeScreenshot: 1-garage
+- tapOn: 'Log'
+- waitForAnimationToEnd
+- takeScreenshot: 2-service-log
+- tapOn: 'Car'
+- waitForAnimationToEnd
+- takeScreenshot: 3-car
+- tapOn: 'Garage'
+- scrollUntilVisible:
+    element: 'Sign out'
+- tapOn: 'Sign out'
+- extendedWaitUntil:
+    visible: 'Email me a code'
+    timeout: 10000
+- takeScreenshot: 4-sign-in

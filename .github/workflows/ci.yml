@@ -53,3 +53,64 @@ jobs:
       - name: Lint SQL
         run: supabase db lint --level warning --fail-on warning
       - run: supabase test db
+
+  # Builds the app for the iOS simulator and launches it, since screens are otherwise only run on
+  # the web build. Needs no Apple account: simulator builds are not code signed.
+  ios:
+    runs-on: macos-26
+    timeout-minutes: 75
+    env:
+      CI: 1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: xcodebuild -version
+      - name: Generate the native project
+        working-directory: apps/mobile
+        run: npx expo prebuild --platform ios
+      - name: Build for the simulator
+        working-directory: apps/mobile/ios
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -workspace CarMaintenance.xcworkspace \
+            -scheme CarMaintenance \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/derived" \
+            CODE_SIGNING_ALLOWED=NO | tail -n 200
+      - name: Boot a simulator and install the app
+        run: |
+          udid=$(xcrun simctl list devices available --json \
+            | jq -r '[.devices[][] | select(.name | startswith("iPhone"))][0].udid')
+          echo "Booting $udid"
+          xcrun simctl boot "$udid"
+          xcrun simctl bootstatus "$udid"
+          xcrun simctl install "$udid" "$RUNNER_TEMP/derived/Build/Products/Release-iphonesimulator/CarMaintenance.app"
+      - name: Install Maestro
+        run: |
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+      - name: Smoke test
+        run: maestro test --test-output-dir "$RUNNER_TEMP/maestro" apps/mobile/e2e
+      - name: Collect screenshots
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/screenshots"
+          # takeScreenshot writes to the working directory; failure screenshots go to the output dir.
+          find . "$RUNNER_TEMP/maestro" -name '*.png' -newer package.json -not -path '*/node_modules/*' \
+            -exec cp {} "$RUNNER_TEMP/screenshots/" \; || true
+          xcrun simctl io booted screenshot "$RUNNER_TEMP/screenshots/last.png" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-simulator
+          path: |
+            ${{ runner.temp }}/screenshots
+            ${{ runner.temp }}/maestro

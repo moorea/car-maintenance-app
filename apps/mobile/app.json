@@ -5,7 +5,10 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
-    "ios": { "supportsTablet": false },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.moorea.carmaintenance"
+    },
     "android": {},
     "plugins": ["expo-notifications"]
   }
