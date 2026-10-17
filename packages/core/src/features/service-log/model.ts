@@ -14,7 +14,7 @@ export interface ServiceLogState {
   draft: Required<ServiceRecordDraft>
   fieldErrors: FieldErrors
   /** Set when a save fails for a reason that is not a field error. */
-  saveError?: string
+  saveError?: string | undefined
 }
 
 export interface ServiceLogActions {
@@ -46,7 +46,12 @@ const emptyDraft = (today: string): Required<ServiceRecordDraft> => ({
 })
 
 const toFieldErrors = (error: z.ZodError): FieldErrors =>
-  Object.fromEntries(error.issues.map((issue) => [issue.path[0], issue.message]))
+  Object.fromEntries(
+    error.issues.flatMap((issue) => {
+      const field = issue.path[0]
+      return typeof field === 'string' ? [[field, issue.message]] : []
+    }),
+  )
 
 /** Screen model for a vehicle's service log: the record list plus the "log service" form. */
 export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => {
@@ -65,6 +70,8 @@ export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => 
       }),
 
     save: async () => {
+      if (get().status === 'saving') return false
+      set({ saveError: undefined })
       const parsed = serviceRecordDraftSchema.safeParse(get().draft)
       if (!parsed.success) {
         set({ fieldErrors: toFieldErrors(parsed.error) })

@@ -55,6 +55,15 @@ describe('getDueItems', () => {
     ])
   })
 
+  it('estimates the mileage of a service logged without an odometer reading', async () => {
+    const d = deps()
+    // Oil done yesterday with no miles entered: due 10,000 miles from ~33,033, not "due now".
+    await d.records.add({ id: 's3', vehicleId: 'v1', itemId: 'oil', performedOn: '2026-09-30' })
+    const oil = (await getDueItems(d)('v1')).find((i) => i.itemId === 'oil')
+    expect(oil).toMatchObject({ status: 'upcoming', historyUnknown: false })
+    expect(oil?.dueMiles).toBeCloseTo(43_033, 0)
+  })
+
   it('fails loudly for an unknown vehicle', async () => {
     await expect(getDueItems(deps())('nope')).rejects.toThrow('Unknown vehicle nope')
   })

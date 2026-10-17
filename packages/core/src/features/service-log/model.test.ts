@@ -67,7 +67,7 @@ describe('service log screen model', () => {
 
     const s = model.getState()
     expect(s.fieldErrors).toEqual({
-      odometerMiles: 'Miles cannot be negative',
+      odometerMiles: 'Enter whole miles, digits only',
       performedOn: 'Enter a date as YYYY-MM-DD',
     })
     expect(s.records).toHaveLength(1)
@@ -86,6 +86,30 @@ describe('service log screen model', () => {
     records.failNextAdd('Disk full')
     expect(await model.getState().save()).toBe(false)
     expect(model.getState()).toMatchObject({ status: 'error', saveError: 'Disk full' })
+  })
+
+  it('clears a previous save error once a save succeeds', async () => {
+    const { model, records } = setup()
+    records.failNextAdd('Disk full')
+    await model.getState().save()
+    expect(await model.getState().save()).toBe(true)
+    expect(model.getState()).toMatchObject({ status: 'ready', saveError: undefined })
+  })
+
+  it('ignores a second save while the first is still running', async () => {
+    const { model } = setup()
+    const first = model.getState().save()
+    const second = model.getState().save()
+    expect(await Promise.all([first, second])).toEqual([true, false])
+    expect(model.getState().records).toHaveLength(2)
+  })
+
+  it('rejects numbers written in unusual notation', async () => {
+    const { model } = setup()
+    model.getState().setField('odometerMiles', '1e3')
+    model.getState().setField('cost', '0x10')
+    expect(await model.getState().save()).toBe(false)
+    expect(Object.keys(model.getState().fieldErrors).sort()).toEqual(['cost', 'odometerMiles'])
   })
 
   it('stops receiving updates after dispose', async () => {

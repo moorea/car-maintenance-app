@@ -1,7 +1,7 @@
 -- Run with `supabase test db`. Proves one owner can never read or write another owner's car data.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(6);
+select plan(11);
 
 insert into auth.users (id) values
   ('00000000-0000-0000-0000-00000000000a'),
@@ -30,6 +30,31 @@ select throws_ok(
   $$ insert into public.service_records (vehicle_id, performed_on)
      values ('20000000-0000-0000-0000-00000000000b', '2026-02-01') $$,
   '42501', null, 'owner cannot log service on someone else''s car'
+);
+
+select throws_ok(
+  $$ insert into public.vehicles (owner_id, config_id, nickname)
+     values ('00000000-0000-0000-0000-00000000000b', '10000000-0000-0000-0000-000000000001', 'Planted') $$,
+  '42501', null, 'owner cannot create a vehicle in someone else''s name'
+);
+select throws_ok(
+  $$ insert into public.odometer_readings (vehicle_id, read_on, miles)
+     values ('20000000-0000-0000-0000-00000000000b', '2026-02-01', 1) $$,
+  '42501', null, 'owner cannot add odometer readings to someone else''s car'
+);
+select throws_ok(
+  $$ insert into public.conversations (vehicle_id) values ('20000000-0000-0000-0000-00000000000b') $$,
+  '42501', null, 'owner cannot start a conversation about someone else''s car'
+);
+select lives_ok(
+  $$ insert into public.conversations (id, vehicle_id)
+     values ('30000000-0000-0000-0000-00000000000a', '20000000-0000-0000-0000-00000000000a') $$,
+  'owner can start a conversation about their own car'
+);
+select throws_ok(
+  $$ insert into public.messages (conversation_id, role, content)
+     values ('30000000-0000-0000-0000-00000000000a', 'user', '{}'::jsonb) $$,
+  '42501', null, 'messages are written only by the server'
 );
 
 update public.service_records set shop = 'edited';

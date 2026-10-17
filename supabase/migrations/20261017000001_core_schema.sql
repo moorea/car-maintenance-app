@@ -140,6 +140,7 @@ create policy owner_read on public.reminders for select to authenticated
 create policy owner_all on public.conversations for all to authenticated
   using (public.owns_vehicle(vehicle_id)) with check (public.owns_vehicle(vehicle_id));
 
+-- Messages are written by the assistant edge function with the service role, so owners only read.
 create policy owner_read on public.messages for select to authenticated using (
   exists (select 1 from public.conversations c
           where c.id = conversation_id and public.owns_vehicle(c.vehicle_id))

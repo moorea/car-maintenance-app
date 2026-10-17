@@ -27,13 +27,23 @@ export default tseslint.config(
   },
   {
     // Core is headless: no UI, platform or vendor SDKs. Those live behind ports.
-    files: ['packages/core/src/**/*.ts'],
+    files: ['packages/core/**/*.{ts,tsx,mts,cts}'],
     rules: {
       'no-restricted-imports': [
         'error',
         {
+          paths: [
+            {
+              name: 'zustand',
+              message: 'Core uses zustand/vanilla only; the React bindings live in the app.',
+            },
+          ],
           patterns: [
-            { group: ['react', 'react-*', 'react/*'], message: 'Core must not depend on React.' },
+            { group: ['react', 'react/*', '**/react*'], message: 'Core must not depend on React.' },
+            {
+              group: ['zustand/*', '!zustand/vanilla'],
+              message: 'Core uses zustand/vanilla only; the React bindings live in the app.',
+            },
             { group: ['expo', 'expo-*', '@expo/*'], message: 'Core must not depend on Expo.' },
             {
               group: ['@supabase/*', '@powersync/*'],
@@ -50,6 +60,21 @@ export default tseslint.config(
     rules: reactHooks.configs.recommended.rules,
   },
   {
+    // In-memory adapters are for tests; only the composition root may use them as placeholders.
+    files: ['apps/mobile/**/*.{ts,tsx}'],
+    ignores: ['apps/mobile/src/bootstrap/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            { group: ['@car/core/testing'], message: 'Test adapters stay out of app code.' },
+          ],
+        },
+      ],
+    },
+  },
+  {
     // Screens and their views only render model state. See ADR 0003.
     files: ['apps/mobile/src/screens/**/*.{ts,tsx}'],
     rules: {
@@ -57,7 +82,15 @@ export default tseslint.config(
       'no-restricted-imports': [
         'error',
         {
+          paths: [
+            {
+              name: 'react',
+              importNames: ['useState', 'useReducer'],
+              message: 'Screens keep no local state. Put it in a core screen model (ADR 0003).',
+            },
+          ],
           patterns: [
+            { group: ['@car/core/testing'], message: 'Test adapters stay out of app code.' },
             {
               group: ['@supabase/*', '@powersync/*'],
               message: 'Screens never talk to the backend directly; go through a model.',

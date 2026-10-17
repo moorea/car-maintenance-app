@@ -89,6 +89,45 @@ describe('projectDue', () => {
     })
   })
 
+  it('gives a parked car no mileage due date until it reaches the mileage', () => {
+    const tyres: MaintenanceItem = { id: 't', configId: 'c1', task: 'Rotate', intervalMiles: 5_000 }
+    expect(projectDue(input({ item: tyres, milesPerDay: 0 }))).toEqual({
+      itemId: 't',
+      task: 'Rotate',
+      dueMiles: 45_000,
+      trigger: 'miles',
+      status: 'upcoming',
+      historyUnknown: false,
+    })
+    expect(projectDue(input({ item: tyres, milesPerDay: 0, currentMiles: 45_000 }))).toMatchObject({
+      dueDate: '2026-10-01',
+      status: 'due-soon',
+    })
+  })
+
+  it('skips the mileage limit when the car has no odometer readings at all', () => {
+    expect(projectDue(input({ currentMiles: undefined, lastService: undefined }))).toMatchObject({
+      dueDate: '2026-10-01',
+      trigger: 'time',
+      historyUnknown: true,
+    })
+    expect(projectDue(input({ currentMiles: undefined }))).toMatchObject({
+      dueDate: '2027-03-01',
+      dueMiles: 45_000,
+      trigger: 'time',
+    })
+  })
+
+  it('clamps absurdly distant projections instead of producing a broken date', () => {
+    const due = projectDue(
+      input({
+        milesPerDay: 0.00005,
+        item: { id: 'far', configId: 'c1', task: 'Far', intervalMiles: 5_000 },
+      }),
+    )
+    expect(due?.dueDate).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+  })
+
   it('skips items with no interval', () => {
     expect(
       projectDue(input({ item: { id: 'x', configId: 'c1', task: 'Inspect' } })),
