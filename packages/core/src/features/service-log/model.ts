@@ -1,8 +1,18 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
 import { z } from 'zod'
-import type { ServiceRecord, VehicleId } from '../../domain/types'
-import type { Clock, IdGenerator, ScheduleRepo, ServiceRecordRepo, Unsubscribe } from '../../ports'
+import type { PickedFile, ServiceRecord, VehicleId } from '../../domain/types'
+import type {
+  AttachmentRepo,
+  Clock,
+  FilePicker,
+  FileSource,
+  IdGenerator,
+  ScheduleRepo,
+  ServiceRecordRepo,
+  Unsubscribe,
+} from '../../ports'
 import { serviceRecordDraftSchema, type ServiceRecordDraft } from '../../schemas/serviceRecord'
+import { pickAttachable, saveAttachment } from '../attachments/model'
 import { groupHistory, summarizeHistory, type LogGroup, type LogSummary } from './history'
 
 export type ServiceLogStatus = 'loading' | 'ready' | 'saving' | 'error'
@@ -18,6 +28,12 @@ export interface ServiceLogState {
   saveError?: string | undefined
   /** True while the "log a service" form is open. */
   adding: boolean
+  /** Receipts picked in the form, attached to the service once it is saved. */
+  receipts: PickedFile[]
+  /** Why the last receipt could not be picked or attached. */
+  receiptError?: string | undefined
+  /** The logged service the owner opened, to see or add its receipts. */
+  openEntryId?: string | undefined
   /** The car's scheduled tasks, for "what was done". */
   tasks: { id: string; task: string }[]
   /** What the owner typed in the search field. */
@@ -38,6 +54,11 @@ export interface ServiceLogActions {
   /** Loads the scheduled tasks for the car's configuration once it has synced or changed. */
   setConfig: (configId: string | undefined) => void
   setQuery: (query: string) => void
+  /** Asks the system for a photo or PDF of the receipt, to attach when the service is saved. */
+  addReceipt: (source: FileSource) => Promise<void>
+  removeReceipt: (index: number) => void
+  openEntry: (id: string) => void
+  closeEntry: () => void
   /** Validates and saves the draft. Resolves true on success. */
   save: () => Promise<boolean>
   /** Stops watching the database. Call when the screen unmounts. */
@@ -52,6 +73,8 @@ export interface ServiceLogDeps {
   configId?: string | undefined
   schedule: ScheduleRepo
   records: ServiceRecordRepo
+  attachments: AttachmentRepo
+  picker: FilePicker
   clock: Clock
   ids: IdGenerator
 }
@@ -128,6 +151,7 @@ export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => 
       draft: draftFor(),
       fieldErrors: {},
       adding: false,
+      receipts: [],
       tasks: [],
       query: '',
       groups: [],
@@ -140,7 +164,14 @@ export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => 
         }),
 
       openForm: (itemId) =>
-        set({ adding: true, draft: draftFor(itemId), fieldErrors: {}, saveError: undefined }),
+        set({
+          adding: true,
+          draft: draftFor(itemId),
+          fieldErrors: {},
+          saveError: undefined,
+          receipts: [],
+          receiptError: undefined,
+        }),
 
       closeForm: () => set({ adding: false }),
 
@@ -151,6 +182,21 @@ export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => 
       },
 
       setQuery: (query) => set((s) => show(s.records, query)),
+
+      addReceipt: async (source) => {
+        set({ receiptError: undefined })
+        const picked = await pickAttachable(deps.picker, source)
+        if (!picked) return
+        if ('error' in picked) set({ receiptError: picked.error })
+        else set((s) => ({ receipts: [...s.receipts, picked.file] }))
+      },
+
+      removeReceipt: (index) =>
+        set((s) => ({ receipts: s.receipts.filter((_, i) => i !== index) })),
+
+      openEntry: (id) => set({ openEntryId: id }),
+
+      closeEntry: () => set({ openEntryId: undefined }),
 
       save: async () => {
         if (get().status === 'saving') return false
@@ -179,8 +225,6 @@ export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => 
         set({ status: 'saving' })
         try {
           await deps.records.add(record)
-          set({ status: 'ready', adding: false, draft: draftFor(), fieldErrors: {} })
-          return true
         } catch (e) {
           // Reopen the form if it was closed mid-save, so the error and the draft are not lost.
           set({
@@ -190,6 +234,27 @@ export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => 
           })
           return false
         }
+        // After the service, so each receipt uploads after the service it points to.
+        let failed = 0
+        for (const file of get().receipts) {
+          try {
+            await saveAttachment(deps, { kind: 'receipt', serviceRecordId: record.id }, file)
+          } catch {
+            failed++
+          }
+        }
+        set({
+          status: 'ready',
+          adding: false,
+          draft: draftFor(),
+          fieldErrors: {},
+          receipts: [],
+          receiptError:
+            failed > 0
+              ? 'The service was saved, but a receipt could not be attached. Open it to try again.'
+              : undefined,
+        })
+        return true
       },
 
       start: () => {

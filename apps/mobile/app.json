@@ -14,8 +14,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Choose a photo of a shop's quote to check it against your car's schedule.",
-          "cameraPermission": "Photograph a shop's quote to check it against your car's schedule.",
+          "photosPermission": "Choose photos of receipts, documents and shop quotes for your car.",
+          "cameraPermission": "Photograph receipts, documents and shop quotes for your car.",
           "microphonePermission": false
         }
       ]

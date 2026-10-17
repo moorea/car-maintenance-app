@@ -34,10 +34,12 @@ const recordingClient = (status = 201, body: unknown = null) => {
   return { supabase, sent }
 }
 
+const storage = { url: 'https://db.example', anonKey: 'anon-key' }
+
 describe('supabaseBackend', () => {
   it('sends every write as the user whose token it was given, not the anon key', async () => {
     const { supabase, sent } = recordingClient(204)
-    const backend = supabaseBackend(supabase, 'user-jwt')
+    const backend = supabaseBackend(supabase, storage, 'user-jwt')
     await backend.insert('vehicles', { id: 'v1' })
     await backend.upsert('vehicles', { id: 'v1' })
     await backend.update('vehicles', 'v1', {})
@@ -52,7 +54,9 @@ describe('supabaseBackend', () => {
 
   it('inserts without overwriting a row that already exists', async () => {
     const { supabase, sent } = recordingClient(201)
-    expect(await supabaseBackend(supabase, 'jwt').insert('vehicles', { id: 'v1' })).toBeNull()
+    expect(
+      await supabaseBackend(supabase, storage, 'jwt').insert('vehicles', { id: 'v1' }),
+    ).toBeNull()
     expect(sent[0]).toMatchObject({ method: 'POST', body: { id: 'v1' } })
     expect(sent[0]?.url.pathname).toBe('/rest/v1/vehicles')
     expect(sent[0]?.prefer).toContain('resolution=ignore-duplicates')
@@ -60,13 +64,15 @@ describe('supabaseBackend', () => {
 
   it('upserts by replacing a row that already exists', async () => {
     const { supabase, sent } = recordingClient(201)
-    expect(await supabaseBackend(supabase, 'jwt').upsert('vehicles', { id: 'v1' })).toBeNull()
+    expect(
+      await supabaseBackend(supabase, storage, 'jwt').upsert('vehicles', { id: 'v1' }),
+    ).toBeNull()
     expect(sent[0]?.prefer).toContain('resolution=merge-duplicates')
   })
 
   it('updates only the row with the given id', async () => {
     const { supabase, sent } = recordingClient(200, [{ id: 'v1' }])
-    const backend = supabaseBackend(supabase, 'jwt')
+    const backend = supabaseBackend(supabase, storage, 'jwt')
     expect(await backend.update('vehicles', 'v1', { nickname: 'Blue' })).toBeNull()
     expect(sent[0]).toMatchObject({ method: 'PATCH', body: { nickname: 'Blue' } })
     expect(sent[0]?.url.searchParams.get('id')).toBe('eq.v1')
@@ -74,7 +80,7 @@ describe('supabaseBackend', () => {
 
   it('reports an update that row-level security filtered to no rows as not found', async () => {
     const { supabase } = recordingClient(200, [])
-    expect(await supabaseBackend(supabase, 'jwt').update('vehicles', 'v1', {})).toEqual({
+    expect(await supabaseBackend(supabase, storage, 'jwt').update('vehicles', 'v1', {})).toEqual({
       status: 404,
       message: 'No vehicles row v1 could be updated',
     })
@@ -82,7 +88,7 @@ describe('supabaseBackend', () => {
 
   it('deletes only the row with the given id', async () => {
     const { supabase, sent } = recordingClient(204)
-    expect(await supabaseBackend(supabase, 'jwt').remove('vehicles', 'v1')).toBeNull()
+    expect(await supabaseBackend(supabase, storage, 'jwt').remove('vehicles', 'v1')).toBeNull()
     expect(sent[0]?.method).toBe('DELETE')
     expect(sent[0]?.url.searchParams.get('id')).toBe('eq.v1')
   })
@@ -92,7 +98,7 @@ describe('supabaseBackend', () => {
       code: '42501',
       message: 'new row violates row-level security policy',
     })
-    const backend = supabaseBackend(supabase, 'jwt')
+    const backend = supabaseBackend(supabase, storage, 'jwt')
     const refused = {
       code: '42501',
       status: 403,

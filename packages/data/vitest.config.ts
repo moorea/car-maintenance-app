@@ -8,7 +8,8 @@ export default defineConfig({
     // added. A package's own `test` script skips coverage, so a single file can be run alone.
     coverage: {
       include: ['src/**'],
-      exclude: ['src/**/*.test.ts'],
+      // The Node device files are a test double, exercised by the tests that use them.
+      exclude: ['src/**/*.test.ts', 'src/testing/**'],
       thresholds: { statements: 94, branches: 88, functions: 90, lines: 96 },
     },
   },

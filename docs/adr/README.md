@@ -16,3 +16,4 @@ and what would make us revisit it. Add a new record rather than editing an accep
 | [0009](0009-grounded-assistant.md)      | The assistant answers only from the car's stored data, cited     |
 | [0010](0010-schedule-providers.md)      | Schedules come from providers, with a general baseline           |
 | [0011](0011-quote-checker.md)           | Shop quotes are checked on the phone; only photos use the server |
+| [0012](0012-attachments.md)             | Attachments live in Storage; their details sync with PowerSync   |
