@@ -5,41 +5,24 @@ import {
   type SafetyActions,
   type SafetyState,
 } from '@car/core'
-import { Button, Collapsible, Column, ScrollView, Text } from '@expo/ui'
-import { ActivityIndicator, Linking, StyleSheet } from 'react-native'
+import { Button, Collapsible, Column, Row, Text } from '@expo/ui'
+import { Fragment } from 'react'
+import { Linking } from 'react-native'
 import { useColors } from '../../theme'
-import { Host } from '../../ui/Host'
-import { TAB_BAR_CLEARANCE } from '../../ui/TabBar'
 import { Note } from '../../ui/Note'
+import { Card, Separator } from '../../ui/surfaces'
+import { Symbol } from '../../ui/Symbol'
 
 type Props = SafetyState & Pick<SafetyActions, 'toggle'>
 
-const HEADING = { fontSize: 20, fontWeight: '700' } as const
 const LABEL = { fontSize: 13, fontWeight: '600' } as const
+const OVERLINE = { fontSize: 12, fontWeight: '700', letterSpacing: 0.5 } as const
 
 const plural = (n: number, one: string, many = `${one}s`) =>
   `${n.toLocaleString()} ${n === 1 ? one : many}`
 
-/** Pure rendering of the safety model: NHTSA recalls, then owner complaints by component. */
-export function SafetyView(props: Props) {
-  if (props.status === 'loading') return <ActivityIndicator style={styles.fill} />
-
-  return (
-    <Host style={styles.fill}>
-      <ScrollView>
-        <Column spacing={12} style={{ padding: 16, paddingBottom: TAB_BAR_CLEARANCE }}>
-          <Text textStyle={HEADING}>Recalls</Text>
-          <Recalls {...props} />
-          <Text textStyle={HEADING}>Owner complaints</Text>
-          <Complaints {...props} />
-          <Note>From the National Highway Traffic Safety Administration.</Note>
-        </Column>
-      </ScrollView>
-    </Host>
-  )
-}
-
-function Recalls({ status, recalls, expanded, toggle, lookupUrl, modelYear }: Props) {
+/** NHTSA recalls for the car's model year, most urgent first. */
+export function RecallsSection({ status, recalls, expanded, toggle, lookupUrl, modelYear }: Props) {
   if (status === 'unmatched') {
     return <Note>Recalls appear once your car has synced.</Note>
   }
@@ -48,11 +31,11 @@ function Recalls({ status, recalls, expanded, toggle, lookupUrl, modelYear }: Pr
   }
   return (
     <>
-      <Text>
+      <Note>
         {recalls.length === 0
           ? `NHTSA lists no recalls for the ${modelYear}.`
           : `NHTSA lists ${plural(recalls.length, 'recall')} for the ${modelYear}. Not every recall covers every car, and yours may already be fixed.`}
-      </Text>
+      </Note>
       {recalls.map((r) => (
         <RecallItem
           key={r.id}
@@ -74,34 +57,53 @@ function RecallItem(props: { recall: Recall; open: boolean; onToggle: () => void
   const r = props.recall
   const colors = useColors()
   const title = r.component ? componentLabel(r.component) : `Recall ${r.campaign}`
+  const urgent = r.parkIt
+    ? 'Do not drive until this is fixed'
+    : r.parkOutside
+      ? 'Park outside, away from buildings, until this is fixed'
+      : undefined
   return (
-    <Column spacing={4}>
-      {r.parkIt ? (
-        <Text textStyle={{ ...LABEL, color: colors.danger }}>Do not drive until this is fixed</Text>
-      ) : r.parkOutside ? (
-        <Text textStyle={{ ...LABEL, color: colors.danger }}>
-          Park outside, away from buildings, until this is fixed
+    <Card fill="warningSubtle" spacing={8}>
+      <Row alignment="center" spacing={8}>
+        <Symbol name="warning" size={18} color={colors.warning} />
+        <Text textStyle={{ ...OVERLINE, color: colors.warning }}>
+          {`RECALL · NHTSA ${r.campaign}${r.reportedOn ? ` · ${r.reportedOn}` : ''}`}
         </Text>
-      ) : null}
+      </Row>
+      <Text textStyle={{ fontSize: 16, fontWeight: '600', color: colors.textPrimary }}>
+        {title}
+      </Text>
+      {urgent ? <Text textStyle={{ ...LABEL, color: colors.danger }}>{urgent}</Text> : null}
+      <Text textStyle={{ fontSize: 15, color: colors.textPrimary }}>{r.summary}</Text>
       <Collapsible
         isOpen={props.open}
         onOpenChange={props.onToggle}
-        label={r.reportedOn ? `${title} · ${r.reportedOn}` : title}
-        labelStyle={{ fontSize: 16, fontWeight: '600' }}
+        label="Risk and fix"
+        labelStyle={{ fontSize: 15, fontWeight: '600', color: colors.warning }}
       >
         <Column spacing={8}>
-          <Text>{r.summary}</Text>
           {r.consequence ? <Detail label="Risk" text={r.consequence} /> : null}
           {r.remedy ? <Detail label="Fix" text={r.remedy} /> : null}
-          {r.overTheAir ? <Note>Fixed by an over-the-air update.</Note> : null}
-          <Note>{`NHTSA campaign ${r.campaign}`}</Note>
+          {r.overTheAir ? (
+            <Text textStyle={{ fontSize: 14, color: colors.textPrimary }}>
+              Fixed by an over-the-air update.
+            </Text>
+          ) : null}
         </Column>
       </Collapsible>
-    </Column>
+    </Card>
   )
 }
 
-function Complaints({ status, complaintsChecked, complaints, expanded, toggle, modelYear }: Props) {
+/** What owners have reported to NHTSA, by part of the car. */
+export function ComplaintsSection({
+  status,
+  complaintsChecked,
+  complaints,
+  expanded,
+  toggle,
+  modelYear,
+}: Props) {
   if (status === 'unmatched') {
     return <Note>Complaints appear once your car has synced.</Note>
   }
@@ -116,14 +118,20 @@ function Complaints({ status, complaintsChecked, complaints, expanded, toggle, m
       <Note>
         {`What owners of the ${modelYear} have reported to NHTSA, by part of the car. A complaint can name more than one part.`}
       </Note>
-      {complaints.map((c) => (
-        <ComplaintItem
-          key={c.id}
-          summary={c}
-          open={expanded.includes(c.id)}
-          onToggle={() => toggle(c.id)}
-        />
-      ))}
+      <Card padding={0}>
+        {complaints.map((c, i) => (
+          <Fragment key={c.id}>
+            {i > 0 ? <Separator /> : null}
+            <Column style={{ paddingHorizontal: 16, paddingVertical: 12 }}>
+              <ComplaintItem
+                summary={c}
+                open={expanded.includes(c.id)}
+                onToggle={() => toggle(c.id)}
+              />
+            </Column>
+          </Fragment>
+        ))}
+      </Card>
     </>
   )
 }
@@ -160,14 +168,11 @@ function ComplaintItem(props: { summary: ComplaintSummary; open: boolean; onTogg
 }
 
 function Detail({ label, text }: { label: string; text: string }) {
+  const colors = useColors()
   return (
     <Column spacing={2}>
-      <Text textStyle={LABEL}>{label}</Text>
-      <Text>{text}</Text>
+      <Text textStyle={{ ...LABEL, color: colors.textPrimary }}>{label}</Text>
+      <Text textStyle={{ fontSize: 15, color: colors.textPrimary }}>{text}</Text>
     </Column>
   )
 }
-
-const styles = StyleSheet.create({
-  fill: { flex: 1 },
-})
