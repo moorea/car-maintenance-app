@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { MaintenanceItem, ServiceRecord, Vehicle } from '../../domain/types'
+import type { Attachment, MaintenanceItem, ServiceRecord, Vehicle } from '../../domain/types'
 import { buildCareReport, countLateGaps } from './report'
 import { escapeHtml, renderCareReportHtml, type ReportColors } from './html'
 
@@ -57,6 +57,21 @@ const records = [
   service('r5', undefined, '2026-06-01', 20_400, { notes: 'Wiper blades', costCents: 2_999 }),
 ]
 
+const receipt = (
+  id: string,
+  serviceRecordId: string | undefined,
+  contentType: string,
+): Attachment => ({
+  id,
+  vehicleId: 'v1',
+  ...(serviceRecordId !== undefined && { serviceRecordId }),
+  kind: 'receipt',
+  name: `${id}.jpg`,
+  contentType,
+  sizeBytes: 1_000,
+  addedOn: '2026-06-02',
+})
+
 const report = () =>
   buildCareReport({
     vehicle: car,
@@ -73,6 +88,13 @@ const report = () =>
         months: 60,
         endMiles: 60_000,
       },
+    ],
+    attachments: [
+      receipt('a1', 'r3', 'application/pdf'),
+      receipt('a2', 'r3', 'image/jpeg'),
+      receipt('a3', 'r5', 'image/jpeg'),
+      // The car's own documents are not proof of care.
+      { ...receipt('a4', undefined, 'application/pdf'), kind: 'insurance' },
     ],
     today: '2026-10-17',
   })
@@ -92,6 +114,7 @@ describe('care report', () => {
     expect(report().summary).toEqual({
       services: 5,
       diy: 2,
+      withDocuments: 2,
       spent: '$184.99',
       span: 'Jan 10, 2025 to Jun 1, 2026',
     })
@@ -114,6 +137,16 @@ describe('care report', () => {
     })
   })
 
+  it("lists the receipts on file with each service, leaving out the car's own documents", () => {
+    const history = report().history
+    expect(history.find((h) => h.id === 'r3')?.documents).toEqual([
+      'Receipt (PDF)',
+      'Receipt (photo)',
+    ])
+    expect(history.find((h) => h.id === 'r5')?.documents).toEqual(['Receipt (photo)'])
+    expect(history.find((h) => h.id === 'r1')?.documents).toEqual([])
+  })
+
   it('marks each scheduled item by how it was kept up', () => {
     expect(report().schedule.map((s) => [s.task, s.statusLabel, s.times])).toEqual([
       ['Oil change', 'Late once', 3],
@@ -130,6 +163,7 @@ describe('care report', () => {
       records: [service('r4', 'rot', '2025-01-01', 10_000)],
       readings: [{ vehicleId: 'v1', date: '2026-10-17', miles: 24_000 }],
       warranties: [],
+      attachments: [],
       today: '2026-10-17',
     })
     expect(late.schedule[0]).toMatchObject({ status: 'overdue', statusLabel: 'Overdue' })
@@ -197,6 +231,13 @@ describe('care report layout', () => {
     expect(html).toContain('Main St Auto')
   })
 
+  it('marks services with a receipt on file, and counts them', () => {
+    const html = renderCareReportHtml(report(), colors)
+    expect(html.match(/<span class="tag">ON FILE<\/span>/g)).toHaveLength(2)
+    expect(html).toContain('Receipt (PDF), Receipt (photo)')
+    expect(html).toContain('2 of 5 with a receipt or document on file.')
+  })
+
   it('leaves out the warranty section when there are none', () => {
     const html = renderCareReportHtml({ ...report(), warranties: [] }, colors)
     expect(html).not.toContain('<h2>Warranties</h2>')
@@ -223,7 +264,7 @@ describe('care report layout', () => {
         subtitle: '',
         history: [],
         schedule: [],
-        summary: { services: 0, diy: 0, spent: '$0.00', span: undefined },
+        summary: { services: 0, diy: 0, withDocuments: 0, spent: '$0.00', span: undefined },
       },
       colors,
     )
@@ -240,6 +281,7 @@ describe('care report layout', () => {
       records: [],
       readings: [],
       warranties: [],
+      attachments: [],
       today: '2026-10-17',
     })
     expect(r.fileName).toBe('Care report 2021 ACDC Mk 2 2026-10-17')

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Warranty } from '../../domain/types'
 import { learnMilesPerDay } from '../../reminders/mileage'
-import { coverageOf, describeCoverage, describeLimits } from './coverage'
+import { coverageOf, describeCoverage, describeLimits, upcomingWarrantyEnds } from './coverage'
 
 const basic: Warranty = {
   id: 'w1',
@@ -136,5 +136,39 @@ describe('warranty coverage', () => {
     expect(describeCoverage(basic, c, today)).toBe(
       'Probably past 36,000 mi by now. Update the odometer to check',
     )
+  })
+
+  it('lists the coverages still running with when each is expected to end, for reminders', () => {
+    const { months: _months, ...milesOnly } = basic
+    const ended = { ...basic, id: 'w-old', startsOn: '2020-01-01' }
+    const ends = upcomingWarrantyEnds(
+      [basic, ended, { ...milesOnly, id: 'w-miles', kind: 'extended' }],
+      drivenAt(5_000, '2026-03-14'),
+    )
+    expect(ends).toEqual([
+      {
+        id: 'w1',
+        coverage: 'Bumper-to-bumper coverage',
+        endsOn: '2027-03-14',
+        endsBy: 'time',
+        endMiles: 36_000,
+      },
+      // 31,000 miles to go at 30 a day.
+      expect.objectContaining({ id: 'w-miles', coverage: 'Extended warranty', endsBy: 'miles' }),
+    ])
+  })
+
+  it('names other coverage by its provider in reminders', () => {
+    const plan = { ...basic, kind: 'other' as const, provider: 'Tire and wheel plan' }
+    const { provider: _p, ...unnamed } = plan
+    const car = drivenAt(5_000, '2026-03-14')
+    expect(upcomingWarrantyEnds([plan], car)[0]?.coverage).toBe('Tire and wheel plan')
+    expect(upcomingWarrantyEnds([unnamed], car)[0]?.coverage).toBe('Other coverage')
+  })
+
+  it('leaves out a mileage-only coverage it cannot project', () => {
+    const { months: _months, ...milesOnly } = basic
+    const car = { mileage: learnMilesPerDay([]), currentMiles: undefined, today: '2026-01-01' }
+    expect(upcomingWarrantyEnds([milesOnly], car)).toEqual([])
   })
 })

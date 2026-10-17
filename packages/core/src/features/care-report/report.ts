@@ -2,6 +2,7 @@ import { daysBetween, type IsoDate } from '../../lib/date'
 import { formatCents, formatLongDate, formatMiles } from '../../lib/format'
 import { isGeneralGuidance } from '../../lib/schedule'
 import type {
+  Attachment,
   MaintenanceItem,
   OdometerReading,
   ServiceRecord,
@@ -9,6 +10,7 @@ import type {
   Warranty,
 } from '../../domain/types'
 import { dueItemsFor } from '../../reminders/getDueItems'
+import { describeAttachment, isPdf } from '../attachments/files'
 import { describeInterval } from '../car/model'
 import {
   coverageOf,
@@ -60,6 +62,11 @@ export interface CareHistoryRow {
   diy: boolean
   cost?: string | undefined
   notes?: string | undefined
+  /**
+   * The receipts and documents attached to the service in the app, such as "Receipt (PDF)". The
+   * files stay in the app; the report says they are on file.
+   */
+  documents: string[]
 }
 
 export interface CareWarrantyRow {
@@ -95,6 +102,8 @@ export interface CareReport {
     services: number
     /** Of those, how many the owner did themselves. */
     diy: number
+    /** Of those, how many have a receipt or document attached. */
+    withDocuments: number
     spent: string
     /** "Sep 20, 2025 to Jul 1, 2026", or undefined with no services. */
     span?: string | undefined
@@ -115,6 +124,8 @@ export interface CareReportInput {
   records: ServiceRecord[]
   readings: OdometerReading[]
   warranties: Warranty[]
+  /** Everything attached to the car and its services; only the services' attachments are listed. */
+  attachments: Attachment[]
   today: IsoDate
 }
 
@@ -158,13 +169,22 @@ const roundTo = (n: number, step: number) => Math.round(n / step) * step
 
 /** Builds the proof-of-care report for one car from what is stored about it. */
 export const buildCareReport = (input: CareReportInput): CareReport => {
-  const { vehicle, items, records, readings, warranties, today } = input
+  const { vehicle, items, records, readings, warranties, attachments, today } = input
   const title = `${vehicle.year} ${vehicle.make} ${vehicle.model}`
   const due = dueItemsFor({ vehicle, items, records, readings, today })
   const taskNames = new Map(items.map((i) => [i.id, i.task]))
   const newestFirst = [...records].sort(
     (a, b) => b.performedOn.localeCompare(a.performedOn) || b.id.localeCompare(a.id),
   )
+
+  const documentsFor = new Map<string, string[]>()
+  for (const a of [...attachments].sort(
+    (x, y) => x.addedOn.localeCompare(y.addedOn) || x.id.localeCompare(y.id),
+  )) {
+    if (a.serviceRecordId === undefined) continue
+    const label = `${describeAttachment(a, today).title} (${isPdf(a) ? 'PDF' : 'photo'})`
+    documentsFor.set(a.serviceRecordId, [...(documentsFor.get(a.serviceRecordId) ?? []), label])
+  }
 
   const history = newestFirst.map((r): CareHistoryRow => ({
     id: r.id,
@@ -177,6 +197,7 @@ export const buildCareReport = (input: CareReportInput): CareReport => {
     cost: r.costCents !== undefined ? formatCents(r.costCents) : undefined,
     // The notes already name the work when there is no scheduled task.
     notes: r.itemId !== undefined && taskNames.has(r.itemId) ? r.notes : undefined,
+    documents: documentsFor.get(r.id) ?? [],
   }))
 
   const overdue = new Set(due.items.filter((d) => d.status === 'overdue').map((d) => d.itemId))
@@ -258,6 +279,7 @@ export const buildCareReport = (input: CareReportInput): CareReport => {
     summary: {
       services: records.length,
       diy: records.filter((r) => r.shop === undefined).length,
+      withDocuments: records.filter((r) => documentsFor.has(r.id)).length,
       spent: formatCents(records.reduce((sum, r) => sum + (r.costCents ?? 0), 0)),
       span:
         oldest && newest

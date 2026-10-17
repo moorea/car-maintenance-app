@@ -11,6 +11,7 @@ import { RemindersScreen } from '../reminders/RemindersScreen'
 import { ServiceLogScreen } from '../service-log/ServiceLogScreen'
 import { SignInScreen } from '../sign-in/SignInScreen'
 import { WarrantyScreen } from '../warranty/WarrantyScreen'
+import { YourDataScreen } from '../your-data/YourDataScreen'
 import { askModelFor } from '../../models/askModels'
 import { Host } from '../../ui/Host'
 import { TabBar, type TabBarItem } from '../../ui/TabBar'
@@ -67,7 +68,18 @@ export function RootView(props: Props) {
   // Without a car there is no garage to open the account from, yet the owner must still be able
   // to sign out or delete it (App Store guideline 5.1.1(v)), so it opens over the first screens.
   if (props.tab === 'account') {
-    return <AccountScreen onBack={() => props.openTab('garage')} />
+    return (
+      <AccountScreen
+        onBack={() => props.openTab('garage')}
+        // Until the first sync is done the garage looks empty, so an import would add every car
+        // again and an export would leave them out.
+        onYourData={status === 'no-vehicles' ? () => props.openTab('data') : undefined}
+      />
+    )
+  }
+  // An owner starting over can bring back the cars they exported before adding any.
+  if (props.tab === 'data' && status === 'no-vehicles') {
+    return <YourDataScreen onBack={() => props.openTab('account')} />
   }
   if (status === 'syncing') {
     return (
@@ -147,7 +159,14 @@ function TabContent(props: Props & { vehicle: Vehicle }) {
     case 'reminders':
       return <RemindersScreen />
     case 'account':
-      return <AccountScreen onReminders={() => props.openTab('reminders')} />
+      return (
+        <AccountScreen
+          onReminders={() => props.openTab('reminders')}
+          onYourData={() => props.openTab('data')}
+        />
+      )
+    case 'data':
+      return <YourDataScreen onBack={() => props.openTab('account')} />
   }
 }
 

@@ -2,6 +2,7 @@ import { createStore, type StoreApi } from 'zustand/vanilla'
 import { z } from 'zod'
 import type { MaintenanceItem, Vehicle, Warranty, WarrantyKind } from '../../domain/types'
 import type {
+  AttachmentRepo,
   CareReportExporter,
   Clock,
   IdGenerator,
@@ -84,6 +85,8 @@ export interface WarrantyDeps {
   records: ServiceRecordRepo
   odometer: OdometerRepo
   schedule: ScheduleRepo
+  /** Receipts on the car's services, which the report lists as on file. */
+  attachments: AttachmentRepo
   exporter: CareReportExporter
   clock: Clock
   ids: IdGenerator
@@ -286,12 +289,13 @@ export const createWarrantyModel = (deps: WarrantyDeps): WarrantyModel => {
         if (get().report.status === 'preparing') return
         set({ report: { status: 'preparing' } })
         try {
-          const [records, readings, items] = await Promise.all([
+          const [records, readings, items, attachments] = await Promise.all([
             deps.records.listForVehicle(vehicle.id),
             deps.odometer.listForVehicle(vehicle.id),
             vehicle.configId === undefined
               ? Promise.resolve([] as MaintenanceItem[])
               : deps.schedule.itemsForConfig(vehicle.configId),
+            deps.attachments.listForVehicle(vehicle.id),
           ])
           const report = buildCareReport({
             vehicle,
@@ -299,6 +303,7 @@ export const createWarrantyModel = (deps: WarrantyDeps): WarrantyModel => {
             records,
             readings,
             warranties: await deps.warranties.listForVehicle(vehicle.id),
+            attachments,
             today: deps.clock.today(),
           })
           await deps.exporter.share(report)

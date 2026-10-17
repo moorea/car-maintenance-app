@@ -9,6 +9,7 @@ import {
   memorySchedule,
   memoryServiceRecords,
   memoryVehicles,
+  memoryWarranties,
   OWNER,
 } from '../testing'
 import { createReminderScheduler } from './scheduler'
@@ -61,6 +62,7 @@ const setup = (
       },
     ]),
     odometer: memoryOdometer([{ vehicleId: 'v1', date: '2026-09-29', miles: 33_000 }]),
+    warranties: memoryWarranties(),
     clock: { today: () => calendar.today },
     notifier: memoryNotifier({ permission: options.permission ?? 'granted' }),
     settings: memoryReminderSettings({ enabled: options.enabled ?? true }),
@@ -91,6 +93,7 @@ const openWatches = (d: ReturnType<typeof setup>) => {
     repos: {
       records: { ...d.records, watchForVehicle: counted(d.records.watchForVehicle) },
       odometer: { ...d.odometer, watchForVehicle: counted(d.odometer.watchForVehicle) },
+      warranties: { ...d.warranties, watchForVehicle: counted(d.warranties.watchForVehicle) },
     },
   }
 }
@@ -328,13 +331,42 @@ describe('createReminderScheduler', () => {
     expect(await ids(d.notifier)).toEqual(PLANNED)
   })
 
+  it('adds heads-ups before a warranty ends, and drops them when it is deleted', async () => {
+    const { scheduler, notifier, warranties } = setup()
+    scheduler.start()
+    await scheduler.refresh()
+    await warranties.save({
+      id: 'w1',
+      vehicleId: 'v1',
+      kind: 'powertrain',
+      startsOn: '2023-12-31',
+      months: 36,
+    })
+    await scheduler.refresh()
+    expect(await ids(notifier)).toEqual([
+      ...PLANNED.slice(0, 2),
+      'warranty:v1:w1:30',
+      'warranty:v1:w1:7',
+      ...PLANNED.slice(2),
+    ])
+    const notice = (await notifier.scheduled()).find((n) => n.id === 'warranty:v1:w1:30')
+    expect(notice).toMatchObject({
+      date: '2026-12-01',
+      title: 'RAV4: warranty ending',
+      body: 'Powertrain coverage ends in about a month, on Dec 31, 2026. Have anything it covers looked at before then.',
+    })
+    await warranties.remove('w1')
+    await scheduler.refresh()
+    expect(await ids(notifier)).toEqual(PLANNED)
+  })
+
   it("stops watching a car's service log and readings once it is gone", async () => {
     const d = setup()
     const counter = openWatches(d)
     const scheduler = createReminderScheduler({ ...d, ...counter.repos })
     scheduler.start()
     await scheduler.refresh()
-    expect(counter.open()).toBe(2)
+    expect(counter.open()).toBe(3)
 
     const car = await d.vehicles.get('v1')
     if (!car) throw new Error('missing fixture')
@@ -342,7 +374,7 @@ describe('createReminderScheduler', () => {
     expect(counter.open()).toBe(0)
 
     d.vehicles.set([car])
-    expect(counter.open()).toBe(2)
+    expect(counter.open()).toBe(3)
     await d.auth.signOut()
     expect(counter.open()).toBe(0)
   })

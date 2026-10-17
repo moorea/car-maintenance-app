@@ -10,6 +10,8 @@ export function AccountScreen(props: {
   onReminders?: () => void
   /** Shown as a back button where there is no tab bar to leave by. */
   onBack?: () => void
+  /** Absent until the owner's cars have synced. */
+  onYourData?: (() => void) | undefined
 }) {
   const model = useScreenModel('account', () =>
     createAccountModel({
@@ -20,5 +22,12 @@ export function AccountScreen(props: {
     }),
   )
   const state = useStore(model)
-  return <AccountView {...state} onReminders={props.onReminders} onBack={props.onBack} />
+  return (
+    <AccountView
+      {...state}
+      onReminders={props.onReminders}
+      onYourData={props.onYourData}
+      onBack={props.onBack}
+    />
+  )
 }
