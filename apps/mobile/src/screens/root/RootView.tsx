@@ -65,12 +65,16 @@ export function RootView(props: Props) {
     return (
       <AccountScreen
         onBack={() => props.openTab('garage')}
-        onYourData={() => props.openTab('data')}
+        // Until the first sync is done the garage looks empty, so an import would add every car
+        // again and an export would leave them out.
+        onYourData={status === 'no-vehicles' ? () => props.openTab('data') : undefined}
       />
     )
   }
   // An owner starting over can bring back the cars they exported before adding any.
-  if (props.tab === 'data') return <YourDataScreen onBack={() => props.openTab('account')} />
+  if (props.tab === 'data' && status === 'no-vehicles') {
+    return <YourDataScreen onBack={() => props.openTab('account')} />
+  }
   if (status === 'syncing') {
     return (
       <View style={styles.fill}>

@@ -1,7 +1,13 @@
 const BOM = String.fromCharCode(0xfeff)
 
-/** Quotes a field when it holds a comma, quote or line break, doubling any quotes (RFC 4180). */
-const field = (value: string) => (/[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value)
+/**
+ * Quotes a field when it holds a comma, quote or line break, doubling any quotes (RFC 4180). Text a
+ * spreadsheet would run as a formula, such as a note starting with "=", gets a leading apostrophe.
+ */
+const field = (raw: string) => {
+  const value = /^[=+@\t\r]/.test(raw) ? `'${raw}` : raw
+  return /[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value
+}
 
 /**
  * Turns rows into CSV text with CRLF line endings, as RFC 4180 and Excel expect. Starts with a

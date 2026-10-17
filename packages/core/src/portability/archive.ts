@@ -45,8 +45,9 @@ const exportedService = z.object({
   performedOn: isoDate,
   odometerMiles: z.number().int().nonnegative().optional(),
   costCents: z.number().int().nonnegative().optional(),
-  shop: text(200).optional(),
-  notes: text(2000).optional(),
+  // Free text with no limit in the app or the database, so an export never fails to import.
+  shop: z.string().optional(),
+  notes: z.string().optional(),
 })
 
 const exportedDocument = z.object({
@@ -73,12 +74,12 @@ const exportedWarranty = z
       'extended',
       'other',
     ]),
-    provider: text(100).optional(),
+    provider: z.string().optional(),
     startsOn: isoDate,
     months: z.number().int().min(1).max(1200).optional(),
     endMiles: z.number().int().min(1).max(2_000_000).optional(),
-    policyNumber: text(100).optional(),
-    notes: text(2000).optional(),
+    policyNumber: z.string().optional(),
+    notes: z.string().optional(),
   })
   .refine((w) => w.months !== undefined || w.endMiles !== undefined, 'A warranty needs a limit')
 
@@ -120,8 +121,9 @@ const safeName = (name: string) =>
   name
     // eslint-disable-next-line no-control-regex
     .replace(/[\u0000-\u001f<>:"/\\|?*]/g, '-')
-    .replace(/^[.\s]+|[.\s]+$/g, '')
-    .slice(0, 100) || 'Untitled'
+    .slice(0, 100)
+    // Windows refuses names that end in a dot or a space.
+    .replace(/^[.\s]+|[.\s]+$/g, '') || 'Untitled'
 
 /**
  * Gives each name a unique version, adding " (2)" and so on to repeats: before the extension for

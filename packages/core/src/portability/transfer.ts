@@ -1,4 +1,10 @@
-import type { Attachment, OdometerReading, ServiceRecord, Vehicle } from '../domain/types'
+import type {
+  Attachment,
+  OdometerReading,
+  PickedFile,
+  ServiceRecord,
+  Vehicle,
+} from '../domain/types'
 import type {
   AttachmentRepo,
   Clock,
@@ -11,7 +17,13 @@ import type {
   VehicleRepo,
   WarrantyRepo,
 } from '../ports'
-import { buildArchive, type CarData, type ExportedCar, type OpenedArchive } from './archive'
+import {
+  buildArchive,
+  type CarData,
+  type ExportedCar,
+  type ExportedDocument,
+  type OpenedArchive,
+} from './archive'
 
 /** Resolves with the first value a watch reports, then stops watching. */
 export const firstValue = <T>(watch: (onChange: (value: T) => void) => Unsubscribe): Promise<T> =>
@@ -176,6 +188,18 @@ export const importData = async (
     missing: 0,
   }
   for (const car of plan.adding) {
+    // Files first: writing them is what most often fails (a full disk), and a car added without
+    // its documents would be skipped by the next import, leaving them out for good.
+    const documents: { document: ExportedDocument; bytes: Uint8Array; file: PickedFile }[] = []
+    for (const document of car.documents) {
+      const bytes = document.file ? archive.file(document.file) : undefined
+      if (!bytes || bytes.length === 0) {
+        result.missing++
+        continue
+      }
+      documents.push({ document, bytes, file: await deps.files.stage(bytes, document) })
+    }
+
     const vehicle = toVehicle(car, deps.ids.next())
     const readings: OdometerReading[] = car.odometer.map((r) => ({
       vehicleId: vehicle.id,
@@ -221,14 +245,8 @@ export const importData = async (
       result.warranties++
     }
 
-    for (const d of car.documents) {
-      const bytes = d.file ? archive.file(d.file) : undefined
-      if (!bytes || bytes.length === 0) {
-        result.missing++
-        continue
-      }
+    for (const { document: d, bytes, file } of documents) {
       const serviceRecordId = d.serviceId ? serviceIds.get(d.serviceId) : undefined
-      const staged = await deps.files.stage(bytes, d)
       await deps.attachments.add(
         {
           id: deps.ids.next(),
@@ -240,7 +258,7 @@ export const importData = async (
           sizeBytes: bytes.length,
           addedOn: d.addedOn,
         },
-        staged,
+        file,
       )
       result.documents++
     }

@@ -184,6 +184,19 @@ describe('buildArchive', () => {
     expect(names).toContain('documents/Blue -Bessie- (2)/Card (2).pdf')
   })
 
+  it('keeps a spreadsheet from running a note as a formula', () => {
+    const risky: CarData = {
+      ...rav4,
+      services: [
+        { id: 's', vehicleId: 'car-1', performedOn: '2026-01-01', notes: '=1+1', shop: '@shop' },
+      ],
+    }
+
+    expect(textOf(buildArchive([risky], files, 'd').bytes, 'service-log.csv')).toContain(
+      ",'@shop,'=1+1,",
+    )
+  })
+
   it('names a car without a nickname by its year, make and model', () => {
     const { bytes } = buildArchive([{ ...rav4, vehicle: { ...RAV4, nickname: '' } }], files, 'd')
 

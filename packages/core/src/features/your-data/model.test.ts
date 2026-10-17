@@ -402,6 +402,56 @@ describe('your data model', () => {
       )
     })
 
+    it('adds nothing for a car whose documents cannot be saved, so importing again adds it whole', async () => {
+      const zip = await exported()
+      const alex = phone({ id: 'alex' })
+      alex.files.queueArchive(zip)
+      await alex.model.getState().chooseImport()
+      alex.files.failNextStage('disk full')
+
+      await alex.model.getState().confirmImport()
+
+      expect(alex.vehicles.added).toEqual([])
+      expect(alex.model.getState().message?.tone).toBe('error')
+
+      alex.files.queueArchive(zip)
+      await alex.model.getState().chooseImport()
+      await alex.model.getState().confirmImport()
+      expect(alex.vehicles.added).toHaveLength(2)
+    })
+
+    it('imports notes and names of any length, as the app lets the owner type them', async () => {
+      const notes = 'Invoice line. '.repeat(500)
+      const sam = phone(SAM, {
+        vehicles: [civic],
+        services: [{ ...oilChange, notes, shop: 'S'.repeat(300) }],
+        warranties: [{ ...powertrain, provider: 'P'.repeat(150), notes }],
+      })
+      await sam.model.getState().exportAll()
+      const alex = phone({ id: 'alex' })
+      alex.files.queueArchive(got(sam.files.shared[0]).bytes)
+
+      await alex.model.getState().chooseImport()
+      await alex.model.getState().confirmImport()
+
+      const [service] = await alex.services.listForVehicle('new-1')
+      expect(service?.notes).toBe(notes)
+      expect(alex.model.getState().message?.tone).toBe('success')
+    })
+
+    it('opens one picker at a time and shows it is opening meanwhile', async () => {
+      const alex = phone({ id: 'alex' })
+      const first = alex.model.getState().chooseImport()
+      expect(alex.model.getState().status).toBe('reading')
+
+      const second = alex.model.getState().chooseImport()
+      const exporting = alex.model.getState().exportAll()
+      await Promise.all([first, second, exporting])
+
+      expect(alex.files.shared).toEqual([])
+      expect(alex.model.getState().status).toBe('ready')
+    })
+
     it('says not everything was imported when saving fails partway', async () => {
       const zip = await exported()
       const alex = phone({ id: 'alex' })

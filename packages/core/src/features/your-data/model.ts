@@ -21,7 +21,7 @@ import {
 /**
  * - `ready`: nothing running.
  * - `exporting`: gathering everything (downloading files this phone lacks) and sharing the zip.
- * - `reading`: opening a picked export.
+ * - `reading`: picking an export and opening it.
  * - `confirming-import`: showing what the export would add, for the owner to confirm.
  * - `importing`: adding it to the garage.
  */
@@ -142,16 +142,19 @@ export const createYourDataModel = (deps: YourDataDeps): YourDataModel => {
     chooseImport: async () => {
       if (get().status !== 'ready' || !ownerId) return
       const owner = ownerId
-      set({ message: undefined })
+      // Reading from the moment the picker opens, so a second tap cannot open another.
+      set({ status: 'reading', message: undefined })
       let bytes: Uint8Array | undefined
       try {
         bytes = await deps.files.pickArchive()
       } catch {
-        set({ message: ERROR("Couldn't open that file. Try again.") })
+        set({ status: 'ready', message: ERROR("Couldn't open that file. Try again.") })
         return
       }
-      if (!bytes) return
-      set({ status: 'reading' })
+      if (!bytes) {
+        set({ status: 'ready' })
+        return
+      }
       try {
         picked = readArchive(bytes)
       } catch (e) {

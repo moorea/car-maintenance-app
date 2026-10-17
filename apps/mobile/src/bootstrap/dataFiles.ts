@@ -29,15 +29,19 @@ export const appDataFiles = (): DataFiles => {
       })
     },
     pickArchive: async () => {
-      const picked = await File.pickFileAsync({ mimeTypes: ['application/zip'] })
+      const picked = await File.pickFileAsync({
+        // Mail and cloud drives often label a zip as one of the others; readArchive checks it.
+        mimeTypes: ['application/zip', 'application/x-zip-compressed', 'application/octet-stream'],
+      })
       if (picked.canceled) return undefined
       imports = freshFolder('import')
       return picked.result.bytes()
     },
     stage: async (bytes, { name, contentType }) => {
       imports ??= freshFolder('import')
-      // Numbered, since two documents in an export may share a name.
-      const file = new File(imports, `${++staged}-${name.replace(/[/:]/g, '-')}`)
+      // Numbered, since two documents in an export may share a name, and short enough for any
+      // file system; the attachment keeps its full name.
+      const file = new File(imports, `${++staged}-${name.replace(/[/:]/g, '-').slice(-100)}`)
       await file.write(bytes)
       return { uri: file.uri, name, contentType, sizeBytes: bytes.length }
     },

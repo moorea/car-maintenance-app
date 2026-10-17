@@ -10,7 +10,8 @@ export function AccountScreen(props: {
   onReminders?: () => void
   /** Shown as a back button where there is no tab bar to leave by. */
   onBack?: () => void
-  onYourData: () => void
+  /** Absent until the owner's cars have synced. */
+  onYourData?: (() => void) | undefined
 }) {
   const model = useScreenModel('account', () =>
     createAccountModel({
