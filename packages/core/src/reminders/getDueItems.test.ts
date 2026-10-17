@@ -1,0 +1,61 @@
+import { describe, expect, it } from 'vitest'
+import {
+  fixedClock,
+  memoryOdometer,
+  memorySchedule,
+  memoryServiceRecords,
+  memoryVehicles,
+} from '../testing'
+import { getDueItems } from './getDueItems'
+
+describe('getDueItems', () => {
+  const deps = () => ({
+    vehicles: memoryVehicles([
+      { id: 'v1', configId: 'rav4-2021', nickname: 'RAV4', severeDuty: false },
+    ]),
+    schedule: memorySchedule([
+      {
+        id: 'oil',
+        configId: 'rav4-2021',
+        task: 'Oil and filter',
+        intervalMiles: 10_000,
+        intervalMonths: 12,
+      },
+      { id: 'rotate', configId: 'rav4-2021', task: 'Tyre rotation', intervalMiles: 5_000 },
+      { id: 'other', configId: 'civic-2019', task: 'Not this car', intervalMiles: 1 },
+    ]),
+    records: memoryServiceRecords([
+      {
+        id: 's1',
+        vehicleId: 'v1',
+        itemId: 'oil',
+        performedOn: '2026-07-01',
+        odometerMiles: 30_000,
+      },
+      {
+        id: 's2',
+        vehicleId: 'v1',
+        itemId: 'rotate',
+        performedOn: '2026-07-01',
+        odometerMiles: 30_000,
+      },
+    ]),
+    odometer: memoryOdometer([{ vehicleId: 'v1', date: '2026-09-29', miles: 33_000 }]),
+    clock: fixedClock('2026-10-01'),
+  })
+
+  it("projects this car's items, soonest first, learning mileage from records", async () => {
+    // 3,000 miles over 90 days = 33.3/day, so about 33,067 today.
+    // Rotation: 1,933 miles to 35,000 = 58 days. Oil: 6,933 miles to 40,000 = 208 days,
+    // before its 12-month limit on 2027-07-01.
+    const due = await getDueItems(deps())('v1')
+    expect(due.map((d) => [d.itemId, d.dueDate, d.status])).toEqual([
+      ['rotate', '2026-11-28', 'upcoming'],
+      ['oil', '2027-04-27', 'upcoming'],
+    ])
+  })
+
+  it('fails loudly for an unknown vehicle', async () => {
+    await expect(getDueItems(deps())('nope')).rejects.toThrow('Unknown vehicle nope')
+  })
+})
