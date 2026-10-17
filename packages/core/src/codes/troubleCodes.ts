@@ -1,3 +1,5 @@
+import type { CodeSystem } from './lookupCode'
+
 /**
  * How soon a trouble code needs a shop:
  * - `stop`: pull over and stop driving; going on can wreck the engine or transmission.
@@ -9,6 +11,8 @@ export type CodeUrgency = 'stop' | 'soon' | 'later'
 /** What a known code means, in plain words. */
 export interface CodeEntry {
   title: string
+  /** The area of the car, when the code's structure names the wrong one (P0217 is cooling). */
+  system?: CodeSystem
   /** The usual causes, most likely first. */
   causes: string[]
   urgency: CodeUrgency
@@ -101,6 +105,7 @@ const COMPUTER: Omit<CodeEntry, 'title'> = {
 }
 
 const OIL_PRESSURE: Omit<CodeEntry, 'title'> = {
+  system: 'powertrain',
   causes: ['Low engine oil', 'The wrong oil or very old oil', 'A worn oil pump', 'A failed sensor'],
   urgency: 'stop',
   tip: 'Check the oil level now. Driving without oil pressure can destroy the engine within minutes.',
@@ -222,17 +227,19 @@ export const TROUBLE_CODES: Record<string, CodeEntry> = {
     urgency: 'later',
   },
   P0117: {
+    system: 'cooling',
     title: 'Coolant temperature sensor signal low',
     causes: ['A failed coolant temperature sensor', 'Damaged wiring or connector'],
     urgency: 'soon',
-    tip: 'The cooling fan may not run when it should, so watch the temperature gauge.',
+    tip: 'The cooling fan may not run when it should, and the temperature gauge may read wrong too. If you see steam or smell coolant, stop.',
     components: ['ENGINE COOLING'],
   },
   P0118: {
+    system: 'cooling',
     title: 'Coolant temperature sensor signal high',
     causes: ['A failed coolant temperature sensor', 'An unplugged sensor', 'Damaged wiring'],
     urgency: 'soon',
-    tip: 'The cooling fan may not run when it should, so watch the temperature gauge.',
+    tip: 'The cooling fan may not run when it should, and the temperature gauge may read wrong too. If you see steam or smell coolant, stop.',
     components: ['ENGINE COOLING'],
   },
   P0121: {
@@ -242,12 +249,14 @@ export const TROUBLE_CODES: Record<string, CodeEntry> = {
     tip: 'The car may hesitate or go into a reduced-power mode.',
   },
   P0125: {
+    system: 'cooling',
     title: 'Engine takes too long to warm up',
     causes: ['A thermostat stuck open', 'Low coolant', 'A failing coolant temperature sensor'],
     urgency: 'later',
     components: ['ENGINE COOLING'],
   },
   P0128: {
+    system: 'cooling',
     title: 'Coolant stays below thermostat temperature',
     causes: ['A thermostat stuck open', 'Low coolant', 'A failing coolant temperature sensor'],
     urgency: 'later',
@@ -288,6 +297,7 @@ export const TROUBLE_CODES: Record<string, CodeEntry> = {
   },
   ...perCylinder(),
   P0217: {
+    system: 'cooling',
     title: 'Engine overheating',
     causes: [
       'Low coolant or a leak',
@@ -300,6 +310,7 @@ export const TROUBLE_CODES: Record<string, CodeEntry> = {
     components: ['ENGINE COOLING', 'ENGINE'],
   },
   P0218: {
+    system: 'transmission',
     title: 'Transmission overheating',
     causes: [
       'Towing or climbing hard in hot weather',
@@ -377,14 +388,12 @@ export const TROUBLE_CODES: Record<string, CodeEntry> = {
     causes: ['Carbon-clogged EGR passages', 'A stuck EGR valve', 'A failing EGR pressure sensor'],
     urgency: 'later',
     tip: 'May cause pinging under load. It will fail an emissions inspection.',
-    emissionsWarranty: true,
   },
   P0402: {
     title: 'Exhaust gas recirculation (EGR) flow too high',
     causes: ['An EGR valve stuck open', 'A failing EGR solenoid'],
     urgency: 'soon',
     tip: 'The engine may idle roughly or stall when stopping.',
-    emissionsWarranty: true,
   },
   P0411: {
     title: 'Secondary air injection flow incorrect',
@@ -439,6 +448,7 @@ export const TROUBLE_CODES: Record<string, CodeEntry> = {
     urgency: 'later',
   },
   P0520: {
+    system: 'powertrain',
     title: 'Engine oil pressure sensor circuit',
     causes: ['A failed oil pressure sensor', 'Damaged wiring', 'Low engine oil'],
     urgency: 'soon',
@@ -448,6 +458,7 @@ export const TROUBLE_CODES: Record<string, CodeEntry> = {
   P0521: { title: 'Engine oil pressure out of range', ...OIL_PRESSURE },
   P0524: { title: 'Engine oil pressure too low', ...OIL_PRESSURE },
   P0562: {
+    system: 'charging',
     title: 'System voltage low',
     causes: ['A failing alternator', 'A weak battery', 'Loose or corroded battery terminals'],
     urgency: 'soon',
@@ -455,6 +466,7 @@ export const TROUBLE_CODES: Record<string, CodeEntry> = {
     components: ['ELECTRICAL SYSTEM'],
   },
   P0563: {
+    system: 'charging',
     title: 'System voltage high',
     causes: ['A failing alternator voltage regulator'],
     urgency: 'soon',

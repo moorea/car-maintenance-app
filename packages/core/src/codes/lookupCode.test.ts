@@ -55,6 +55,10 @@ describe('parseCodes', () => {
     expect(parseCodes('code P0420 then P0420 again')).toEqual({ codes: ['P0420'], invalid: [] })
   })
 
+  it('ignores a model year or OBD2 typed beside a lettered code', () => {
+    expect(parseCodes('2019 Camry, OBD2 says P0420')).toEqual({ codes: ['P0420'], invalid: [] })
+  })
+
   it('reports anything with a digit that is not a code', () => {
     expect(parseCodes('P04200 P9420 X0420')).toEqual({
       codes: [],
@@ -128,6 +132,16 @@ describe('lookupCode', () => {
     expect(lookupCode('C0035', ctx()).tip).toMatch(/ABS/)
   })
 
+  it('puts each code in the right area of the car', () => {
+    expect(lookupCode('P0A80', ctx()).system).toBe('hybrid')
+    expect(lookupCode('P2A00', ctx()).systemLabel).toBe('Fuel and air')
+    expect(lookupCode('P3400', ctx()).system).toBe('powertrain')
+    expect(lookupCode('P0217', ctx()).systemLabel).toBe('Cooling')
+    expect(lookupCode('P0218', ctx()).system).toBe('transmission')
+    expect(lookupCode('P0524', ctx()).systemLabel).toBe('Engine')
+    expect(lookupCode('P0562', ctx()).systemLabel).toBe('Battery and charging')
+  })
+
   it('finds recalls and complaints about the same part of the car', () => {
     const found = lookupCode(
       'P0300',
@@ -169,6 +183,8 @@ describe('lookupCode', () => {
     expect(lookupCode('P0420', ctx({ year: 2015 })).warranty).toBeUndefined()
     expect(lookupCode('P0420', ctx({ year: 2021, miles: 95_000 })).warranty).toBeUndefined()
     expect(lookupCode('P0171', ctx()).warranty).toBeUndefined()
+    // EGR valves have the shorter 2-year coverage, not 8 years.
+    expect(lookupCode('P0401', ctx()).warranty).toBeUndefined()
   })
 
   it('keeps every listed code well formed', () => {

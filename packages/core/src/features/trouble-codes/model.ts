@@ -64,7 +64,7 @@ const OUTCOMES: Record<CodeUrgency, { headline: string; advice: string }> = {
   stop: {
     headline: 'Stop driving',
     advice:
-      'Pull over when it’s safe and turn the engine off. Driving on can cause serious damage. Have it towed, or drive only as far as the nearest shop.',
+      'Pull over when it’s safe and turn the engine off. Driving on can cause serious damage, so have it towed.',
   },
   soon: {
     headline: 'Get it checked this week',

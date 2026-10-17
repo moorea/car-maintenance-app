@@ -9,12 +9,16 @@ export const MAX_CODES = 8
 const CODE = /^[PBCU][0-3][0-9A-F]{3}$/
 const BARE_CODE = /^[0-3][0-9A-F]{3}$/
 
+/** Words with a digit that people type around codes. */
+const IGNORED = new Set(['OBD2', 'OBDII', 'OBD1'])
+
 export type ParsedCodes = { codes: string[]; invalid: string[] }
 
 /**
  * Reads trouble codes from what the owner typed, such as "p0420, P0171" or "P 0300". A bare
  * four-character code ("0420") is taken as an engine code, which is what a scan usually shows.
- * Words are ignored, so "code P0420" works; anything else with a digit in it is invalid.
+ * Bare numbers are ignored when a lettered code is typed too, so "2019 Camry P0420" reads P0420.
+ * Words are ignored, so "OBD2 code P0420" works; anything else with a digit in it is invalid.
  */
 export const parseCodes = (text: string): ParsedCodes => {
   const tokens = text
@@ -23,10 +27,17 @@ export const parseCodes = (text: string): ParsedCodes => {
     .replace(/\b([PBCU])[\s-]+(?=[0-3][0-9A-F]{3}\b)/g, '$1')
     .split(/[^A-Z0-9]+/)
     .filter((t) => t.length > 0)
+  // With a lettered code typed, a bare number is something else, such as a model year.
+  const bareAllowed = !tokens.some((t) => CODE.test(t))
   const codes: string[] = []
   const invalid: string[] = []
   for (const token of tokens) {
-    const code = CODE.test(token) ? token : BARE_CODE.test(token) ? `P${token}` : undefined
+    if (IGNORED.has(token) || (!bareAllowed && /^[0-9]+$/.test(token))) continue
+    const code = CODE.test(token)
+      ? token
+      : bareAllowed && BARE_CODE.test(token)
+        ? `P${token}`
+        : undefined
     if (code) {
       if (!codes.includes(code)) codes.push(code)
     } else if (/[0-9]/.test(token) && !invalid.includes(token)) invalid.push(token)
@@ -40,6 +51,8 @@ export type CodeSystem =
   | 'ignition'
   | 'emissions'
   | 'idle-speed'
+  | 'cooling'
+  | 'charging'
   | 'computer'
   | 'transmission'
   | 'hybrid'
@@ -53,6 +66,8 @@ const SYSTEMS: Record<CodeSystem, { label: string; components: string[] }> = {
   ignition: { label: 'Ignition and misfires', components: ['ENGINE'] },
   emissions: { label: 'Emissions', components: ['EXHAUST', 'EMISSION', 'FUEL'] },
   'idle-speed': { label: 'Speed and idle', components: ['ENGINE', 'VEHICLE SPEED CONTROL'] },
+  cooling: { label: 'Cooling', components: ['ENGINE COOLING', 'ENGINE'] },
+  charging: { label: 'Battery and charging', components: ['ELECTRICAL SYSTEM'] },
   computer: { label: 'Engine computer', components: ['ENGINE', 'ELECTRICAL SYSTEM'] },
   transmission: { label: 'Transmission', components: ['POWER TRAIN'] },
   hybrid: { label: 'Hybrid system', components: ['HYBRID', 'ELECTRICAL SYSTEM'] },
@@ -77,16 +92,20 @@ const ENGINE_SYSTEMS: Record<string, CodeSystem> = {
   '7': 'transmission',
   '8': 'transmission',
   '9': 'transmission',
-  A: 'hybrid',
-  B: 'hybrid',
-  C: 'hybrid',
+  A: 'fuel-air',
 }
+
+/** P0A, P0B and P0C codes are the hybrid system's; P2A codes are fuel and air metering. */
+const HYBRID = /^P0[ABC]/
 
 const systemOf = (code: string): CodeSystem => {
   const letter = code[0]
   if (letter === 'B') return 'body'
   if (letter === 'C') return 'chassis'
   if (letter === 'U') return 'network'
+  if (HYBRID.test(code)) return 'hybrid'
+  // P3400 to P39FF are cylinder deactivation, an engine system of its own.
+  if (code[1] === '3') return 'powertrain'
   return ENGINE_SYSTEMS[code[2] ?? ''] ?? 'powertrain'
 }
 
@@ -107,6 +126,8 @@ const FALLBACK_URGENCY: Record<CodeSystem, CodeUrgency> = {
   ignition: 'soon',
   emissions: 'later',
   'idle-speed': 'soon',
+  cooling: 'soon',
+  charging: 'soon',
   computer: 'soon',
   transmission: 'soon',
   hybrid: 'soon',
@@ -167,8 +188,8 @@ const matchesComponent = (component: string | undefined, words: string[]) =>
 
 /** Describes one code for the car, with the recalls and complaints about the same part. */
 export const lookupCode = (code: string, ctx: LookupContext): CodeLookup => {
-  const system = systemOf(code)
   const entry = TROUBLE_CODES[code]
+  const system = entry?.system ?? systemOf(code)
   const generic = isGeneric(code)
   const words = entry?.components ?? SYSTEMS[system].components
   const recalls = ctx.recalls.filter((r) => matchesComponent(r.component, words))
