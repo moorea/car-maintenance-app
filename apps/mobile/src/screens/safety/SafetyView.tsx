@@ -9,6 +9,7 @@ import { Button, Collapsible, Column, ScrollView, Text } from '@expo/ui'
 import { ActivityIndicator, Linking, StyleSheet } from 'react-native'
 import { useColors } from '../../theme'
 import { Host } from '../../ui/Host'
+import { TAB_BAR_CLEARANCE } from '../../ui/TabBar'
 import { Note } from '../../ui/Note'
 
 type Props = SafetyState & Pick<SafetyActions, 'toggle'>
@@ -26,7 +27,7 @@ export function SafetyView(props: Props) {
   return (
     <Host style={styles.fill}>
       <ScrollView>
-        <Column spacing={12} style={{ padding: 16 }}>
+        <Column spacing={12} style={{ padding: 16, paddingBottom: TAB_BAR_CLEARANCE }}>
           <Text textStyle={HEADING}>Recalls</Text>
           <Recalls {...props} />
           <Text textStyle={HEADING}>Owner complaints</Text>

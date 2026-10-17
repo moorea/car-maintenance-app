@@ -1,19 +1,7 @@
 import type { Vehicle } from '@car/core'
-import { Tabs } from '../../ui/Tabs'
-import { RemindersScreen } from '../reminders/RemindersScreen'
 import { SafetyScreen } from '../safety/SafetyScreen'
-import { ServiceLogScreen } from '../service-log/ServiceLogScreen'
 
-/** The selected car: its service log, its recalls and complaints, and service reminders. */
+/** The selected car. For now its recalls and complaints; the schedule view replaces this next. */
 export function CarScreen({ vehicle }: { vehicle: Vehicle }) {
-  return (
-    <Tabs
-      key={vehicle.id}
-      tabs={[
-        { label: 'Service', render: () => <ServiceLogScreen vehicleId={vehicle.id} /> },
-        { label: 'Recalls', render: () => <SafetyScreen vehicle={vehicle} /> },
-        { label: 'Reminders', render: () => <RemindersScreen /> },
-      ]}
-    />
-  )
+  return <SafetyScreen key={vehicle.id} vehicle={vehicle} />
 }

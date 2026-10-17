@@ -8,6 +8,12 @@ import type { AuthPort, Notifier, SyncStatus, Unsubscribe, VehicleRepo } from '.
  */
 export type SessionStatus = 'starting' | 'signed-out' | 'syncing' | 'no-vehicles' | 'ready'
 
+/**
+ * The app's main sections: one per tab (the garage, the service log, the car and the assistant),
+ * plus the reminder settings opened from the garage.
+ */
+export type AppTab = 'garage' | 'log' | 'car' | 'ask' | 'reminders'
+
 export interface SessionState {
   status: SessionStatus
   user?: AuthUser | undefined
@@ -15,11 +21,16 @@ export interface SessionState {
   selectedVehicleId?: string | undefined
   /** True while the owner is adding another car from a car's screen. */
   addingCar: boolean
+  /** The open tab. Signing in opens the garage. */
+  tab: AppTab
 }
 
 export interface SessionActions {
   start: () => void
   selectVehicle: (id: string) => void
+  openTab: (tab: AppTab) => void
+  /** Selects a car and opens its page. */
+  openCar: (id: string) => void
   /** Opens "add your car" over the selected car. */
   addCar: () => void
   cancelAddCar: () => void
@@ -72,7 +83,8 @@ export const createSessionModel = (deps: {
         vehicles: sorted,
         selectedVehicleId: selected?.id,
         status: selected ? 'ready' : synced ? 'no-vehicles' : 'syncing',
-        ...(opened && { addingCar: false }),
+        // A tapped reminder opens that car's page.
+        ...(opened && { addingCar: false, tab: 'car' as const }),
       })
     }
 
@@ -98,6 +110,7 @@ export const createSessionModel = (deps: {
           vehicles: [],
           selectedVehicleId: undefined,
           addingCar: false,
+          tab: 'garage',
         })
         return
       }
@@ -108,6 +121,7 @@ export const createSessionModel = (deps: {
         vehicles: [],
         selectedVehicleId: undefined,
         addingCar: false,
+        tab: 'garage',
       })
       stopVehicles = deps.vehicles.watchOwned(user.id, showVehicles)
       stopSync = deps.sync.onFirstSync(user.id, () => {
@@ -120,6 +134,7 @@ export const createSessionModel = (deps: {
       status: 'starting',
       vehicles: [],
       addingCar: false,
+      tab: 'garage',
 
       start: () => {
         if (stopAuth) return
@@ -138,6 +153,13 @@ export const createSessionModel = (deps: {
         justAdded = undefined
         tapped = undefined
         set({ selectedVehicleId: id })
+      },
+
+      openTab: (tab) => set({ tab }),
+
+      openCar: (id) => {
+        get().selectVehicle(id)
+        if (get().selectedVehicleId === id) set({ tab: 'car' })
       },
 
       addCar: () => {

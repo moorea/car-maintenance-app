@@ -31,6 +31,9 @@ const pairs: [text: ColorRole, fill: ColorRole][] = [
   ['textPrimary', 'warningSubtle'],
   ['danger', 'background'],
   ['danger', 'surface'],
+  ['danger', 'warningSubtle'],
+  ['textSecondary', 'neutralSubtle'],
+  ['textPrimary', 'neutralSubtle'],
 ]
 
 describe.each([

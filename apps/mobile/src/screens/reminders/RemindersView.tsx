@@ -3,6 +3,7 @@ import { Button, Column, ScrollView, Switch, Text } from '@expo/ui'
 import { ActivityIndicator, StyleSheet } from 'react-native'
 import { Host } from '../../ui/Host'
 import { Note } from '../../ui/Note'
+import { TAB_BAR_CLEARANCE } from '../../ui/TabBar'
 
 type Props = RemindersState & Pick<RemindersActions, 'setOn' | 'openSettings'>
 
@@ -16,7 +17,11 @@ export function RemindersView(props: Props) {
   return (
     <Host style={styles.fill}>
       <ScrollView>
-        <Column spacing={12} style={{ padding: 16 }}>
+        <Column
+          spacing={12}
+          style={{ padding: 16, paddingTop: 60, paddingBottom: TAB_BAR_CLEARANCE }}
+        >
+          <Text textStyle={{ fontSize: 34, fontWeight: '700' }}>Reminders</Text>
           <Switch
             label="Service reminders"
             value={props.on}
