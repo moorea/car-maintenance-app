@@ -1,8 +1,14 @@
-import { createReminderScheduler, withFillUpReadings, type IdGenerator } from '@car/core'
+import {
+  createReminderScheduler,
+  guardAiSharing,
+  withFillUpReadings,
+  type IdGenerator,
+} from '@car/core'
 import {
   demoQuoteReader,
   memoryNotifier,
   memoryPhotoPicker,
+  memoryPreferences,
   memoryReminderSettings,
 } from '@car/core/testing'
 import { randomUUID } from 'expo-crypto'
@@ -32,18 +38,30 @@ const repositories = {
 // Browsers cannot schedule notifications for a future date, so the preview pretends.
 const notifier = memoryNotifier()
 const reminderSettings = memoryReminderSettings()
+// Starts fresh on every load, so the preview always opens on the introduction.
+const preferences = memoryPreferences()
+// `?new-owner` opens the preview signed out, as a first launch does, to show the introduction.
+if (typeof location !== 'undefined' && new URLSearchParams(location.search).has('new-owner'))
+  void repositories.auth.signOut()
+const ai = guardAiSharing(
+  { preferences, auth: repositories.auth },
+  {
+    assistant: createDemoAssistant(repositories, clock),
+    quoteReader: demoQuoteReader({ delayMs: 1_500 }),
+  },
+)
 
 export const deps = {
   clock,
   ids,
   vinDecoder: demoVinDecoder(),
   ...repositories,
-  assistant: createDemoAssistant(repositories, clock),
+  ...ai,
   // The preview has no camera; every photo is a sample dealer quote.
   photos: memoryPhotoPicker(),
-  quoteReader: demoQuoteReader({ delayMs: 1_500 }),
   notifier,
   reminderSettings,
+  preferences,
   exporter: pdfReportExporter(),
   dataFiles: appDataFiles(),
   picker: systemFilePicker(),
