@@ -30,7 +30,7 @@ select public.nhtsa_store_bulletins('honda', 'cr-v', 2017, $json$
    "components": ["engine", " POWER TRAIN "], "system": "Engine / Cooling",
    "summary": "Oil may dilute with fuel. Coverage extended to 6 years."},
   {"nhtsa_id": 10181235, "kind": "mystery", "summary": "A letter."},
-  {"nhtsa_id": 10181235, "kind": "mystery", "summary": "A shorter."},
+  {"nhtsa_id": 10181235, "kind": "mystery", "summary": "Short."},
   {"nhtsa_id": "not a number", "summary": "Skipped."}
 ]
 $json$);
