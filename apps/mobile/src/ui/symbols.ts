@@ -21,7 +21,13 @@ export const SYMBOLS = {
   bell: { ios: 'bell', paths: ['M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z', 'M10 20.5a2 2 0 0 0 4 0'] },
   plus: { ios: 'plus', paths: ['M12 5v14M5 12h14'] },
   chevron: { ios: 'chevron.right', paths: ['M9 6l6 6-6 6'] },
+  back: { ios: 'chevron.left', paths: ['M15 6l-6 6 6 6'] },
+  clock: { ios: 'clock', paths: ['M12 4a8 8 0 1 0 0.01 0', 'M12 8v4l3 2'] },
   warning: { ios: 'exclamationmark.triangle', paths: ['M12 3l10 18H2z', 'M12 10v5M12 18v.01'] },
+  send: { ios: 'arrow.up', paths: ['M12 19V5M6 11l6-6 6 6'] },
+  stop: { ios: 'stop.fill', paths: ['M7 7h10v10H7z'] },
+  compose: { ios: 'square.and.pencil', paths: ['M4 20h4L19 9l-4-4L4 16z', 'M13 7l4 4'] },
+  source: { ios: 'doc.text.magnifyingglass', paths: ['M5 4h10l4 4v12H5z'] },
 } satisfies Record<string, { ios: SFSymbol; paths: string[] }>
 
 export type SymbolName = keyof typeof SYMBOLS

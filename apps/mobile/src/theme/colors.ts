@@ -37,6 +37,8 @@ export interface Colors {
   glassShadow: string
   /** Behind the selected item in a tab bar or segmented control. */
   selectedFill: string
+  /** No fill, for a field drawn inside another control, such as the text in a chat composer. */
+  clear: string
 }
 
 export type ColorRole = keyof Colors
@@ -58,6 +60,7 @@ export const lightColors: Colors = {
   glassEdge: p.whiteGlassEdge,
   glassShadow: p.shadowSoft,
   selectedFill: p.graySelected,
+  clear: p.clear,
 }
 
 export const darkColors: Colors = {
@@ -77,4 +80,5 @@ export const darkColors: Colors = {
   glassEdge: p.charcoalGlassEdge,
   glassShadow: p.shadowDark,
   selectedFill: p.graySelectedDark,
+  clear: p.clear,
 }

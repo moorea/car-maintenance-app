@@ -397,6 +397,12 @@ deno_version = 2
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 
+# The AI assistant (ADR 0009). Its source is packages/server; `pnpm --filter @car/server build`
+# bundles it into index.js, which is not committed.
+[functions.assistant]
+verify_jwt = true
+entrypoint = "./functions/assistant/index.js"
+
 [analytics]
 enabled = true
 port = 54327

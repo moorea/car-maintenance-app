@@ -9,7 +9,8 @@ import {
   memoryVinDecoder,
   OWNER,
 } from '@car/core/testing'
-import type { MaintenanceItem, SafetyReport } from '@car/core'
+import { demoModel, localAssistant } from '@car/core/testing'
+import type { Clock, MaintenanceItem, SafetyReport } from '@car/core'
 
 /** A VIN the demo's offline decoder knows, for previews where the real lookup cannot run. */
 export const DEMO_VIN = '1HGCM82633A004352'
@@ -195,3 +196,27 @@ export const createDemoRepositories = () => ({
     },
   ]),
 })
+
+type DemoRepositories = ReturnType<typeof createDemoRepositories>
+
+/**
+ * Ask without a backend: a stand-in model that quotes the car's stored facts, citing them, so the
+ * screen behaves like the real one. It does not understand the question.
+ */
+export const createDemoAssistant = (repositories: DemoRepositories, clock: Clock) =>
+  localAssistant({
+    model: demoModel({ delayMs: 40 }),
+    facts: async (vehicleId) => {
+      const vehicle = await repositories.vehicles.get(vehicleId)
+      if (!vehicle?.configId) return undefined
+      return {
+        vehicle,
+        today: clock.today(),
+        readings: await repositories.odometer.listForVehicle(vehicleId),
+        schedule: await repositories.schedule.itemsForConfig(vehicle.configId),
+        records: await repositories.records.listForVehicle(vehicleId),
+        safety: DEMO_SAFETY,
+        complaints: [],
+      }
+    },
+  })

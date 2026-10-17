@@ -2,7 +2,7 @@ import type { AppTab, SessionActions, SessionState, Vehicle } from '@car/core'
 import { Row, Text } from '@expo/ui'
 import { ActivityIndicator, StyleSheet, View } from 'react-native'
 import { AddCarScreen } from '../add-car/AddCarScreen'
-import { AskView } from '../ask/AskView'
+import { AskScreen } from '../ask/AskScreen'
 import { CarScreen } from '../car/CarScreen'
 import { GarageScreen } from '../garage/GarageScreen'
 import { RemindersScreen } from '../reminders/RemindersScreen'
@@ -41,16 +41,15 @@ export function RootView(props: Props) {
     return (
       <View style={styles.fill}>
         <TabContent {...props} vehicle={vehicle} />
-        <TabBar
-          tabs={TABS}
-          selected={props.tab}
-          onSelect={props.openTab}
-          action={{
-            symbol: 'ask',
-            onPress: () => props.openTab('ask'),
-            selected: props.tab === 'ask',
-          }}
-        />
+        {/* Ask fills the screen with its own composer and a back button, as in the mockup. */}
+        {props.tab === 'ask' ? null : (
+          <TabBar
+            tabs={TABS}
+            selected={props.tab}
+            onSelect={props.openTab}
+            action={{ symbol: 'ask', onPress: () => props.openTab('ask'), selected: false }}
+          />
+        )}
       </View>
     )
   }
@@ -104,7 +103,7 @@ function TabContent(props: Props & { vehicle: Vehicle }) {
     case 'car':
       return <CarScreen vehicle={vehicle} />
     case 'ask':
-      return <AskView carName={vehicle.nickname} />
+      return <AskScreen vehicle={vehicle} onBack={() => props.openTab('garage')} />
     case 'reminders':
       return <RemindersScreen />
   }

@@ -1,5 +1,6 @@
 import type { IsoDate } from '../lib/date'
 import type {
+  AnswerSource,
   AuthUser,
   DecodedVin,
   MaintenanceItem,
@@ -133,4 +134,91 @@ export interface ReminderSettingsRepo {
   /** Calls `onChange` with the settings now and after every change. */
   watch(onChange: (settings: ReminderSettings) => void): Unsubscribe
   set(settings: ReminderSettings): Promise<void>
+}
+
+/** The part of the platform's AbortSignal that core relies on; core has no DOM types. */
+export interface CancelSignal {
+  readonly aborted: boolean
+  addEventListener(type: 'abort', listener: () => void): void
+  removeEventListener(type: 'abort', listener: () => void): void
+}
+
+/** One question to the assistant about one of the owner's cars. */
+export interface AskRequest {
+  vehicleId: VehicleId
+  /** Continues an earlier conversation about the same car; absent to start a new one. */
+  conversationId?: string
+  question: string
+}
+
+/** What arrives while an answer streams in. */
+export type AnswerEvent =
+  /** The conversation this question belongs to, sent first. */
+  | { type: 'conversation'; id: string }
+  /** The next piece of the answer's text. */
+  | { type: 'text'; text: string }
+  /** A stored fact the answer has just cited. */
+  | { type: 'source'; source: AnswerSource }
+  /**
+   * Forget the answer so far: the model declined partway and another model is answering from
+   * the start.
+   */
+  | { type: 'reset' }
+
+/** The AI assistant, answering from what is stored about the owner's car. Needs a connection. */
+export interface Assistant {
+  /**
+   * Streams the answer to `onEvent` and resolves once it is complete. Rejects with
+   * AssistantError. Once `signal` aborts it stops calling `onEvent` and may settle either way.
+   */
+  ask(
+    request: AskRequest,
+    onEvent: (event: AnswerEvent) => void,
+    signal?: CancelSignal,
+  ): Promise<void>
+}
+
+/** One turn of a conversation as the model sees it. */
+export interface ChatTurn {
+  role: 'user' | 'assistant'
+  text: string
+}
+
+/** A stored fact handed to the model as a citable document. */
+export interface ModelDocument {
+  /** Short, shown to the model; the model can cite the text but not the title. */
+  title: string
+  text: string
+}
+
+export interface ModelRequest {
+  system: string
+  /** Facts the model may cite, by their index in this list. */
+  documents: ModelDocument[]
+  /** The conversation so far, ending with the owner's question. */
+  turns: ChatTurn[]
+}
+
+export type ModelEvent =
+  | { type: 'text'; text: string }
+  /** The text since the previous event is drawn from `documents[documentIndex]`. */
+  | { type: 'citation'; documentIndex: number }
+  /** The model declined partway and a fallback model starts the answer again. */
+  | { type: 'reset' }
+
+/**
+ * - `end`: the model finished its answer.
+ * - `max-tokens`: the answer was cut off at the length limit.
+ * - `declined`: the model's safety checks declined to answer.
+ */
+export type ModelStopReason = 'end' | 'max-tokens' | 'declined'
+
+/** A language model that answers from documents with citations. Runs on the server. */
+export interface LanguageModel {
+  /** Streams the answer to `onEvent`. Throws AssistantError for failures the owner should see. */
+  stream(
+    request: ModelRequest,
+    onEvent: (event: ModelEvent) => void,
+    signal?: CancelSignal,
+  ): Promise<ModelStopReason>
 }

@@ -142,3 +142,44 @@ export class AuthError extends Error {
     this.name = 'AuthError'
   }
 }
+
+/** One owner complaint filed with NHTSA, as the server keeps it for the assistant. */
+export interface Complaint {
+  /** NHTSA's ODI number, which identifies the complaint. */
+  odiNumber: number
+  /** NHTSA's components, upper case, such as "ENGINE". */
+  components: string[]
+  summary: string
+  filedOn?: IsoDate
+  crash: boolean
+  fire: boolean
+  injuries: number
+  deaths: number
+}
+
+/** What a stored fact an answer cites is. */
+export type AnswerSourceKind =
+  'car' | 'schedule' | 'service' | 'recall' | 'complaints' | 'complaint'
+
+/** A stored fact about the owner's car that an assistant answer was drawn from. */
+export interface AnswerSource {
+  kind: AnswerSourceKind
+  /** Identifies the fact within its kind, such as a recall's campaign number. */
+  id: string
+  /** A few words for the chip under the answer, such as "Recall 23V123000". */
+  label: string
+}
+
+export type AssistantErrorKind =
+  'offline' | 'signed-out' | 'not-found' | 'rate-limited' | 'unavailable' | 'declined' | 'unknown'
+
+/** Why a question got no answer. Adapters translate their own errors into these. */
+export class AssistantError extends Error {
+  constructor(
+    readonly kind: AssistantErrorKind,
+    message: string = kind,
+  ) {
+    super(message)
+    this.name = 'AssistantError'
+  }
+}
