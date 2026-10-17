@@ -1,6 +1,7 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
 import { daysBetween, type IsoDate } from '../../lib/date'
 import { formatMiles } from '../../lib/format'
+import { isGeneralGuidance } from '../../lib/schedule'
 import type { MaintenanceItem, OdometerReading, Vehicle } from '../../domain/types'
 import type { Unsubscribe } from '../../ports'
 import { getDueItems, type GetDueItemsDeps } from '../../reminders/getDueItems'
@@ -40,8 +41,10 @@ export interface CarState {
   /** "About 1,900 mi a month", or a note that the average is assumed. */
   pace?: string | undefined
   section: CarSection
-  /** "Toyota schedule · normal driving". */
+  /** "Toyota schedule · normal driving", or "General schedule · normal driving". */
   scheduleTitle: string
+  /** Says the schedule is general guidance, not the manufacturer's; absent when it is theirs. */
+  scheduleNote?: string | undefined
   schedule: ScheduleRow[]
   /** Present while the owner is typing a new odometer reading. */
   editingOdometer?: OdometerEditor | undefined
@@ -97,6 +100,9 @@ const describeVehicle = (v: Vehicle) =>
     .filter(Boolean)
     .join(' · ')
 
+const scheduleTitle = (whose: string, severeDuty: boolean) =>
+  `${whose} schedule · ${severeDuty ? 'severe' : 'normal'} driving`
+
 const roundTo = (n: number, step: number) => Math.round(n / step) * step
 
 /** Screen model for a car's page: its odometer, its maintenance schedule and which tab is open. */
@@ -128,7 +134,12 @@ export const createCarModel = (deps: CarDeps): CarModel => {
         const odometer = currentOdometer(readings, records, today)
         latest = odometer.latest
         const byId = new Map(items.map((i) => [i.id, i]))
+        const general = isGeneralGuidance(items)
         set({
+          scheduleTitle: scheduleTitle(general ? 'General' : vehicle.make, vehicle.severeDuty),
+          scheduleNote: general
+            ? `General guidance for most cars, not ${vehicle.make}'s own schedule. Your owner's manual has the exact intervals for this car.`
+            : undefined,
           status: vehicle.configId === undefined ? 'unmatched' : 'ready',
           odometer:
             odometer.miles === undefined
@@ -166,7 +177,7 @@ export const createCarModel = (deps: CarDeps): CarModel => {
       title: `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
       subtitle: describeVehicle(vehicle),
       section: 'schedule',
-      scheduleTitle: `${vehicle.make} schedule · ${vehicle.severeDuty ? 'severe' : 'normal'} driving`,
+      scheduleTitle: scheduleTitle(vehicle.make, vehicle.severeDuty),
       schedule: [],
 
       showSection: (section) => set({ section }),

@@ -51,6 +51,7 @@ export const schema = new Schema({
     {
       config_id: column.text,
       task: column.text,
+      kind: column.text,
       interval_miles: column.integer,
       interval_months: column.integer,
       severe_miles: column.integer,

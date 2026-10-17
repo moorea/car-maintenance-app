@@ -67,6 +67,8 @@ const toItem = (r: Row): MaintenanceItem =>
     id: String(r.id),
     configId: String(r.config_id),
     task: String(r.task),
+    kind: text(r.kind),
+    source: text(r.source),
     intervalMiles: num(r.interval_miles),
     intervalMonths: num(r.interval_months),
     severeMiles: num(r.severe_miles),

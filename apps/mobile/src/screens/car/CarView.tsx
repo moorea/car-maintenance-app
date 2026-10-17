@@ -128,12 +128,12 @@ function Schedule(car: CarState) {
     return <Note>We don't have a maintenance schedule for this car yet.</Note>
   return (
     <Column spacing={8}>
-      <Text
-        textStyle={{ ...OVERLINE, color: colors.textSecondary }}
-        style={{ paddingHorizontal: 4 }}
-      >
-        {car.scheduleTitle.toUpperCase()}
-      </Text>
+      <Column spacing={4} style={{ paddingHorizontal: 4 }}>
+        <Text textStyle={{ ...OVERLINE, color: colors.textSecondary }}>
+          {car.scheduleTitle.toUpperCase()}
+        </Text>
+        {car.scheduleNote ? <Note>{car.scheduleNote}</Note> : null}
+      </Column>
       <Card padding={0}>
         {car.schedule.map((row, i) => (
           <Fragment key={row.itemId}>
