@@ -86,9 +86,11 @@ declare
   parts text[] := pg_catalog.regexp_match(value, '^\s*(\d{1,2})/(\d{1,2})/(\d{4})');
   d int;
   m int;
+  iso text[] := pg_catalog.regexp_match(value, '^\s*(\d{4})-(\d{2})-(\d{2})');
 begin
-  if value ~ '^\s*\d{4}-\d{2}-\d{2}' then
-    return pg_catalog.left(pg_catalog.btrim(value), 10)::date;
+  -- make_date rather than a cast, which depends on DateStyle and so is not immutable.
+  if iso is not null then
+    return pg_catalog.make_date(iso[1]::int, iso[2]::int, iso[3]::int);
   end if;
   if parts is null then
     return null;
