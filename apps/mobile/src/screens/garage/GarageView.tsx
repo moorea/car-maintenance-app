@@ -20,7 +20,8 @@ export interface GarageNavigation {
   onOpenCar: (id: string) => void
   onAddCar: () => void
   onReminders: () => void
-  onLogService: () => void
+  /** Opens the service log form, for a scheduled task if given. */
+  onLogService: (itemId?: string) => void
   onAsk: () => void
   onSignOut: () => void
 }
@@ -138,7 +139,12 @@ function NextUpCard(props: Props) {
         <ProgressBar value={nextUp.progress} fill="onAccent" track="accentSubtle" />
       ) : null}
       <Row spacing={10}>
-        <PillButton label="Log it done" onPress={props.onLogService} fill="surface" text="accent" />
+        <PillButton
+          label="Log it done"
+          onPress={() => props.onLogService(nextUp.itemId)}
+          fill="surface"
+          text="accent"
+        />
         <PillButton label="Ask about it" onPress={props.onAsk} fill="accentSubtle" text="accent" />
       </Row>
     </Card>

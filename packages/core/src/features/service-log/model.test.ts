@@ -1,14 +1,26 @@
 import { describe, expect, it } from 'vitest'
-import { fixedClock, memoryServiceRecords, sequentialIds } from '../../testing'
+import type { MaintenanceItem, ServiceRecord } from '../../domain/types'
+import { fixedClock, memorySchedule, memoryServiceRecords, sequentialIds } from '../../testing'
 import { createServiceLogModel } from './model'
 
-const setup = () => {
-  const records = memoryServiceRecords([
+const tasks: MaintenanceItem[] = [
+  { id: 'oil', configId: 'c1', task: 'Oil & filter change', intervalMiles: 10_000 },
+  { id: 'tires', configId: 'c1', task: 'Tire rotation', intervalMiles: 5_000 },
+]
+
+const setup = (
+  initial: ServiceRecord[] = [
     { id: 'old', vehicleId: 'v1', performedOn: '2026-01-10', shop: 'Old shop' },
     { id: 'other-car', vehicleId: 'v2', performedOn: '2026-05-01' },
-  ])
+  ],
+  startWith?: { itemId?: string },
+) => {
+  const records = memoryServiceRecords(initial)
   const model = createServiceLogModel({
     vehicleId: 'v1',
+    configId: 'c1',
+    startWith,
+    schedule: memorySchedule(tasks),
     records,
     clock: fixedClock('2026-10-17'),
     ids: sequentialIds('rec'),
@@ -17,10 +29,16 @@ const setup = () => {
   return { model, records }
 }
 
+// The in-memory schedule resolves at once, so a few microtask turns let it arrive.
+const settle = async () => {
+  for (let i = 0; i < 10; i++) await Promise.resolve()
+}
+
 describe('service log screen model', () => {
   it('stays loading until started', () => {
     const model = createServiceLogModel({
       vehicleId: 'v1',
+      schedule: memorySchedule(),
       records: memoryServiceRecords(),
       clock: fixedClock('2026-10-17'),
       ids: sequentialIds(),
@@ -125,5 +143,97 @@ describe('service log screen model', () => {
     await records.add({ id: 'late', vehicleId: 'v1', performedOn: '2026-10-18' })
     model.getState().start()
     expect(model.getState().records.map((r) => r.id)).toEqual(['late', 'old'])
+  })
+
+  describe('history', () => {
+    const history: ServiceRecord[] = [
+      {
+        id: 'a',
+        vehicleId: 'v1',
+        itemId: 'oil',
+        performedOn: '2026-08-14',
+        odometerMiles: 41_250,
+        costCents: 8_995,
+        shop: 'Main St Auto',
+      },
+      { id: 'b', vehicleId: 'v1', performedOn: '2026-10-02', costCents: 3_898, notes: 'Wipers' },
+      {
+        id: 'c',
+        vehicleId: 'v1',
+        itemId: 'tires',
+        performedOn: '2025-05-20',
+        costCents: 2_400,
+        shop: 'Dealer',
+      },
+    ]
+
+    it('groups records by month, newest first, naming the task done', async () => {
+      const { model } = setup(history)
+      await settle()
+      const groups = model.getState().groups
+      expect(groups.map((g) => g.label)).toEqual(['October', 'August', 'May 2025'])
+      expect(groups[1]?.entries[0]).toEqual({
+        id: 'a',
+        month: 'Aug',
+        day: '14',
+        what: 'Oil & filter change',
+        where: 'Main St Auto · 41,250 mi',
+        cost: '$89.95',
+      })
+      expect(groups[0]?.entries[0]?.what).toBe('Wipers')
+    })
+
+    it('totals what was spent this year and counts every service', () => {
+      const { model } = setup(history)
+      expect(model.getState().summary).toEqual({
+        spentLabel: 'Spent in 2026',
+        spent: '$128.93',
+        count: 3,
+      })
+    })
+
+    it('filters by task, shop or notes, ignoring case', async () => {
+      const { model } = setup(history)
+      await settle()
+      model.getState().setQuery('main st')
+      expect(model.getState().groups.flatMap((g) => g.entries.map((e) => e.id))).toEqual(['a'])
+      model.getState().setQuery('TIRE')
+      expect(model.getState().groups.flatMap((g) => g.entries.map((e) => e.id))).toEqual(['c'])
+      model.getState().setQuery('')
+      expect(model.getState().groups).toHaveLength(3)
+    })
+
+    it("offers the car's scheduled tasks for what was done", async () => {
+      const { model } = setup(history)
+      await settle()
+      expect(model.getState().tasks).toEqual([
+        { id: 'oil', task: 'Oil & filter change' },
+        { id: 'tires', task: 'Tire rotation' },
+      ])
+    })
+  })
+
+  describe('the form', () => {
+    it('is closed until opened, and opens with a task chosen', () => {
+      const { model } = setup()
+      expect(model.getState().adding).toBe(false)
+      model.getState().openForm('oil')
+      expect(model.getState()).toMatchObject({ adding: true, draft: { itemId: 'oil' } })
+      model.getState().closeForm()
+      expect(model.getState().adding).toBe(false)
+    })
+
+    it('opens straight away when asked to log a task', () => {
+      const { model } = setup(undefined, { itemId: 'tires' })
+      expect(model.getState()).toMatchObject({ adding: true, draft: { itemId: 'tires' } })
+    })
+
+    it('closes once the service is saved', async () => {
+      const { model } = setup()
+      model.getState().openForm('oil')
+      expect(await model.getState().save()).toBe(true)
+      expect(model.getState()).toMatchObject({ adding: false, draft: { itemId: '' } })
+      expect(model.getState().records[0]?.itemId).toBe('oil')
+    })
   })
 })

@@ -23,12 +23,19 @@ export interface SessionState {
   addingCar: boolean
   /** The open tab. Signing in opens the garage. */
   tab: AppTab
+  /**
+   * Set when the owner asked to log a service from elsewhere (such as "Log it done"), so the log
+   * opens its form. `seq` changes with every request.
+   */
+  logRequest?: { itemId?: string | undefined; seq: number } | undefined
 }
 
 export interface SessionActions {
   start: () => void
   selectVehicle: (id: string) => void
   openTab: (tab: AppTab) => void
+  /** Opens the service log with its form, for a scheduled task if one is given. */
+  logService: (itemId?: string) => void
   /** Selects a car and opens its page. */
   openCar: (id: string) => void
   /** Opens "add your car" over the selected car. */
@@ -155,7 +162,10 @@ export const createSessionModel = (deps: {
         set({ selectedVehicleId: id })
       },
 
-      openTab: (tab) => set({ tab }),
+      openTab: (tab) => set({ tab, logRequest: undefined }),
+
+      logService: (itemId) =>
+        set((s) => ({ tab: 'log', logRequest: { itemId, seq: (s.logRequest?.seq ?? 0) + 1 } })),
 
       openCar: (id) => {
         get().selectVehicle(id)
