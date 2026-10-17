@@ -1,3 +1,4 @@
+export { authErrorKind, supabaseAuth } from './auth'
 export { schema, UPLOADABLE_TABLES, type UploadableTable } from './schema'
 export { createPowerSyncRepositories, type PowerSyncRepositories } from './repositories'
 export { SupabaseConnector, supabaseBackend, type SupabaseAuth } from './connector'

@@ -1,4 +1,10 @@
-import type { OdometerRepo, ScheduleRepo, ServiceRecordRepo, VehicleRepo } from '@car/core'
+import type {
+  OdometerRepo,
+  ScheduleRepo,
+  ServiceRecordRepo,
+  Unsubscribe,
+  VehicleRepo,
+} from '@car/core'
 import type { CommonPowerSyncDatabase } from '@powersync/common'
 import {
   fromServiceRecord,
@@ -18,11 +24,44 @@ export interface PowerSyncRepositories {
 const RECORDS_FOR_VEHICLE =
   'select * from service_records where vehicle_id = ? order by performed_on desc, created_at desc'
 
+type Row = Record<string, unknown>
+
+/** Calls `onRows` with the query's rows now and whenever `table` changes, until unsubscribed. */
+const watchRows = (
+  db: CommonPowerSyncDatabase,
+  sql: string,
+  params: unknown[],
+  table: string,
+  onRows: (rows: Row[]) => void,
+): Unsubscribe => {
+  const controller = new AbortController()
+  db.watch(
+    sql,
+    params,
+    {
+      onResult: (result) => onRows((result.rows?._array ?? []) as Row[]),
+      onError: (error) => console.error(`${table} watch failed`, error),
+    },
+    { signal: controller.signal, tables: [table] },
+  )
+  return () => controller.abort()
+}
+
 /** The core ports implemented over the on-device PowerSync (SQLite) database. */
 export const createPowerSyncRepositories = (
   db: CommonPowerSyncDatabase,
 ): PowerSyncRepositories => ({
   vehicles: {
+    // Filtered by owner even though only the owner's rows sync: just after an account switch the
+    // previous owner's copy may not be cleared yet.
+    watchOwned: (ownerId, onChange) =>
+      watchRows(
+        db,
+        'select * from vehicles where owner_id = ? order by nickname',
+        [ownerId],
+        'vehicles',
+        (rows) => onChange(rows.map(toVehicle)),
+      ),
     get: async (id) => {
       const row = await db.getOptional<Record<string, unknown>>(
         'select * from vehicles where id = ?',
@@ -38,22 +77,10 @@ export const createPowerSyncRepositories = (
         toServiceRecord,
       ),
 
-    watchForVehicle: (vehicleId, onChange) => {
-      const controller = new AbortController()
-      db.watch(
-        RECORDS_FOR_VEHICLE,
-        [vehicleId],
-        {
-          onResult: (result) =>
-            onChange(
-              (result.rows?._array ?? []).map((r: Record<string, unknown>) => toServiceRecord(r)),
-            ),
-          onError: (error) => console.error('service_records watch failed', error),
-        },
-        { signal: controller.signal, tables: ['service_records'] },
-      )
-      return () => controller.abort()
-    },
+    watchForVehicle: (vehicleId, onChange) =>
+      watchRows(db, RECORDS_FOR_VEHICLE, [vehicleId], 'service_records', (rows) =>
+        onChange(rows.map(toServiceRecord)),
+      ),
 
     add: async (record) => {
       // Same text format as synced timestamptz values, so the created_at tie-break sorts both alike.

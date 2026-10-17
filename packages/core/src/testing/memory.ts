@@ -1,11 +1,15 @@
-import type {
-  MaintenanceItem,
-  OdometerReading,
-  ServiceRecord,
-  Vehicle,
-  VehicleId,
+import {
+  AuthError,
+  type AuthErrorKind,
+  type AuthUser,
+  type MaintenanceItem,
+  type OdometerReading,
+  type ServiceRecord,
+  type Vehicle,
+  type VehicleId,
 } from '../domain/types'
 import type {
+  AuthPort,
   Clock,
   IdGenerator,
   OdometerRepo,
@@ -16,9 +20,79 @@ import type {
 import type { IsoDate } from '../lib/date'
 
 /** In-memory adapters for tests and headless runs. They behave like the real ones, minus I/O. */
-export const memoryVehicles = (vehicles: Vehicle[] = []): VehicleRepo => ({
-  get: async (id) => vehicles.find((v) => v.id === id),
-})
+/** The owner `memoryVehicles` assumes when not told otherwise. */
+export const OWNER = 'u1'
+
+/** Vehicles keyed by owner, so tests can model what each signed-in user sees. */
+export const memoryVehicles = (
+  initial: Vehicle[] = [],
+  ownerOf: (vehicle: Vehicle) => string = () => OWNER,
+): VehicleRepo & { set: (vehicles: Vehicle[]) => void } => {
+  let vehicles = [...initial]
+  const watchers = new Set<{ ownerId: string; onChange: (v: Vehicle[]) => void }>()
+  const owned = (ownerId: string) => vehicles.filter((v) => ownerOf(v) === ownerId)
+  return {
+    get: async (id) => vehicles.find((v) => v.id === id),
+    watchOwned: (ownerId, onChange) => {
+      const watcher = { ownerId, onChange }
+      watchers.add(watcher)
+      onChange(owned(ownerId))
+      return () => watchers.delete(watcher)
+    },
+    /** Replaces the vehicles, as a sync would, and notifies watchers. */
+    set: (next) => {
+      vehicles = [...next]
+      for (const w of watchers) w.onChange(owned(w.ownerId))
+    },
+  }
+}
+
+/**
+ * Email sign-in that accepts one fixed code. `sent` records where codes went; `failNext` makes
+ * the next request throw an AuthError of that kind.
+ */
+export const memoryAuth = (options: { user?: AuthUser; validCode?: string } = {}) => {
+  const validCode = options.validCode ?? '123456'
+  let user: AuthUser | null = options.user ?? null
+  let nextFailure: AuthErrorKind | undefined
+  const sent: string[] = []
+  const watchers = new Set<(u: AuthUser | null) => void>()
+  const setUser = (next: AuthUser | null) => {
+    user = next
+    for (const w of watchers) w(user)
+  }
+  const failIfScheduled = () => {
+    if (nextFailure === undefined) return
+    const kind = nextFailure
+    nextFailure = undefined
+    throw new AuthError(kind)
+  }
+  const auth: AuthPort & {
+    sent: string[]
+    failNext: (kind: AuthErrorKind) => void
+  } = {
+    sent,
+    failNext: (kind) => {
+      nextFailure = kind
+    },
+    watchUser: (onChange) => {
+      watchers.add(onChange)
+      onChange(user)
+      return () => watchers.delete(onChange)
+    },
+    sendCode: async (email) => {
+      failIfScheduled()
+      sent.push(email)
+    },
+    verifyCode: async (email, code) => {
+      failIfScheduled()
+      if (!sent.includes(email) || code !== validCode) throw new AuthError('invalid-code')
+      setUser({ id: `user-${email}`, email })
+    },
+    signOut: async () => setUser(null),
+  }
+  return auth
+}
 
 export const memorySchedule = (items: MaintenanceItem[] = []): ScheduleRepo => ({
   itemsForConfig: async (configId) => items.filter((i) => i.configId === configId),

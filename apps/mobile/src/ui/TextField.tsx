@@ -1,15 +1,26 @@
-import { StyleSheet, Text, TextInput, View, type KeyboardTypeOptions } from 'react-native'
+import { StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native'
 
 interface Props {
   label: string
   value: string
   onChangeText: (value: string) => void
   error?: string | undefined
-  keyboardType?: KeyboardTypeOptions
   placeholder?: string
+  keyboardType?: TextInputProps['keyboardType']
+  autoComplete?: TextInputProps['autoComplete']
+  autoCapitalize?: TextInputProps['autoCapitalize']
 }
 
-export function TextField({ label, value, onChangeText, error, keyboardType, placeholder }: Props) {
+export function TextField({
+  label,
+  value,
+  onChangeText,
+  error,
+  placeholder,
+  keyboardType,
+  autoComplete,
+  autoCapitalize,
+}: Props) {
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
@@ -20,6 +31,8 @@ export function TextField({ label, value, onChangeText, error, keyboardType, pla
         onChangeText={onChangeText}
         keyboardType={keyboardType ?? 'default'}
         placeholder={placeholder ?? ''}
+        autoComplete={autoComplete ?? 'off'}
+        autoCapitalize={autoCapitalize ?? 'sentences'}
       />
       {error ? <Text style={styles.error}>{error}</Text> : null}
     </View>

@@ -1,5 +1,6 @@
 import type { IsoDate } from '../lib/date'
 import type {
+  AuthUser,
   MaintenanceItem,
   OdometerReading,
   ServiceRecord,
@@ -15,6 +16,19 @@ export type Unsubscribe = () => void
 
 export interface VehicleRepo {
   get(id: VehicleId): Promise<Vehicle | undefined>
+  /** Calls `onChange` with the owner's vehicles now and after every change. */
+  watchOwned(ownerId: string, onChange: (vehicles: Vehicle[]) => void): Unsubscribe
+}
+
+/** Passwordless email sign-in: the owner types their email, then the code they were sent. */
+export interface AuthPort {
+  /** Calls `onChange` with the current user (or null) now and on every sign-in or sign-out. */
+  watchUser(onChange: (user: AuthUser | null) => void): Unsubscribe
+  /** Emails a one-time code, creating the account if needed. Throws AuthError. */
+  sendCode(email: string): Promise<void>
+  /** Signs in with the emailed code. Throws AuthError. */
+  verifyCode(email: string, code: string): Promise<void>
+  signOut(): Promise<void>
 }
 
 export interface ServiceRecordRepo {

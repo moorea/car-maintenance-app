@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { ServiceRecord } from '@car/core'
+import type { ServiceRecord, Vehicle } from '@car/core'
 import { PowerSyncDatabase } from '@powersync/node'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { PowerSyncBackendConnector } from '@powersync/common'
@@ -109,6 +109,24 @@ describe('PowerSync repositories', () => {
     await session.setOwner('user-b')
     expect(await session.owner()).toBe('user-b')
     expect(await session.pendingUploads()).toBe(0)
+  })
+
+  it("tells a watcher about the owner's vehicles only, and about each change", async () => {
+    await db.execute(
+      "insert into vehicles (id, owner_id, config_id, nickname) values ('v-b', 'u2', 'c1', 'Not mine')",
+    )
+    const repos = createPowerSyncRepositories(db)
+    const updates = collect<Vehicle[]>((cb) => repos.vehicles.watchOwned('u1', cb))
+    await updates.waitFor(1)
+    await db.execute(
+      "insert into vehicles (id, owner_id, config_id, nickname, severe_duty) values ('v-a', 'u1', 'c1', 'Civic', 0)",
+    )
+    const values = await updates.waitFor(2)
+    updates.stop()
+    expect(values[0]).toEqual([])
+    expect(values.at(-1)).toEqual([
+      { id: 'v-a', configId: 'c1', nickname: 'Civic', severeDuty: false },
+    ])
   })
 
   it('reads vehicles, odometer readings and the schedule from synced rows', async () => {

@@ -5,6 +5,7 @@ import {
   createSyncSession,
   powerSyncSessionDatabase,
   schema,
+  supabaseAuth,
   SupabaseConnector,
 } from '@car/data'
 import { PowerSyncDatabase } from '@powersync/react-native'
@@ -37,5 +38,5 @@ export const createLiveRepositories = (config: BackendConfig) => {
     void session.setUser(authSession?.user.id ?? null).catch(() => {})
   })
 
-  return createPowerSyncRepositories(db)
+  return { auth: supabaseAuth(supabase.auth), ...createPowerSyncRepositories(db) }
 }
