@@ -71,13 +71,16 @@ export const firstSyncOf = (
   let done = false
   let check = Promise.resolve()
   const recheck = () => {
-    check = check.then(async () => {
-      if (done || !source.hasSynced()) return
-      if ((await source.owner()) !== ownerId || done) return
-      done = true
-      stop()
-      onSynced()
-    })
+    check = check
+      .then(async () => {
+        if (done || !source.hasSynced()) return
+        if ((await source.owner()) !== ownerId || done || !source.hasSynced()) return
+        done = true
+        stop()
+        onSynced()
+      })
+      // A failed read must not stop later status changes from being checked.
+      .catch((error: unknown) => console.warn('First sync check failed', error))
   }
   const stop = source.onStatusChanged(recheck)
   recheck()

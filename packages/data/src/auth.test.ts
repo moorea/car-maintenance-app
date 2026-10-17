@@ -176,29 +176,35 @@ describe('storedSession', () => {
       { getItem: async () => null, removeItem: async (key) => void removed.push(key) },
       'key',
     ).clear()
-    expect(removed).toEqual(['key', 'key-code-verifier'])
+    expect(removed).toEqual(['key'])
   })
 })
 
 describe('supabaseAuth sign-out', () => {
-  const fake = (signOutError: { name?: string; status?: number; message: string } | null) => {
+  type SignOutResult = { error: { name?: string; status?: number; message: string } | null }
+  const fake = (globalSignOut: () => Promise<SignOutResult>) => {
     let listener: ((event: string, session: unknown) => void) | undefined
+    const scopes: string[] = []
     const client = {
       onAuthStateChange: (cb: typeof listener) => {
         listener = cb
         return { data: { subscription: { unsubscribe: () => {} } } }
       },
-      signOut: async () => ({ error: signOutError }),
+      signOut: async (options?: { scope?: string }) => {
+        const scope = options?.scope ?? 'global'
+        scopes.push(scope)
+        if (scope === 'global') return globalSignOut()
+        // With nothing stored, supabase-js removes the session and tells every listener.
+        listener?.('SIGNED_OUT', null)
+        return { error: null }
+      },
     } as unknown as Auth
-    return { client, emit: (event: string, session: unknown) => listener?.(event, session) }
+    return { client, scopes, emit: (event: string, session: unknown) => listener?.(event, session) }
   }
+  const offline = { error: { name: 'AuthRetryableFetchError', status: 0, message: 'offline' } }
 
   it('signs out on the device when supabase-js cannot (offline with an expired token)', async () => {
-    const { client, emit } = fake({
-      name: 'AuthRetryableFetchError',
-      status: 0,
-      message: 'offline',
-    })
+    const { client, scopes, emit } = fake(async () => offline)
     const cleared: string[] = []
     const auth = supabaseAuth(client, stored({ id: 'u1' }, cleared))
     const users: unknown[] = []
@@ -207,22 +213,33 @@ describe('supabaseAuth sign-out', () => {
     await new Promise((resolve) => setTimeout(resolve, 0))
     await expect(auth.signOut()).rejects.toBeInstanceOf(AuthError)
     expect(cleared).toEqual(['session'])
+    expect(scopes).toEqual(['global', 'local'])
     expect(users).toEqual([{ id: 'u1' }, null])
   })
 
-  it('leaves signing out to supabase-js when it succeeds', async () => {
-    const { client } = fake(null)
+  it('signs out on the device without waiting out a slow server', async () => {
+    const { client, scopes } = fake(() => new Promise(() => {}))
     const cleared: string[] = []
-    const auth = supabaseAuth(client, stored({ id: 'u1' }, cleared))
+    const auth = supabaseAuth(client, stored({ id: 'u1' }, cleared), { signOutTimeoutMs: 10 })
     const users: unknown[] = []
     auth.watchUser((u) => users.push(u))
     await auth.signOut()
+    expect(cleared).toEqual(['session'])
+    expect(scopes).toEqual(['global', 'local'])
+    expect(users).toEqual([null])
+  })
+
+  it('leaves signing out to supabase-js when it succeeds', async () => {
+    const { client, scopes } = fake(async () => ({ error: null }))
+    const cleared: string[] = []
+    const auth = supabaseAuth(client, stored({ id: 'u1' }, cleared))
+    await auth.signOut()
     expect(cleared).toEqual([])
-    expect(users).toEqual([])
+    expect(scopes).toEqual(['global'])
   })
 
   it('ignores a stored-session read that finishes after a sign-out', async () => {
-    const { client, emit } = fake(null)
+    const { client, emit } = fake(async () => ({ error: null }))
     let finishRead: (user: { id: string } | null) => void = () => {}
     const slow: StoredSession = {
       readUser: () => new Promise((resolve) => (finishRead = resolve)),

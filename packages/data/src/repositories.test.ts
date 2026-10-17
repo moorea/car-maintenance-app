@@ -221,6 +221,26 @@ describe('first sync', () => {
     expect(calls).toEqual(['synced'])
   })
 
+  it('checks again on the next status change after a failed read', async () => {
+    const s = source({ hasSynced: true, owner: 'u1' })
+    let fail = true
+    const flaky = {
+      ...s,
+      owner: async () => {
+        if (fail) throw new Error('database closed')
+        return s.state.owner
+      },
+    }
+    const calls: string[] = []
+    firstSyncOf(flaky, 'u1', () => calls.push('synced'))
+    await settle()
+    expect(calls).toEqual([])
+    fail = false
+    s.change({})
+    await settle()
+    expect(calls).toEqual(['synced'])
+  })
+
   it('reports nothing after it is stopped', async () => {
     const s = source({ hasSynced: false, owner: 'u1' })
     const calls: string[] = []

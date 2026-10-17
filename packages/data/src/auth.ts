@@ -62,10 +62,8 @@ export const storedSession = (
       return null
     }
   },
-  clear: async () => {
-    await storage.removeItem(key)
-    await storage.removeItem(`${key}-code-verifier`)
-  },
+  // Email codes use the implicit flow, so no PKCE verifier is stored alongside the session.
+  clear: () => storage.removeItem(key),
 })
 
 type Listener = (event: string, session: { user: AuthUser } | null) => void
@@ -78,11 +76,16 @@ type Listener = (event: string, session: { user: AuthUser } | null) => void
  * signed out would lock the owner out of an offline-first app, so a null initial session falls
  * back to the stored user; only an actual sign-out reports null.
  *
- * In the same state supabase-js cannot sign out: it fails refreshing the token first and leaves
- * the session stored. So a failed sign-out deletes the stored session itself.
+ * In the same state supabase-js cannot sign out: it first retries refreshing the token for up to
+ * about 25 seconds, then fails and leaves the session stored. So a sign-out that fails or takes
+ * longer than `signOutTimeoutMs` deletes the stored session and then signs out locally, which
+ * supabase-js can do once nothing is stored, and which tells every auth listener.
  */
-export const supabaseAuth = (auth: SupabaseClient['auth'], stored: StoredSession): AuthPort => {
-  const listeners = new Set<Listener>()
+export const supabaseAuth = (
+  auth: SupabaseClient['auth'],
+  stored: StoredSession,
+  { signOutTimeoutMs = 3_000 } = {},
+): AuthPort => {
   return {
     watchUser: (onChange) => {
       let active = true
@@ -99,11 +102,9 @@ export const supabaseAuth = (auth: SupabaseClient['auth'], stored: StoredSession
           })
         else onChange(null)
       }
-      listeners.add(listener)
       const { data } = auth.onAuthStateChange(listener)
       return () => {
         active = false
-        listeners.delete(listener)
         data.subscription.unsubscribe()
       }
     },
@@ -116,11 +117,16 @@ export const supabaseAuth = (auth: SupabaseClient['auth'], stored: StoredSession
       throwIfError(error)
     },
     signOut: async () => {
-      const { error } = await auth.signOut()
-      if (!error) return
+      let timer: ReturnType<typeof setTimeout> | undefined
+      const timedOut = new Promise<'timed-out'>((resolve) => {
+        timer = setTimeout(() => resolve('timed-out'), signOutTimeoutMs)
+      })
+      const result = await Promise.race([auth.signOut(), timedOut])
+      clearTimeout(timer)
+      if (result !== 'timed-out' && !result.error) return
       await stored.clear()
-      for (const listener of [...listeners]) listener('SIGNED_OUT', null)
-      throwIfError(error)
+      await auth.signOut({ scope: 'local' })
+      if (result !== 'timed-out') throwIfError(result.error)
     },
   }
 }
