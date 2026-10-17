@@ -4,7 +4,7 @@ import { formatAgo, formatMiles, formatWeekday } from '../../lib/format'
 import type { MaintenanceItem, OdometerReading, ServiceRecord, Vehicle } from '../../domain/types'
 import type { SafetyRepo, Unsubscribe } from '../../ports'
 import { getDueItems, type GetDueItemsDeps } from '../../reminders/getDueItems'
-import { estimateMilesOn, learnMilesPerDay } from '../../reminders/mileage'
+import { currentOdometer } from './odometer'
 import { describeNext, intervalUsed, toDueRow, type DueRow } from './describeDue'
 
 /**
@@ -55,16 +55,6 @@ export interface GarageDeps extends GetDueItemsDeps {
 /** How many items "Coming up" lists after the next one. */
 export const COMING_UP_COUNT = 4
 
-/** Service records with a mileage double as odometer readings, as in getDueItems. */
-const allReadings = (odometer: OdometerReading[], records: ServiceRecord[]): OdometerReading[] => [
-  ...odometer,
-  ...records.flatMap((r) =>
-    r.odometerMiles === undefined
-      ? []
-      : [{ vehicleId: r.vehicleId, date: r.performedOn, miles: r.odometerMiles }],
-  ),
-]
-
 const describeOdometer = (latest: OdometerReading, miles: number, today: IsoDate) =>
   latest.date >= today
     ? formatMiles(miles)
@@ -91,8 +81,7 @@ export const createGarageModel = (deps: GarageDeps): GarageModel => {
         ])
         if (mine !== generation) return
 
-        const { milesPerDay, latest } = learnMilesPerDay(allReadings(odometer, records))
-        const currentMiles = latest ? estimateMilesOn(latest, milesPerDay, today) : undefined
+        const { latest, miles: currentMiles } = currentOdometer(odometer, records, today)
         const [first, ...rest] = due
         const nextUp: NextUp | undefined = first && {
           ...toDueRow(first, currentMiles, today),

@@ -200,3 +200,19 @@ export function FillColumn({ children, spacing }: { children: ReactNode; spacing
     </Column>
   )
 }
+
+/** A small filled circle, such as a status dot beside a row. */
+export function Dot({ color, size = 10 }: { color: ColorRole; size?: number }) {
+  const colors = useColors()
+  return (
+    <Row
+      style={{
+        ...({ alignSelf: 'center', flexShrink: 0 } as UniversalStyle),
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: colors[color],
+      }}
+    />
+  )
+}
