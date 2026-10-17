@@ -25,11 +25,12 @@ const vehicle: Vehicle = {
 const setup = (v: Vehicle = vehicle) => {
   const reader = controlledQuoteReader()
   const photos = memoryPhotoPicker()
+  const schedule = memorySchedule([
+    { id: 'oil', configId: 'c1', kind: 'engine-oil', task: 'Oil change', intervalMiles: 5_000 },
+  ])
   const model = createQuoteCheckModel({
     vehicle: v,
-    schedule: memorySchedule([
-      { id: 'oil', configId: 'c1', kind: 'engine-oil', task: 'Oil change', intervalMiles: 5_000 },
-    ]),
+    schedule,
     records: memoryServiceRecords([
       {
         id: 'r1',
@@ -66,7 +67,7 @@ const setup = (v: Vehicle = vehicle) => {
     if (!c) throw new Error(`No call ${n}`)
     return c
   }
-  return { model, reader, photos, call, state: () => model.getState() }
+  return { model, reader, photos, schedule, call, state: () => model.getState() }
 }
 
 const settle = async () => {
@@ -197,6 +198,28 @@ describe('quote check model', () => {
     await state().takePhoto()
     expect(state().status).toBe('editing')
     expect(reader.calls).toHaveLength(0)
+  })
+
+  it('says when the camera cannot be opened', async () => {
+    const { state, photos, reader } = setup()
+    photos.take = () => Promise.reject(new Error('denied'))
+    await state().takePhoto()
+    expect(state().status).toBe('editing')
+    expect(state().error).toContain("Couldn't open the photo")
+    expect(reader.calls).toHaveLength(0)
+  })
+
+  it('keeps the lines to try again when checking fails', async () => {
+    const { state, schedule } = setup()
+    schedule.itemsForConfig = () => Promise.reject(new Error('Database closed'))
+    state().setDraft('Oil change')
+    await state().check()
+    expect(state()).toMatchObject({
+      status: 'editing',
+      draft: 'Oil change',
+      error: 'Database closed',
+      canCheck: true,
+    })
   })
 
   it('stops reading when the screen goes away', async () => {

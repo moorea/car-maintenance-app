@@ -169,6 +169,34 @@ describe('checking a shop quote', () => {
     })
   })
 
+  it('says when time-based work is next due, from the newest record', () => {
+    const battery = item('battery-test', '12-volt battery test', { intervalMonths: 12 })
+    const result = only('Battery test', {
+      items: [...schedule, battery],
+      records: [
+        ...base.records,
+        record('battery-test', '2025-03-01', 15_000),
+        { ...record('battery-test', '2026-09-01', 33_000), id: 'r-newer' },
+      ],
+    })
+    expect(result).toMatchObject({
+      verdict: 'done',
+      detail: 'Done Sep 1 at 33,000 mi. Next due in Sep 2027.',
+    })
+  })
+
+  it('cannot judge a scheduled item that has no interval', () => {
+    const asNeeded = item('wiper-blades', 'Wiper blades', {})
+    expect(only('Wiper blades', { items: [...schedule, asNeeded] })).toMatchObject({
+      verdict: 'unknown',
+      label: 'As needed',
+    })
+  })
+
+  it('cannot check anything against a car with no schedule', () => {
+    expect(only('Timing belt', { items: [] })).toMatchObject({ verdict: 'unknown' })
+  })
+
   it('cannot check a line it does not recognise', () => {
     expect(only('Multi-point inspection')).toMatchObject({
       verdict: 'unknown',

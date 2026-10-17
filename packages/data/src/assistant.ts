@@ -112,7 +112,7 @@ export const remoteAssistant = (options: RemoteAssistantOptions): Assistant => (
         // The connection dropped mid-answer, or the stream was not what the server sends.
         throw new AssistantError('offline', String(error))
       }
-      const end = last as ServerEvent | undefined
+      const end = last
       if (end?.type === 'done') return
       if (end?.type === 'error')
         throw new AssistantError(KINDS.includes(end.kind) ? end.kind : 'unknown')

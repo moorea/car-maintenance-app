@@ -106,4 +106,31 @@ describe('sync session', () => {
     expect(calls).toEqual(['connect'])
     expect(logs).toEqual([expect.stringMatching(/offline/)])
   })
+
+  it('discards changes not yet uploaded once the account is deleted', async () => {
+    const { db, calls, owner } = fakeDatabase({ pending: 2, owner: 'a' })
+    const session = createSyncSession(db, () => {})
+    await session.setUser('a')
+    await session.setUser(null)
+    await session.discard()
+    expect(calls).toEqual(['connect', 'disconnect', 'clear'])
+    expect(owner()).toBeUndefined()
+  })
+
+  it('stays signed out when the sign-out arrives after a discard', async () => {
+    const { db, calls } = fakeDatabase({ pending: 1, owner: 'a' })
+    const session = createSyncSession(db, () => {})
+    await session.setUser('a')
+    await Promise.all([session.discard(), session.setUser(null)])
+    expect(calls).toEqual(['connect', 'clear'])
+  })
+
+  it('connects again when the owner signs in after a discard', async () => {
+    const { db, calls } = fakeDatabase()
+    const session = createSyncSession(db)
+    await session.setUser('a')
+    await session.discard()
+    await session.setUser('b')
+    expect(calls).toEqual(['connect', 'clear', 'connect'])
+  })
 })
