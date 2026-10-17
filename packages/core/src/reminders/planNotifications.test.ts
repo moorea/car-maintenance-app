@@ -1,0 +1,171 @@
+import { describe, expect, it } from 'vitest'
+import type { Vehicle } from '../domain/types'
+import { addDays } from '../lib/date'
+import { MAX_SCHEDULED_REMINDERS, planNotifications } from './planNotifications'
+import type { DueProjection } from './projectDue'
+
+const rav4: Vehicle = {
+  id: 'v1',
+  year: 2021,
+  make: 'Toyota',
+  model: 'RAV4',
+  nickname: 'RAV4',
+  severeDuty: false,
+}
+const civic: Vehicle = { ...rav4, id: 'v2', make: 'Honda', model: 'Civic', nickname: 'Civic' }
+
+const due = (over: Partial<DueProjection> & Pick<DueProjection, 'itemId'>): DueProjection => ({
+  task: over.itemId,
+  trigger: 'time',
+  status: 'upcoming',
+  historyUnknown: false,
+  ...over,
+})
+
+describe('planNotifications', () => {
+  it('reminds two weeks ahead and again on the due date, at 9am', () => {
+    const plan = planNotifications(
+      [
+        {
+          vehicle: rav4,
+          due: [due({ itemId: 'oil', task: 'Oil and filter', dueDate: '2026-11-28' })],
+        },
+      ],
+      '2026-10-01',
+    )
+    expect(plan).toEqual([
+      {
+        id: 'reminder:v1:soon:2026-11-14',
+        date: '2026-11-14',
+        hour: 9,
+        title: 'RAV4: service coming up',
+        body: 'Oil and filter is due in about two weeks.',
+        vehicleId: 'v1',
+      },
+      {
+        id: 'reminder:v1:due:2026-11-28',
+        date: '2026-11-28',
+        hour: 9,
+        title: 'RAV4: service due',
+        body: 'Oil and filter is due now.',
+        vehicleId: 'v1',
+      },
+    ])
+  })
+
+  it('gives the mileage for an item due by mileage, since its date is an estimate', () => {
+    const [soon] = planNotifications(
+      [
+        {
+          vehicle: rav4,
+          due: [
+            due({
+              itemId: 'rotate',
+              task: 'Tire rotation',
+              dueDate: '2026-11-28',
+              dueMiles: 35_000,
+              trigger: 'miles',
+            }),
+          ],
+        },
+      ],
+      '2026-10-01',
+    )
+    expect(soon?.body).toBe('Tire rotation is due in about two weeks (around 35,000 mi).')
+  })
+
+  it('combines items due the same day for the same car into one notification', () => {
+    const plan = planNotifications(
+      [
+        {
+          vehicle: rav4,
+          due: [
+            due({
+              itemId: 'a',
+              task: 'Oil and filter',
+              dueDate: '2026-11-28',
+              trigger: 'miles',
+              dueMiles: 40_000,
+            }),
+            due({ itemId: 'b', task: 'Tire rotation', dueDate: '2026-11-28' }),
+            due({ itemId: 'c', task: 'Cabin air filter', dueDate: '2026-11-28' }),
+            due({ itemId: 'd', task: 'Wiper blades', dueDate: '2026-11-28' }),
+          ],
+        },
+        {
+          vehicle: civic,
+          due: [due({ itemId: 'a', task: 'Oil and filter', dueDate: '2026-11-28' })],
+        },
+      ],
+      '2026-10-01',
+    )
+    expect(plan.map((n) => [n.id, n.body])).toEqual([
+      [
+        'reminder:v1:soon:2026-11-14',
+        'Oil and filter, Tire rotation and 2 more are due in about two weeks.',
+      ],
+      ['reminder:v2:soon:2026-11-14', 'Oil and filter is due in about two weeks.'],
+      ['reminder:v1:due:2026-11-28', 'Oil and filter, Tire rotation and 2 more are due now.'],
+      ['reminder:v2:due:2026-11-28', 'Oil and filter is due now.'],
+    ])
+    expect(
+      planNotifications(
+        [
+          {
+            vehicle: rav4,
+            due: [
+              due({ itemId: 'a', task: 'Oil and filter', dueDate: '2026-11-28' }),
+              due({ itemId: 'b', task: 'Tire rotation', dueDate: '2026-11-28' }),
+            ],
+          },
+        ],
+        '2026-10-01',
+      )[0]?.body,
+    ).toBe('Oil and filter and Tire rotation are due in about two weeks.')
+  })
+
+  it('only schedules reminders after today, so planning again never repeats one', () => {
+    const plan = planNotifications(
+      [
+        {
+          vehicle: rav4,
+          due: [
+            // Due in ten days: the two-week heads-up has passed, the due-date one has not.
+            due({ itemId: 'soon', dueDate: '2026-10-11', status: 'due-soon' }),
+            due({ itemId: 'today', dueDate: '2026-10-01', status: 'due-soon' }),
+            due({ itemId: 'late', dueDate: '2026-09-01', status: 'overdue' }),
+            // Exactly two weeks out: the heads-up would be today.
+            due({ itemId: 'edge', dueDate: '2026-10-15' }),
+          ],
+        },
+      ],
+      '2026-10-01',
+    )
+    expect(plan.map((n) => n.id)).toEqual([
+      'reminder:v1:due:2026-10-11',
+      'reminder:v1:due:2026-10-15',
+    ])
+  })
+
+  it('skips items with no projected date, such as a parked car reaching its mileage', () => {
+    expect(
+      planNotifications(
+        [{ vehicle: rav4, due: [due({ itemId: 'x', dueMiles: 50_000, trigger: 'miles' })] }],
+        '2026-10-01',
+      ),
+    ).toEqual([])
+  })
+
+  it('keeps only the soonest reminders, under the limit iOS enforces', () => {
+    // 50 items on different days make 100 reminders.
+    const many = Array.from({ length: 50 }, (_, i) =>
+      due({ itemId: `i${i}`, dueDate: addDays('2027-01-01', i * 3) }),
+    )
+    const plan = planNotifications([{ vehicle: rav4, due: many }], '2026-10-01')
+    expect(plan).toHaveLength(MAX_SCHEDULED_REMINDERS)
+    const dates = plan.map((n) => n.date)
+    expect(dates).toEqual([...dates].sort())
+    // 28 due-date and 33 heads-up reminders fall on or before 2027-03-23.
+    expect(plan.at(-1)?.id).toBe('reminder:v1:due:2027-03-23')
+  })
+})

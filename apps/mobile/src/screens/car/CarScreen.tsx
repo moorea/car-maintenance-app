@@ -1,9 +1,10 @@
 import type { Vehicle } from '@car/core'
 import { Tabs } from '../../ui/Tabs'
+import { RemindersScreen } from '../reminders/RemindersScreen'
 import { SafetyScreen } from '../safety/SafetyScreen'
 import { ServiceLogScreen } from '../service-log/ServiceLogScreen'
 
-/** The selected car: its service log and its recalls and complaints. */
+/** The selected car: its service log, its recalls and complaints, and service reminders. */
 export function CarScreen({ vehicle }: { vehicle: Vehicle }) {
   return (
     <Tabs
@@ -11,6 +12,7 @@ export function CarScreen({ vehicle }: { vehicle: Vehicle }) {
       tabs={[
         { label: 'Service', render: () => <ServiceLogScreen vehicleId={vehicle.id} /> },
         { label: 'Recalls', render: () => <SafetyScreen vehicle={vehicle} /> },
+        { label: 'Reminders', render: () => <RemindersScreen /> },
       ]}
     />
   )

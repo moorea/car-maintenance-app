@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addDays, addMonths, daysBetween } from './date'
+import { addDays, addMonths, daysBetween, formatShortDate } from './date'
 
 describe('dates', () => {
   it('counts days across a DST change without drifting', () => {
@@ -18,5 +18,12 @@ describe('dates', () => {
 
   it('rejects malformed dates', () => {
     expect(() => daysBetween('17/10/2026', '2026-10-17')).toThrow(RangeError)
+  })
+})
+
+describe('formatShortDate', () => {
+  it('shows the month and day, adding the year only when it is not this year', () => {
+    expect(formatShortDate('2026-11-04', '2026-10-01')).toBe('Nov 4')
+    expect(formatShortDate('2027-02-28', '2026-10-01')).toBe('Feb 28, 2027')
   })
 })

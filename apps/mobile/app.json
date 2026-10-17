@@ -6,6 +6,7 @@
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "ios": { "supportsTablet": false },
-    "android": {}
+    "android": {},
+    "plugins": ["expo-notifications"]
   }
 }

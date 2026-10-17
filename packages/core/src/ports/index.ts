@@ -83,3 +83,44 @@ export interface Clock {
 export interface IdGenerator {
   next(): string
 }
+
+/** Whether the owner lets this app show notifications. Only the OS can change a denial. */
+export type NotificationPermission = 'granted' | 'denied' | 'undetermined'
+
+/** A notification scheduled on this device for a calendar date, at an hour of the local day. */
+export interface LocalNotification {
+  /** Stable for the same reminder, so rescheduling replaces rather than duplicates it. */
+  id: string
+  date: IsoDate
+  /** Hour of the day on the phone's own clock, 0 to 23. */
+  hour: number
+  title: string
+  body: string
+  /** The car it is about, so tapping it can open that car. */
+  vehicleId: VehicleId
+}
+
+/** Notifications scheduled on this device. Works offline; nothing is sent from a server. */
+export interface Notifier {
+  permission(): Promise<NotificationPermission>
+  /** Shows the system prompt if the owner has not answered it yet; resolves with the outcome. */
+  requestPermission(): Promise<NotificationPermission>
+  /** The reminders this app has scheduled and that have not been shown yet. */
+  scheduled(): Promise<LocalNotification[]>
+  /** Schedules a notification, replacing any with the same id. */
+  schedule(notification: LocalNotification): Promise<void>
+  cancel(id: string): Promise<void>
+  /** Opens this app's page in the system settings, where a denial can be undone. */
+  openSettings(): Promise<void>
+}
+
+/** The owner's reminder choices, kept on this device. */
+export interface ReminderSettings {
+  enabled: boolean
+}
+
+export interface ReminderSettingsRepo {
+  /** Calls `onChange` with the settings now and after every change. */
+  watch(onChange: (settings: ReminderSettings) => void): Unsubscribe
+  set(settings: ReminderSettings): Promise<void>
+}
