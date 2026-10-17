@@ -1,7 +1,7 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
 import type { IsoDate } from '../../lib/date'
 import { formatAgo, formatMiles, formatWeekday } from '../../lib/format'
-import type { MaintenanceItem, OdometerReading, ServiceRecord, Vehicle } from '../../domain/types'
+import type { MaintenanceItem, OdometerReading, Vehicle } from '../../domain/types'
 import type { SafetyRepo, Unsubscribe } from '../../ports'
 import { getDueItems, type GetDueItemsDeps } from '../../reminders/getDueItems'
 import { currentOdometer } from './odometer'
@@ -68,13 +68,16 @@ export const createGarageModel = (deps: GarageDeps): GarageModel => {
   let generation = 0
 
   return createStore<GarageState & GarageActions>()((set) => {
-    const refresh = async (records: ServiceRecord[]) => {
+    const refresh = async () => {
       const mine = ++generation
       try {
         const today = deps.clock.today()
-        const [due, odometer, items] = await Promise.all([
+        // Read the records here rather than keep the watch's copy, so a refresh started by a new
+        // reading never runs before the records have arrived.
+        const [due, odometer, records, items] = await Promise.all([
           getDueItems(deps)(vehicle.id),
           deps.odometer.listForVehicle(vehicle.id),
+          deps.records.listForVehicle(vehicle.id),
           vehicle.configId === undefined
             ? Promise.resolve([] as MaintenanceItem[])
             : deps.schedule.itemsForConfig(vehicle.configId),
@@ -123,10 +126,11 @@ export const createGarageModel = (deps: GarageDeps): GarageModel => {
 
       start: () => {
         if (subscriptions.length > 0) return
-        // Logging a service moves the schedule on, so recompute whenever the records change. A
-        // new odometer reading does not refresh it: the odometer port has no watch yet.
+        // Logging a service or a new odometer reading (here or from sync) moves the schedule on,
+        // so recompute whenever either changes.
         subscriptions.push(
-          deps.records.watchForVehicle(vehicle.id, (records) => void refresh(records)),
+          deps.records.watchForVehicle(vehicle.id, () => void refresh()),
+          deps.odometer.watchForVehicle(vehicle.id, () => void refresh()),
         )
         if (vehicle.configId !== undefined)
           subscriptions.push(

@@ -170,12 +170,26 @@ export const memorySchedule = (items: MaintenanceItem[] = []): ScheduleRepo => (
   itemsForConfig: async (configId) => items.filter((i) => i.configId === configId),
 })
 
-export const memoryOdometer = (readings: OdometerReading[] = []): OdometerRepo => ({
-  listForVehicle: async (vehicleId) => readings.filter((r) => r.vehicleId === vehicleId),
-  add: async (reading) => {
-    readings.push(reading)
-  },
-})
+export const memoryOdometer = (initial: OdometerReading[] = []): OdometerRepo => {
+  const readings = [...initial]
+  const watchers = new Set<{ vehicleId: VehicleId; onChange: (r: OdometerReading[]) => void }>()
+  const forVehicle = (vehicleId: VehicleId) => readings.filter((r) => r.vehicleId === vehicleId)
+
+  return {
+    listForVehicle: async (vehicleId) => forVehicle(vehicleId),
+    watchForVehicle: (vehicleId, onChange) => {
+      const watcher = { vehicleId, onChange }
+      watchers.add(watcher)
+      onChange(forVehicle(vehicleId))
+      return () => watchers.delete(watcher)
+    },
+    add: async (reading) => {
+      readings.push(reading)
+      for (const w of watchers)
+        if (w.vehicleId === reading.vehicleId) w.onChange(forVehicle(w.vehicleId))
+    },
+  }
+}
 
 export const memoryServiceRecords = (
   initial: ServiceRecord[] = [],

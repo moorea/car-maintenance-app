@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { SafetyReport, ServiceRecord, Vehicle } from '@car/core'
+import type { OdometerReading, SafetyReport, ServiceRecord, Vehicle } from '@car/core'
 import { PowerSyncDatabase } from '@powersync/node'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { PowerSyncBackendConnector } from '@powersync/common'
@@ -81,6 +81,22 @@ describe('PowerSync repositories', () => {
     const values = await updates.waitFor(2)
     expect(values[0]).toEqual([])
     expect(values.at(-1)).toEqual([oilChange])
+  })
+
+  it('tells an odometer watcher the current readings, then again after each save', async () => {
+    const repos = createPowerSyncRepositories(db)
+    const reading: OdometerReading = { vehicleId: 'v1', date: '2026-09-01', miles: 42_000 }
+    const updates = collect<OdometerReading[]>((cb) => repos.odometer.watchForVehicle('v1', cb))
+    await updates.waitFor(1)
+    await repos.odometer.add(reading)
+    await repos.odometer.add({ vehicleId: 'other', date: '2026-09-01', miles: 1 })
+    const values = await updates.waitFor(2)
+    // Let any later emission for the other car's reading land before checking none mention it.
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    updates.stop()
+    expect(values[0]).toEqual([])
+    expect(values.at(-1)).toEqual([reading])
+    expect(values.flat().every((r) => r.vehicleId === 'v1')).toBe(true)
   })
 
   it('stops telling a watcher about changes once it unsubscribes', async () => {

@@ -1,7 +1,7 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
 import { daysBetween, type IsoDate } from '../../lib/date'
 import { formatMiles } from '../../lib/format'
-import type { MaintenanceItem, OdometerReading, ServiceRecord, Vehicle } from '../../domain/types'
+import type { MaintenanceItem, OdometerReading, Vehicle } from '../../domain/types'
 import type { Unsubscribe } from '../../ports'
 import { getDueItems, type GetDueItemsDeps } from '../../reminders/getDueItems'
 import { MAX_PLAUSIBLE_MILES_PER_DAY } from '../../reminders/mileage'
@@ -102,8 +102,7 @@ const roundTo = (n: number, step: number) => Math.round(n / step) * step
 /** Screen model for a car's page: its odometer, its maintenance schedule and which tab is open. */
 export const createCarModel = (deps: CarDeps): CarModel => {
   const { vehicle } = deps
-  let unsubscribe: Unsubscribe | undefined
-  let records: ServiceRecord[] = []
+  const subscriptions: Unsubscribe[] = []
   // The newest odometer reading, to reject a new one that goes backwards or jumps impossibly.
   let latest: OdometerReading | undefined
   let generation = 0
@@ -115,9 +114,12 @@ export const createCarModel = (deps: CarDeps): CarModel => {
       const mine = ++generation
       try {
         const today = deps.clock.today()
-        const [due, readings, items] = await Promise.all([
+        // Read the records here rather than keep the watch's copy, so a refresh started by a new
+        // reading never runs before the records have arrived.
+        const [due, readings, records, items] = await Promise.all([
           getDueItems(deps)(vehicle.id),
           deps.odometer.listForVehicle(vehicle.id),
+          deps.records.listForVehicle(vehicle.id),
           vehicle.configId === undefined
             ? Promise.resolve([] as MaintenanceItem[])
             : deps.schedule.itemsForConfig(vehicle.configId),
@@ -209,18 +211,18 @@ export const createCarModel = (deps: CarDeps): CarModel => {
       },
 
       start: () => {
-        if (unsubscribe) return
+        if (subscriptions.length > 0) return
         disposed = false
-        // Logging a service moves the schedule on, so recompute whenever the records change.
-        unsubscribe = deps.records.watchForVehicle(vehicle.id, (next) => {
-          records = next
-          void refresh()
-        })
+        // Logging a service or a new odometer reading (here or from sync) moves the schedule on,
+        // so recompute whenever either changes.
+        subscriptions.push(
+          deps.records.watchForVehicle(vehicle.id, () => void refresh()),
+          deps.odometer.watchForVehicle(vehicle.id, () => void refresh()),
+        )
       },
 
       dispose: () => {
-        unsubscribe?.()
-        unsubscribe = undefined
+        for (const stop of subscriptions.splice(0)) stop()
         disposed = true
         generation++
       },
