@@ -16,6 +16,11 @@ import type {
   AuthPort,
   Clock,
   IdGenerator,
+  LocalNotification,
+  NotificationPermission,
+  Notifier,
+  ReminderSettings,
+  ReminderSettingsRepo,
   SyncStatus,
   OdometerRepo,
   SafetyRepo,
@@ -252,4 +257,84 @@ export const memorySafety = (initial: Record<string, SafetyReport> = {}) => {
     },
   }
   return repo
+}
+
+/**
+ * Notifications on a pretend device. `answer` is what the owner says to the permission prompt;
+ * once answered, asking again changes nothing, as on iOS. `setPermission` changes it as the
+ * Settings app would, and `failNextSchedule` makes the next schedule throw.
+ */
+export const memoryNotifier = (
+  options: { permission?: NotificationPermission; answer?: 'granted' | 'denied' } = {},
+) => {
+  let permission = options.permission ?? 'undetermined'
+  const pending = new Map<string, LocalNotification>()
+  const log: string[] = []
+  let nextFailure: string | undefined
+  const notifier: Notifier & {
+    /** Every schedule and cancel, in order, as "schedule <id>" or "cancel <id>". */
+    log: string[]
+    prompts: number
+    settingsOpened: number
+    setPermission: (p: NotificationPermission) => void
+    failNextSchedule: (message: string) => void
+  } = {
+    log,
+    prompts: 0,
+    settingsOpened: 0,
+    setPermission: (p) => {
+      permission = p
+    },
+    failNextSchedule: (message) => {
+      nextFailure = message
+    },
+    permission: async () => permission,
+    requestPermission: async () => {
+      if (permission === 'undetermined') {
+        notifier.prompts++
+        permission = options.answer ?? 'granted'
+      }
+      return permission
+    },
+    scheduled: async () =>
+      [...pending.values()].sort(
+        (a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id),
+      ),
+    schedule: async (n) => {
+      if (nextFailure !== undefined) {
+        const message = nextFailure
+        nextFailure = undefined
+        throw new Error(message)
+      }
+      log.push(`schedule ${n.id}`)
+      pending.set(n.id, n)
+    },
+    cancel: async (id) => {
+      log.push(`cancel ${id}`)
+      pending.delete(id)
+    },
+    openSettings: async () => {
+      notifier.settingsOpened++
+    },
+  }
+  return notifier
+}
+
+/** Reminder settings kept in memory. Reminders are off until turned on, as on a new phone. */
+export const memoryReminderSettings = (
+  initial: ReminderSettings = { enabled: false },
+): ReminderSettingsRepo => {
+  let settings = initial
+  const watchers = new Set<(s: ReminderSettings) => void>()
+  return {
+    watch: (onChange) => {
+      watchers.add(onChange)
+      onChange(settings)
+      return () => watchers.delete(onChange)
+    },
+    set: async (next) => {
+      settings = next
+      for (const w of watchers) w(settings)
+    },
+  }
 }

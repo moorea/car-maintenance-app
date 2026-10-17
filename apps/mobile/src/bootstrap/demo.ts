@@ -113,8 +113,19 @@ export const createDemoRepositories = () => ({
       severeDuty: false,
     },
   ]),
-  odometer: memoryOdometer(),
-  schedule: memorySchedule(),
+  odometer: memoryOdometer([{ vehicleId: 'demo', date: '2026-04-01', miles: 25_000 }]),
+  // A short, made-up schedule so the demo has reminders to show. Not Toyota's real one.
+  schedule: memorySchedule([
+    {
+      id: 'demo-oil',
+      configId: 'demo',
+      task: 'Oil and filter',
+      intervalMiles: 10_000,
+      intervalMonths: 12,
+    },
+    { id: 'demo-rotate', configId: 'demo', task: 'Tire rotation', intervalMiles: 5_000 },
+    { id: 'demo-cabin', configId: 'demo', task: 'Cabin air filter', intervalMiles: 15_000 },
+  ]),
   safety: memorySafety({ demo: DEMO_SAFETY }),
   records: memoryServiceRecords([
     {
@@ -122,6 +133,14 @@ export const createDemoRepositories = () => ({
       vehicleId: 'demo',
       performedOn: '2026-07-01',
       odometerMiles: 30_000,
+      shop: 'Demo Garage',
+    },
+    {
+      id: 'seed-2',
+      vehicleId: 'demo',
+      itemId: 'demo-rotate',
+      performedOn: '2026-08-15',
+      odometerMiles: 32_500,
       shop: 'Demo Garage',
     },
   ]),
