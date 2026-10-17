@@ -62,6 +62,8 @@ export const createSessionModel = (deps: {
       const opened = sorted.find((v) => v.id === tapped)
       // A tapped car not here once everything has synced is gone, or another account's.
       if (opened || synced) tapped = undefined
+      // The tap is the newest thing the owner asked for, so a car added earlier gives way to it.
+      if (opened) justAdded = undefined
       const added = sorted.find((v) => v.id === justAdded)
       if (added) justAdded = undefined
       const kept = sorted.find((v) => v.id === get().selectedVehicleId)
@@ -132,19 +134,23 @@ export const createSessionModel = (deps: {
 
       selectVehicle: (id) => {
         if (!get().vehicles.some((v) => v.id === id)) return
-        // The owner's own choice wins over a car added earlier that has not shown up yet.
+        // The owner's own choice wins over a car added or tapped earlier that has not shown up yet.
         justAdded = undefined
+        tapped = undefined
         set({ selectedVehicleId: id })
       },
 
       addCar: () => {
-        if (get().user) set({ addingCar: true })
+        if (!get().user) return
+        tapped = undefined
+        set({ addingCar: true })
       },
 
       cancelAddCar: () => set({ addingCar: false }),
 
       carAdded: (id) => {
         justAdded = id
+        tapped = undefined
         set({ addingCar: false })
         // The list may already have it; otherwise the next update selects it.
         if (vehiclesLoaded) showVehicles(get().vehicles)

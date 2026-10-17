@@ -238,6 +238,29 @@ describe('session model, adding a car', () => {
     expect(model.getState().selectedVehicleId).toBe('v-accord')
   })
 
+  it("lets the owner's own choice win over a tapped car that has not loaded yet", () => {
+    const vehicles = memoryVehicles([accord])
+    const model = createSessionModel({
+      auth: memoryAuth({ user: { id: 'u1' } }),
+      vehicles,
+      sync: memorySync({ synced: false }),
+      notifier: { watchOpened: (onOpen) => (onOpen('v-civic'), () => {}) },
+    })
+    model.getState().start()
+    model.getState().addCar()
+    vehicles.set([civic, accord])
+    expect(model.getState()).toMatchObject({ selectedVehicleId: 'v-accord', addingCar: true })
+  })
+
+  it('opens a tapped car rather than a car added before the tap that has not shown up', () => {
+    const { model, notifier } = setup(true, [civic, accord])
+    model.getState().start()
+    model.getState().addCar()
+    model.getState().carAdded('v-new')
+    notifier.tap('v-civic')
+    expect(model.getState().selectedVehicleId).toBe('v-civic')
+  })
+
   it('ignores a tapped reminder about a car the owner does not have', () => {
     const { model, notifier } = setup(true, [civic, accord])
     model.getState().start()

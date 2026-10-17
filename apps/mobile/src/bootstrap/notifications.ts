@@ -88,14 +88,14 @@ export const expoNotifier = (): Notifier => {
     openSettings: () => Linking.openSettings(),
     watchOpened: (onOpen) => {
       const open = (response: Notifications.NotificationResponse | null) => {
+        // Cleared once used, so a screen started later does not reopen that car.
+        if (response) Notifications.clearLastNotificationResponse()
         if (response?.actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER) return
         const [reminder] = fromRequest(response.notification.request)
         if (reminder) onOpen(reminder.vehicleId)
       }
-      // The tap that launched the app arrived before anyone was listening. Cleared once used, so
-      // a later listener does not reopen that car.
+      // The tap that launched the app arrived before anyone was listening.
       open(Notifications.getLastNotificationResponse())
-      Notifications.clearLastNotificationResponse()
       const sub = Notifications.addNotificationResponseReceivedListener(open)
       return () => sub.remove()
     },
