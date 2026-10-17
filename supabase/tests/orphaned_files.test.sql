@@ -22,12 +22,12 @@ insert into public.attachments
 insert into storage.objects (bucket_id, name, created_at) values
   ('attachments', '00000000-0000-0000-0000-00000000000a/40000000-0000-0000-0000-00000000000a', now() - interval '30 days'),
   ('attachments', '00000000-0000-0000-0000-00000000000a/40000000-0000-0000-0000-0000000000a2', now() - interval '30 days'),
-  -- Uploaded an hour ago; its row has not arrived yet.
-  ('attachments', '00000000-0000-0000-0000-00000000000a/40000000-0000-0000-0000-0000000000a3', now() - interval '1 hour'),
+  -- Uploaded six days ago; its row has not arrived yet.
+  ('attachments', '00000000-0000-0000-0000-00000000000a/40000000-0000-0000-0000-0000000000a3', now() - interval '6 days'),
   -- Uploaded long ago; its row never arrived.
-  ('attachments', '00000000-0000-0000-0000-00000000000a/40000000-0000-0000-0000-0000000000a4', now() - interval '3 days'),
+  ('attachments', '00000000-0000-0000-0000-00000000000a/40000000-0000-0000-0000-0000000000a4', now() - interval '8 days'),
   -- Its id is someone else's attachment, but it is in the wrong owner's folder.
-  ('attachments', '00000000-0000-0000-0000-00000000000a/40000000-0000-0000-0000-00000000000b', now() - interval '3 days'),
+  ('attachments', '00000000-0000-0000-0000-00000000000a/40000000-0000-0000-0000-00000000000b', now() - interval '8 days'),
   ('attachments', '00000000-0000-0000-0000-00000000000b/40000000-0000-0000-0000-00000000000b', now() - interval '1 hour');
 
 select ok(
@@ -46,10 +46,10 @@ select ok(
 select is(
   array(select public.orphaned_files()),
   array[
-    '00000000-0000-0000-0000-00000000000a/40000000-0000-0000-0000-0000000000a4',
-    '00000000-0000-0000-0000-00000000000a/40000000-0000-0000-0000-00000000000b'
+    '00000000-0000-0000-0000-00000000000a/40000000-0000-0000-0000-00000000000b',
+    '00000000-0000-0000-0000-00000000000a/40000000-0000-0000-0000-0000000000a4'
   ],
-  'lists only day-old files with no row of their owner''s, oldest first'
+  'lists only week-old files with no row of their owner''s, oldest then by name'
 );
 
 -- Deleting a car cascades to its attachment rows; its files are then orphans.
@@ -70,12 +70,12 @@ delete from auth.users where id = '00000000-0000-0000-0000-00000000000b';
 select ok(
   '00000000-0000-0000-0000-00000000000b/40000000-0000-0000-0000-00000000000b'
     = any(array(select public.orphaned_files())),
-  'lists a deleted owner''s files without waiting a day'
+  'lists a deleted owner''s files without waiting a week'
 );
 select ok(
   not '00000000-0000-0000-0000-00000000000a/40000000-0000-0000-0000-0000000000a3'
     = any(array(select public.orphaned_files())),
-  'still waits a day for a living owner''s new file'
+  'still waits a week for a living owner''s new file'
 );
 
 select is(

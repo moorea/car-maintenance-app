@@ -4,9 +4,11 @@
 -- (.github/workflows/sweep-files.yml) asks this function which files have no row and deletes
 -- them through the Storage API.
 
--- A file is orphaned when no attachment row has its owner folder and id. The phone uploads a file
--- just before its row, so a file whose owner still exists is only orphaned once it is a day old:
--- a row still waiting to upload re-uploads its file anyway. A deleted owner's files go at once.
+-- A file is orphaned when no attachment row has its owner folder and id. A deleted owner's files
+-- go at once. The phone uploads a file just before its row, so a living owner's file is only
+-- orphaned once it is a week old: a row is normally seconds behind its file, and a row still
+-- queued after a week re-uploads its file if it was swept. The one case left is a sweep landing
+-- between a week-late retry's upload and its insert; that phone still has the file to send again.
 create function public.orphaned_files(max_files int default 1000) returns setof text
   language sql stable security definer set search_path = ''
 as $$
@@ -19,7 +21,7 @@ as $$
         and a.id::text = storage.filename(o.name)
     )
     and (
-      o.created_at < now() - interval '1 day'
+      o.created_at < now() - interval '7 days'
       or not exists (
         select 1 from auth.users u where u.id::text = (storage.foldername(o.name))[1]
       )

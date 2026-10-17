@@ -23,7 +23,7 @@ Storage bucket at `<owner_id>/<attachment_id>`.
   up to 25 MB.
 - **Files of deleted cars and accounts are swept.** Rows cascade but Storage objects cannot, and
   Supabase only lets the Storage API delete a file. The `orphaned_files` database function lists
-  files no row points at: at once for a deleted account, after a day otherwise, since a file
+  files no row points at: at once for a deleted account, after a week otherwise, since a file
   uploads just before its row (and a row still queued re-uploads its file). An hourly GitHub
   Actions job (`sweep-files.yml`) deletes them with the service role key, which it reads from
   the project with the deploy workflows' access token.

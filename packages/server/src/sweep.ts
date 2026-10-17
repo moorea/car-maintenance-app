@@ -60,6 +60,9 @@ export const sweepOrphanedFiles = async (options: SweepOptions): Promise<SweepRe
     // Listed but not deletable: another round would list the same files forever.
     if (count === 0) throw new Error(`Storage deleted none of ${listed.length} orphaned files`)
     deleted += count
+    // The rest would head the list on every later run and starve newer orphans, so say so.
+    if (count < listed.length)
+      throw new Error(`Storage deleted ${count} of ${listed.length} orphaned files`)
     if (listed.length < batchSize) return { deleted, more: false }
   }
   return { deleted, more: true }

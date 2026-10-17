@@ -12,7 +12,7 @@ interface Sent {
 /** A fake Supabase whose bucket holds `orphans` until they are deleted. */
 const fakeSupabase = (
   orphans: string[],
-  opts: { deletes?: boolean; listStatus?: number; deleteStatus?: number } = {},
+  opts: { deletes?: boolean; keeps?: string[]; listStatus?: number; deleteStatus?: number } = {},
 ) => {
   const left = [...orphans]
   const sent: Sent[] = []
@@ -35,8 +35,9 @@ const fakeSupabase = (
     if (opts.deleteStatus) return new Response('{"message":"nope"}', { status: opts.deleteStatus })
     const prefixes = (body as { prefixes: string[] }).prefixes
     if (opts.deletes === false) return Response.json([])
-    for (const name of prefixes) left.splice(left.indexOf(name), 1)
-    return Response.json(prefixes.map((name) => ({ name, bucket_id: 'attachments' })))
+    const gone = prefixes.filter((name) => !opts.keeps?.includes(name))
+    for (const name of gone) left.splice(left.indexOf(name), 1)
+    return Response.json(gone.map((name) => ({ name, bucket_id: 'attachments' })))
   }
   return { fetch, sent, left }
 }
@@ -99,6 +100,15 @@ describe('sweepOrphanedFiles', () => {
     await expect(sweepOrphanedFiles({ ...options, fetch: supabase.fetch })).rejects.toThrow(
       'Storage deleted none of 1 orphaned files',
     )
+  })
+
+  it('fails when Storage deletes only some files, which would otherwise block every later run', async () => {
+    const supabase = fakeSupabase(['a/1', 'a/2'], { keeps: ['a/1'] })
+
+    await expect(sweepOrphanedFiles({ ...options, fetch: supabase.fetch })).rejects.toThrow(
+      'Storage deleted 1 of 2 orphaned files',
+    )
+    expect(supabase.left).toEqual(['a/1'])
   })
 
   it('fails when the files cannot be listed or deleted, so the scheduled run shows red', async () => {
