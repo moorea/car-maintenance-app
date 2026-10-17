@@ -16,7 +16,7 @@ import { ErrorText, Note } from '../../ui/Note'
 import { SegmentedControl } from '../../ui/SegmentedControl'
 import { TAB_BAR_CLEARANCE } from '../../ui/TabBar'
 import { TextField } from '../../ui/TextField'
-import { Card, FillColumn, Separator } from '../../ui/surfaces'
+import { Card, Dot, FillColumn, Separator } from '../../ui/surfaces'
 import { ComplaintsSection, RecallsSection } from './SafetySections'
 
 interface Props {
@@ -151,9 +151,7 @@ function ScheduleRowView({ row }: { row: ScheduleRow }) {
   const overdue = row.status === 'overdue'
   return (
     <Row alignment="center" spacing={12} style={{ paddingHorizontal: 16, paddingVertical: 11 }}>
-      <Row
-        style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: colors[DOT[row.status]] }}
-      />
+      <Dot color={DOT[row.status]} />
       <FillColumn spacing={1}>
         <Text textStyle={{ fontSize: 16, fontWeight: '500' }}>{row.task}</Text>
         {row.interval ? (
