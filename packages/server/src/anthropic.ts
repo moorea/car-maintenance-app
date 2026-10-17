@@ -84,7 +84,7 @@ const stopReason = (reason: string | null): ModelStopReason =>
   reason === 'refusal' ? 'declined' : reason === 'max_tokens' ? 'max-tokens' : 'end'
 
 /** Failures the owner can do nothing about read as "not available right now". */
-const translate = (error: unknown): unknown => {
+export const translate = (error: unknown): unknown => {
   if (
     error instanceof Anthropic.RateLimitError ||
     error instanceof Anthropic.InternalServerError ||

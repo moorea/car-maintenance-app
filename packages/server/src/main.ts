@@ -4,6 +4,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@supabase/supabase-js'
 import { anthropicModel } from './anthropic'
 import { createAssistantHandler } from './handler'
+import { anthropicQuoteReader, createQuoteHandler } from './quotes'
 import { supabaseStore } from './supabase'
 
 declare const Deno: {
@@ -27,30 +28,43 @@ const admin = createClient(url, env('SUPABASE_SERVICE_ROLE_KEY'), {
 // Set with `supabase secrets set`. Without a key the endpoint answers 503, so the app can say
 // the assistant is not available yet.
 const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
-const model = apiKey
-  ? anthropicModel(new Anthropic({ apiKey }), {
-      model: Deno.env.get('ASSISTANT_MODEL') ?? 'claude-opus-5-5',
-    })
-  : undefined
+const anthropic = apiKey ? new Anthropic({ apiKey }) : undefined
+const modelName = Deno.env.get('ASSISTANT_MODEL') ?? 'claude-opus-5-5'
+const dailyLimit = Number(Deno.env.get('ASSISTANT_DAILY_LIMIT') ?? 50)
 
-Deno.serve(
-  createAssistantHandler({
-    userFor: async (token) => {
-      const { data, error } = await admin.auth.getUser(token)
-      return error ? undefined : data.user.id
-    },
-    storeFor: (token, userId) =>
-      supabaseStore(
-        createClient(url, anonKey, {
-          global: { headers: { Authorization: `Bearer ${token}` } },
-          auth: { persistSession: false, autoRefreshToken: false },
-        }),
-        admin,
-        userId,
-      ),
-    model,
-    dailyLimit: Number(Deno.env.get('ASSISTANT_DAILY_LIMIT') ?? 50),
-    today: () => new Date().toISOString().slice(0, 10),
-    log: (message, error) => console.error(message, error),
-  }),
+const userFor = async (token: string) => {
+  const { data, error } = await admin.auth.getUser(token)
+  return error ? undefined : data.user.id
+}
+const storeFor = (token: string, userId: string) =>
+  supabaseStore(
+    createClient(url, anonKey, {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    }),
+    admin,
+    userId,
+  )
+const log = (message: string, error?: unknown) => console.error(message, error)
+
+const answer = createAssistantHandler({
+  userFor,
+  storeFor,
+  model: anthropic && anthropicModel(anthropic, { model: modelName }),
+  dailyLimit,
+  today: () => new Date().toISOString().slice(0, 10),
+  log,
+})
+
+// Reading a shop quote's photo shares the function, its key and its daily limit with Ask.
+const readQuote = createQuoteHandler({
+  userFor,
+  storeFor,
+  reader: anthropic && anthropicQuoteReader(anthropic, { model: modelName }),
+  dailyLimit,
+  log,
+})
+
+Deno.serve((request) =>
+  new URL(request.url).pathname.endsWith('/read-quote') ? readQuote(request) : answer(request),
 )

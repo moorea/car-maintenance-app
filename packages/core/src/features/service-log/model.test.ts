@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import type { MaintenanceItem, ServiceRecord } from '../../domain/types'
-import { fixedClock, memorySchedule, memoryServiceRecords, sequentialIds } from '../../testing'
+import type { Attachment, MaintenanceItem, ServiceRecord } from '../../domain/types'
+import {
+  fixedClock,
+  memoryAttachments,
+  memoryFilePicker,
+  memorySchedule,
+  memoryServiceRecords,
+  sequentialIds,
+} from '../../testing'
 import { createServiceLogModel } from './model'
 
 const tasks: MaintenanceItem[] = [
@@ -15,16 +22,20 @@ const setup = (
   ],
 ) => {
   const records = memoryServiceRecords(initial)
+  const attachments = memoryAttachments()
+  const picker = memoryFilePicker()
   const model = createServiceLogModel({
     vehicleId: 'v1',
     configId: 'c1',
     schedule: memorySchedule(tasks),
     records,
+    attachments,
+    picker,
     clock: fixedClock('2026-10-17'),
     ids: sequentialIds('rec'),
   })
   model.getState().start()
-  return { model, records }
+  return { model, records, attachments, picker }
 }
 
 // The in-memory schedule resolves at once, so a few microtask turns let it arrive.
@@ -38,6 +49,8 @@ describe('service log screen model', () => {
       vehicleId: 'v1',
       schedule: memorySchedule(),
       records: memoryServiceRecords(),
+      attachments: memoryAttachments(),
+      picker: memoryFilePicker(),
       clock: fixedClock('2026-10-17'),
       ids: sequentialIds(),
     })
@@ -246,6 +259,8 @@ describe('service log screen model', () => {
           },
         },
         records,
+        attachments: memoryAttachments(),
+        picker: memoryFilePicker(),
         clock: fixedClock('2026-10-17'),
         ids: sequentialIds('rec'),
       })
@@ -269,6 +284,8 @@ describe('service log screen model', () => {
         configId: 'c1',
         schedule: { itemsForConfig: () => Promise.reject(new Error('offline')) },
         records: memoryServiceRecords(history),
+        attachments: memoryAttachments(),
+        picker: memoryFilePicker(),
         clock: fixedClock('2026-10-17'),
         ids: sequentialIds('rec'),
       })
@@ -352,6 +369,89 @@ describe('service log screen model', () => {
       expect(await model.getState().save()).toBe(true)
       expect(model.getState()).toMatchObject({ adding: false, draft: { itemId: '' } })
       expect(model.getState().records[0]?.itemId).toBe('oil')
+    })
+  })
+
+  describe('receipts', () => {
+    const receipt = {
+      uri: 'file:///tmp/receipt.jpg',
+      name: 'receipt.jpg',
+      contentType: 'image/jpeg',
+      sizeBytes: 500_000,
+    }
+
+    it('attaches receipts picked in the form to the service once it is saved', async () => {
+      const { model, attachments, picker } = setup()
+      model.getState().openForm('oil')
+      picker.queue(receipt)
+      await model.getState().addReceipt('camera')
+      picker.queue({ ...receipt, name: 'invoice.pdf', contentType: 'application/pdf' })
+      await model.getState().addReceipt('files')
+      expect(model.getState().receipts.map((r) => r.name)).toEqual(['receipt.jpg', 'invoice.pdf'])
+      expect(attachments.files.size).toBe(0)
+
+      expect(await model.getState().save()).toBe(true)
+
+      const saved: Attachment[] = []
+      attachments.watchForVehicle('v1', (a) => saved.push(...a))
+      expect(saved.map((a) => [a.name, a.kind, a.serviceRecordId])).toEqual([
+        ['invoice.pdf', 'receipt', 'rec-1'],
+        ['receipt.jpg', 'receipt', 'rec-1'],
+      ])
+      expect(model.getState().receipts).toEqual([])
+    })
+
+    it('lets the owner take a picked receipt back out before saving', async () => {
+      const { model, picker } = setup()
+      model.getState().openForm()
+      picker.queue(receipt)
+      picker.queue({ ...receipt, name: 'second.jpg' })
+      await model.getState().addReceipt('photos')
+      await model.getState().addReceipt('photos')
+      model.getState().removeReceipt(0)
+      expect(model.getState().receipts.map((r) => r.name)).toEqual(['second.jpg'])
+    })
+
+    it('explains a receipt that cannot be attached, without losing the others', async () => {
+      const { model, picker } = setup()
+      model.getState().openForm()
+      picker.queue(receipt)
+      await model.getState().addReceipt('photos')
+      picker.queue({ ...receipt, contentType: 'text/plain' })
+      await model.getState().addReceipt('files')
+      expect(model.getState().receiptError).toBe('Choose a photo or a PDF.')
+      expect(model.getState().receipts).toHaveLength(1)
+    })
+
+    it('starts each new service with no receipts', async () => {
+      const { model, picker } = setup()
+      model.getState().openForm()
+      picker.queue(receipt)
+      await model.getState().addReceipt('photos')
+      model.getState().closeForm()
+      model.getState().openForm()
+      expect(model.getState().receipts).toEqual([])
+    })
+
+    it('keeps the service when a receipt fails to attach, and says how to retry', async () => {
+      const { model, picker, attachments } = setup()
+      model.getState().openForm('oil')
+      picker.queue(receipt)
+      await model.getState().addReceipt('photos')
+      attachments.failNextAdd('disk full')
+
+      expect(await model.getState().save()).toBe(true)
+      expect(model.getState().records[0]?.id).toBe('rec-1')
+      expect(model.getState().adding).toBe(false)
+      expect(model.getState().receiptError).toMatch(/could not be attached/)
+    })
+
+    it('opens a logged service to show its receipts', () => {
+      const { model } = setup()
+      model.getState().openEntry('old')
+      expect(model.getState().openEntryId).toBe('old')
+      model.getState().closeEntry()
+      expect(model.getState().openEntryId).toBeUndefined()
     })
   })
 })

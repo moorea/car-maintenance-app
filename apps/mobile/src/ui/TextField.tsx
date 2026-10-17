@@ -13,6 +13,8 @@ interface Props {
   keyboardType?: TextInputProps['keyboardType']
   autoComplete?: TextInputProps['autoComplete']
   autoCapitalize?: TextInputProps['autoCapitalize']
+  /** Lines of text the field shows; more than one makes it a multi-line field. */
+  lines?: number
 }
 
 /** A labelled Expo UI text input. The screen model owns the text; the field follows `value`. */
@@ -42,6 +44,9 @@ export function TextField({ label, value, onChangeText, error, ...input }: Props
         autoComplete={input.autoComplete ?? 'off'}
         autoCapitalize={input.autoCapitalize ?? 'sentences'}
         autoCorrect={false}
+        {...(input.lines !== undefined && input.lines > 1
+          ? { multiline: true, numberOfLines: input.lines }
+          : {})}
         // VoiceOver reads the field by the label shown above it, not just its placeholder.
         modifiers={[accessibilityLabel(label)]}
         style={{ width: '100%', ...(error ? { borderColor: colors.danger } : {}) }}

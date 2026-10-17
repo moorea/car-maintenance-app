@@ -24,7 +24,8 @@ export interface GarageNavigation {
   /** Opens the service log form, for a scheduled task if given. */
   onLogService: (itemId?: string) => void
   onAsk: () => void
-  onSignOut: () => void
+  /** Opens the owner's account: sign out, delete the account, reminder settings. */
+  onAccount: () => void
 }
 
 type Props = GarageState & GarageNavigation & { vehicles: Vehicle[]; vehicle: Vehicle }
@@ -45,6 +46,7 @@ export function GarageView(props: Props) {
           <Row alignment="center">
             <Spacer flexible />
             <Row spacing={10}>
+              <GlassIconButton symbol="person" label="Account" onPress={props.onAccount} />
               <GlassIconButton symbol="bell" label="Reminders" onPress={props.onReminders} />
               <GlassIconButton symbol="plus" label="Add car" onPress={props.onAddCar} />
             </Row>
@@ -68,8 +70,6 @@ export function GarageView(props: Props) {
           <NextUpCard {...props} />
           <RecallBanner {...props} />
           <ComingUp {...props} />
-
-          <Button variant="text" label="Sign out" onPress={props.onSignOut} />
         </Column>
       </ScrollView>
     </Host>

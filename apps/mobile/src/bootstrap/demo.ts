@@ -1,4 +1,6 @@
 import {
+  memoryAttachments,
+  memoryAccount,
   memoryAuth,
   memoryOdometer,
   memorySafety,
@@ -10,7 +12,7 @@ import {
   OWNER,
 } from '@car/core/testing'
 import { demoModel, localAssistant } from '@car/core/testing'
-import type { Clock, MaintenanceItem, SafetyReport } from '@car/core'
+import type { Attachment, AttachmentRepo, Clock, MaintenanceItem, SafetyReport } from '@car/core'
 
 /** A VIN the demo's offline decoder knows, for previews where the real lookup cannot run. */
 export const DEMO_VIN = '1HGCM82633A004352'
@@ -209,62 +211,125 @@ const DEMO_SCHEDULE: MaintenanceItem[] = [
   },
 ]
 
+/** Sample documents and a receipt for the demo car, for the web preview's screenshots. */
+export const DEMO_ATTACHMENTS: Attachment[] = [
+  {
+    id: 'demo-insurance',
+    vehicleId: 'demo',
+    kind: 'insurance',
+    name: 'Insurance card.pdf',
+    contentType: 'application/pdf',
+    sizeBytes: 182_000,
+    addedOn: '2026-09-01',
+  },
+  {
+    id: 'demo-registration',
+    vehicleId: 'demo',
+    kind: 'registration',
+    name: 'Registration.jpg',
+    contentType: 'image/jpeg',
+    sizeBytes: 1_240_000,
+    addedOn: '2026-03-02',
+  },
+  {
+    id: 'demo-receipt',
+    vehicleId: 'demo',
+    serviceRecordId: 'seed-1',
+    kind: 'receipt',
+    name: 'Receipt.jpg',
+    contentType: 'image/jpeg',
+    sizeBytes: 640_000,
+    addedOn: '2026-07-01',
+  },
+]
+
+/**
+ * Attachments kept in memory. Opening one gives back the picked file's own URI, or the sample
+ * file in `files` for the seeded ones; without `files` the demo starts with none.
+ */
+export const demoAttachments = (files?: Record<string, string>): AttachmentRepo => {
+  const repo = memoryAttachments(files ? DEMO_ATTACHMENTS : [])
+  return {
+    ...repo,
+    open: async (attachment) =>
+      repo.files.get(attachment.id)?.uri ?? files?.[attachment.id] ?? repo.open(attachment),
+  }
+}
+
 /** Sample data for running the app without a backend, e.g. before Supabase is set up. */
-export const createDemoRepositories = () => ({
+export const createDemoRepositories = () => {
   // Already signed in, so the demo opens on the sample car. After signing out, any email with
   // code 123456 signs back in as the same demo owner.
-  auth: memoryAuth({ user: { id: OWNER, email: 'demo@example.com' }, userIdFor: () => OWNER }),
-  sync: memorySync(),
-  vehicles: memoryVehicles([
-    {
-      id: 'demo',
-      configId: 'demo',
-      year: 2021,
-      make: 'Toyota',
-      model: 'RAV4',
-      trim: 'XLE',
-      engine: '2.5L 4-cyl',
-      drivetrain: 'AWD',
-      nickname: 'Demo car',
-      severeDuty: false,
-    },
-  ]),
-  odometer: memoryOdometer([
-    { vehicleId: 'demo', date: '2026-04-02', miles: 24_150 },
-    { vehicleId: 'demo', date: '2026-10-10', miles: 35_780 },
-  ]),
-  schedule: memorySchedule(DEMO_SCHEDULE),
-  safety: memorySafety({ demo: DEMO_SAFETY }),
-  records: memoryServiceRecords([
-    {
-      id: 'seed-1',
-      vehicleId: 'demo',
-      itemId: 'demo-oil',
-      performedOn: '2026-07-01',
-      odometerMiles: 30_000,
-      costCents: 8_995,
-      shop: 'Demo Garage',
-    },
-    {
-      id: 'seed-2',
-      vehicleId: 'demo',
-      itemId: 'demo-tires',
-      performedOn: '2026-03-14',
-      odometerMiles: 23_400,
-      costCents: 2_400,
-      shop: 'Demo Garage',
-    },
-    {
-      id: 'seed-3',
-      vehicleId: 'demo',
-      itemId: 'demo-cabin',
-      performedOn: '2025-09-20',
-      odometerMiles: 18_200,
-      costCents: 3_898,
-      notes: 'Did it myself',
-    },
-  ]),
-})
+  const auth = memoryAuth({
+    user: { id: OWNER, email: 'demo@example.com' },
+    userIdFor: () => OWNER,
+  })
+  return {
+    auth,
+    // Deleting the demo account only signs out; the sample data stays for the next sign-in.
+    account: memoryAccount(auth),
+    sync: memorySync(),
+    vehicles: memoryVehicles([
+      {
+        id: 'demo',
+        configId: 'demo',
+        year: 2021,
+        make: 'Toyota',
+        model: 'RAV4',
+        trim: 'XLE',
+        engine: '2.5L 4-cyl',
+        drivetrain: 'AWD',
+        nickname: 'Demo car',
+        severeDuty: false,
+      },
+    ]),
+    odometer: memoryOdometer([
+      { vehicleId: 'demo', date: '2026-04-02', miles: 24_150 },
+      { vehicleId: 'demo', date: '2026-10-10', miles: 35_780 },
+    ]),
+    schedule: memorySchedule(DEMO_SCHEDULE),
+    safety: memorySafety({ demo: DEMO_SAFETY }),
+    attachments: demoAttachments(),
+    records: memoryServiceRecords([
+      {
+        id: 'seed-1',
+        vehicleId: 'demo',
+        itemId: 'demo-oil',
+        performedOn: '2026-07-01',
+        odometerMiles: 30_000,
+        costCents: 8_995,
+        shop: 'Demo Garage',
+      },
+      {
+        id: 'seed-2',
+        vehicleId: 'demo',
+        itemId: 'demo-tires',
+        performedOn: '2026-03-14',
+        odometerMiles: 23_400,
+        costCents: 2_400,
+        shop: 'Demo Garage',
+      },
+      {
+        id: 'seed-3',
+        vehicleId: 'demo',
+        itemId: 'demo-cabin',
+        performedOn: '2025-09-20',
+        odometerMiles: 18_200,
+        costCents: 3_898,
+        notes: 'Did it myself',
+      },
+      {
+        id: 'seed-4',
+        vehicleId: 'demo',
+        itemId: 'demo-engine-air',
+        performedOn: '2026-08-15',
+        odometerMiles: 33_400,
+        costCents: 2_199,
+        notes: 'Did it myself',
+      },
+    ]),
+  }
+}
 
 type DemoRepositories = ReturnType<typeof createDemoRepositories>
 

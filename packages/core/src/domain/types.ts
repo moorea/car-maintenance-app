@@ -84,6 +84,53 @@ export interface ServiceRecord {
 }
 
 /**
+ * What an attached file is. Receipts and photos belong to a logged service; the rest are the car's
+ * own documents.
+ */
+export type AttachmentKind = 'receipt' | 'registration' | 'insurance' | 'other'
+
+/** A photo or PDF the owner attached to a car, or to a service in its log. */
+export interface Attachment {
+  id: string
+  vehicleId: VehicleId
+  /** The service it belongs to; absent for the car's own documents. */
+  serviceRecordId?: string
+  kind: AttachmentKind
+  /** The file's name, such as "IMG_2041.jpg" or "Insurance card.pdf". */
+  name: string
+  /** One of ATTACHMENT_TYPES. */
+  contentType: string
+  sizeBytes: number
+  addedOn: IsoDate
+}
+
+/** A photo or file the owner just took or picked, still where the system put it. */
+export interface PickedFile {
+  uri: string
+  name: string
+  contentType: string
+  sizeBytes: number
+}
+
+/**
+ * - `offline`: the file is not on this phone yet and there is no connection to download it.
+ * - `not-uploaded`: it was attached on another phone that has not uploaded it yet.
+ * - `denied`: the owner has not let the app use the camera or photos.
+ */
+export type AttachmentErrorKind = 'offline' | 'not-uploaded' | 'denied' | 'unknown'
+
+/** Why a file could not be picked or shown. Adapters translate their own errors into these. */
+export class AttachmentError extends Error {
+  constructor(
+    readonly kind: AttachmentErrorKind,
+    message: string = kind,
+  ) {
+    super(message)
+    this.name = 'AttachmentError'
+  }
+}
+
+/**
  * An NHTSA safety recall for a configuration's model year. It may not cover every car of that
  * year, and says nothing about whether this car has been fixed; NHTSA's VIN lookup says that.
  */
@@ -192,4 +239,19 @@ export class AssistantError extends Error {
     super(message)
     this.name = 'AssistantError'
   }
+}
+
+/** One line of a shop's quote or recommendation list, as the owner typed it or a photo read it. */
+export interface QuoteLine {
+  /** The work as the shop wrote it, such as "Front brake pads & rotors". */
+  text: string
+  /** The line's price, when the quote shows one. */
+  priceCents?: number
+}
+
+/** A photo of a shop's quote, as the phone's camera or photo library returned it. */
+export interface QuotePhoto {
+  mediaType: 'image/jpeg' | 'image/png' | 'image/webp'
+  /** The image file, base64-encoded, without a `data:` prefix. */
+  base64: string
 }

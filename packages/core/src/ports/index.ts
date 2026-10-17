@@ -1,10 +1,14 @@
 import type { IsoDate } from '../lib/date'
 import type {
   AnswerSource,
+  Attachment,
   AuthUser,
   DecodedVin,
   MaintenanceItem,
   OdometerReading,
+  PickedFile,
+  QuoteLine,
+  QuotePhoto,
   SafetyReport,
   ServiceRecord,
   Vehicle,
@@ -55,6 +59,17 @@ export interface AuthPort {
   signOut(): Promise<void>
 }
 
+/** The owner's account itself, as opposed to signing in and out of it. */
+export interface AccountPort {
+  /**
+   * Permanently deletes the signed-in owner's account and everything stored for it on the
+   * server, then signs this phone out and erases its copy of their data, including changes not
+   * uploaded yet. Needs a connection. Throws AuthError, leaving the account as it was, if the
+   * server did not delete it.
+   */
+  deleteAccount(): Promise<void>
+}
+
 export interface ServiceRecordRepo {
   listForVehicle(vehicleId: VehicleId): Promise<ServiceRecord[]>
   /** Calls `onChange` with the full list now and after every change, like a live query. */
@@ -70,6 +85,48 @@ export interface OdometerRepo {
     onChange: (readings: OdometerReading[]) => void,
   ): Unsubscribe
   add(reading: OdometerReading): Promise<void>
+}
+
+/**
+ * Photos and PDFs attached to cars and services. The details sync like any other row; each file
+ * uploads after it is attached and downloads to another phone the first time it is opened there.
+ */
+export interface AttachmentRepo {
+  /**
+   * Calls `onChange` with everything attached to the car or its services, now and after every
+   * change.
+   */
+  watchForVehicle(vehicleId: VehicleId, onChange: (attachments: Attachment[]) => void): Unsubscribe
+  /** Keeps a copy of `file` on this phone and saves the attachment; works offline. */
+  add(attachment: Attachment, file: PickedFile): Promise<void>
+  /**
+   * Resolves with a local URI of the file, downloading it first if this phone has no copy. Rejects
+   * with AttachmentError.
+   */
+  open(attachment: Attachment): Promise<string>
+  /** Deletes the attachment and its file, on this phone and on the server. */
+  remove(attachment: Attachment): Promise<void>
+}
+
+/** Shows a file full screen in the system's viewer (Quick Look on iOS). */
+export interface FilePreview {
+  /**
+   * Resolves once the viewer is showing. `file` gives the viewer its title and type, since the
+   * copy on the phone is named by attachment id.
+   */
+  show(uri: string, file: { name: string; contentType: string }): Promise<void>
+}
+
+/** Where the owner gets a file from. */
+export type FileSource = 'camera' | 'photos' | 'files'
+
+/** The system camera, photo library and file picker. */
+export interface FilePicker {
+  /**
+   * Resolves with the photo or file, or undefined if the owner cancelled. Rejects with
+   * AttachmentError('denied') when the owner has refused access.
+   */
+  pick(source: FileSource): Promise<PickedFile | undefined>
 }
 
 export interface ScheduleRepo {
@@ -221,4 +278,21 @@ export interface LanguageModel {
     onEvent: (event: ModelEvent) => void,
     signal?: CancelSignal,
   ): Promise<ModelStopReason>
+}
+
+/** Reads the lines of a shop's quote from a photo, on the server. Needs a connection. */
+export interface QuoteReader {
+  /**
+   * Resolves with the quote's lines in order, empty when the photo shows no quote. Rejects with
+   * AssistantError, since it shares the assistant's service and daily limit.
+   */
+  read(photo: QuotePhoto, signal?: CancelSignal): Promise<QuoteLine[]>
+}
+
+/** The phone's camera and photo library. */
+export interface PhotoPicker {
+  /** Opens the camera; resolves with the photo, or undefined if the owner cancelled. */
+  take(): Promise<QuotePhoto | undefined>
+  /** Opens the photo library; resolves with the photo, or undefined if the owner cancelled. */
+  choose(): Promise<QuotePhoto | undefined>
 }

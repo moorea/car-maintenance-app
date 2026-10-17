@@ -206,6 +206,26 @@ export function FillColumn({ children, spacing }: { children: ReactNode; spacing
   )
 }
 
+interface FillRowProps {
+  children: ReactNode
+  spacing?: number
+  onPress?: () => void
+}
+
+/** A row that takes its parent row's leftover width, tappable across all of it. */
+export function FillRow({ children, spacing, onPress }: FillRowProps) {
+  return (
+    <Row
+      alignment="center"
+      spacing={spacing ?? 0}
+      {...(onPress ? { onPress } : {})}
+      style={{ flex: 1, minWidth: 0, ...(onPress ? { cursor: 'pointer' } : {}) } as UniversalStyle}
+    >
+      {children}
+    </Row>
+  )
+}
+
 interface DotProps {
   color: ColorRole
   /** What the colour means, such as "Overdue", for VoiceOver. Without it the dot is skipped. */
@@ -322,5 +342,30 @@ export function FilledIconButton({ symbol, onPress, disabled, size = 44 }: Fille
     >
       <Symbol name={symbol} size={size * 0.42} color={colors.onAccent} />
     </Button>
+  )
+}
+
+/** A padded row inside a card that responds to a tap across its whole width. */
+export function TappableRow({
+  children,
+  onPress,
+  spacing,
+}: {
+  children: ReactNode
+  onPress: () => void
+  spacing?: number
+}) {
+  return (
+    <Column
+      spacing={spacing ?? 0}
+      onPress={onPress}
+      style={{
+        ...({ cursor: 'pointer' } as UniversalStyle),
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+      }}
+    >
+      {children}
+    </Column>
   )
 }

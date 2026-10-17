@@ -5,8 +5,20 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
-    "ios": { "supportsTablet": false },
+    "ios": {
+      "supportsTablet": false
+    },
     "android": {},
-    "plugins": ["expo-notifications"]
+    "plugins": [
+      "expo-notifications",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Choose photos of receipts, documents and shop quotes for your car.",
+          "cameraPermission": "Photograph receipts, documents and shop quotes for your car.",
+          "microphonePermission": false
+        }
+      ]
+    ]
   }
 }

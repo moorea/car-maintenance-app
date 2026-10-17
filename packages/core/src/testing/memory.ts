@@ -1,5 +1,9 @@
 import {
+  AttachmentError,
   AuthError,
+  type Attachment,
+  type AttachmentErrorKind,
+  type PickedFile,
   VinDecodeError,
   type AuthErrorKind,
   type AuthUser,
@@ -13,8 +17,13 @@ import {
   type VehicleId,
 } from '../domain/types'
 import type {
+  AttachmentRepo,
+  AccountPort,
   AuthPort,
   Clock,
+  FilePicker,
+  FilePreview,
+  FileSource,
   IdGenerator,
   LocalNotification,
   NotificationPermission,
@@ -164,6 +173,30 @@ export const memoryAuth = (
     },
   }
   return auth
+}
+
+/**
+ * Account deletion for a pretend owner signed in with `auth`: deleting signs them out.
+ * `failNext` makes the next deletion throw and delete nothing.
+ */
+export const memoryAccount = (auth: Pick<AuthPort, 'signOut'>) => {
+  let nextFailure: AuthErrorKind | undefined
+  const account: AccountPort & { deletions: number; failNext: (kind: AuthErrorKind) => void } = {
+    deletions: 0,
+    failNext: (kind) => {
+      nextFailure = kind
+    },
+    deleteAccount: async () => {
+      if (nextFailure !== undefined) {
+        const kind = nextFailure
+        nextFailure = undefined
+        throw new AuthError(kind)
+      }
+      account.deletions++
+      await auth.signOut()
+    },
+  }
+  return account
 }
 
 export const memorySchedule = (items: MaintenanceItem[] = []): ScheduleRepo => ({
@@ -361,4 +394,145 @@ export const memoryReminderSettings = (
       for (const w of watchers) w(settings)
     },
   }
+}
+
+/**
+ * Attachments with their files "on this phone" as `memory://<id>` URIs. `remote` lists ids whose
+ * files are only on the server, so opening them downloads; `failNextOpen` and `failNextAdd` make
+ * the next call throw.
+ */
+export const memoryAttachments = (
+  initial: Attachment[] = [],
+  options: { remote?: string[] } = {},
+) => {
+  let attachments = [...initial]
+  const remote = new Set(options.remote)
+  const files = new Map<string, PickedFile>()
+  const downloads: string[] = []
+  let nextOpenFailure: AttachmentErrorKind | undefined
+  let nextAddFailure: string | undefined
+  let pendingOpens: (() => void)[] = []
+  let holdOpens = false
+  const watchers = new Set<{ vehicleId: VehicleId; onChange: (a: Attachment[]) => void }>()
+  const forVehicle = (vehicleId: VehicleId) => attachments.filter((a) => a.vehicleId === vehicleId)
+  const notify = () => {
+    for (const w of watchers) w.onChange(forVehicle(w.vehicleId))
+  }
+  const repo: AttachmentRepo & {
+    /** The picked file each attachment was saved from. */
+    files: Map<string, PickedFile>
+    /** Ids downloaded by `open`, in order. */
+    downloads: string[]
+    failNextOpen: (kind: AttachmentErrorKind) => void
+    failNextAdd: (message: string) => void
+    /** Makes opens wait until `releaseOpen`, to observe downloads in progress. */
+    holdOpens: () => void
+    releaseOpen: () => void
+    /** Replaces the attachments, as a sync would, and notifies watchers. */
+    set: (next: Attachment[]) => void
+  } = {
+    files,
+    downloads,
+    failNextOpen: (kind) => {
+      nextOpenFailure = kind
+    },
+    failNextAdd: (message) => {
+      nextAddFailure = message
+    },
+    holdOpens: () => {
+      holdOpens = true
+    },
+    releaseOpen: () => {
+      holdOpens = false
+      for (const release of pendingOpens) release()
+      pendingOpens = []
+    },
+    set: (next) => {
+      attachments = [...next]
+      notify()
+    },
+    watchForVehicle: (vehicleId, onChange) => {
+      const watcher = { vehicleId, onChange }
+      watchers.add(watcher)
+      onChange(forVehicle(vehicleId))
+      return () => watchers.delete(watcher)
+    },
+    // Newest first, as the real repository orders them.
+    add: async (attachment, file) => {
+      if (nextAddFailure !== undefined) {
+        const message = nextAddFailure
+        nextAddFailure = undefined
+        throw new Error(message)
+      }
+      files.set(attachment.id, file)
+      attachments = [attachment, ...attachments]
+      notify()
+    },
+    open: async (attachment) => {
+      if (holdOpens) await new Promise<void>((resolve) => pendingOpens.push(resolve))
+      if (nextOpenFailure !== undefined) {
+        const kind = nextOpenFailure
+        nextOpenFailure = undefined
+        throw new AttachmentError(kind)
+      }
+      if (remote.delete(attachment.id)) downloads.push(attachment.id)
+      return `memory://${attachment.id}`
+    },
+    remove: async (attachment) => {
+      attachments = attachments.filter((a) => a.id !== attachment.id)
+      files.delete(attachment.id)
+      notify()
+    },
+  }
+  return repo
+}
+
+/**
+ * The camera and pickers, handing out queued files in order. With nothing queued the owner
+ * cancels; `deny` makes the next pick fail as if access was refused.
+ */
+export const memoryFilePicker = (queued: PickedFile[] = []) => {
+  const queue = [...queued]
+  const asked: FileSource[] = []
+  let denied = false
+  const picker: FilePicker & {
+    asked: FileSource[]
+    queue: (file: PickedFile) => void
+    deny: () => void
+  } = {
+    asked,
+    queue: (file) => queue.push(file),
+    deny: () => {
+      denied = true
+    },
+    pick: async (source) => {
+      asked.push(source)
+      if (denied) {
+        denied = false
+        throw new AttachmentError('denied')
+      }
+      return queue.shift()
+    },
+  }
+  return picker
+}
+
+/** The system viewer. `shown` lists the URIs shown, in order; `failNext` makes the next show throw. */
+export const memoryFilePreview = () => {
+  const shown: string[] = []
+  let nextFailure = false
+  const preview: FilePreview & { shown: string[]; failNext: () => void } = {
+    shown,
+    failNext: () => {
+      nextFailure = true
+    },
+    show: async (uri) => {
+      if (nextFailure) {
+        nextFailure = false
+        throw new Error('Cannot preview')
+      }
+      shown.push(uri)
+    },
+  }
+  return preview
 }
