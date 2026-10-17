@@ -72,6 +72,16 @@ export const createSyncSession = (
 
 const OWNER_KEY = 'owner'
 
+/** The user whose data the local copy holds, as recorded when they signed in. */
+export const readOwner = async (
+  db: Pick<CommonPowerSyncDatabase, 'getOptional'>,
+): Promise<string | undefined> =>
+  (
+    await db.getOptional<{ value: string }>('select value from device_state where id = ?', [
+      OWNER_KEY,
+    ])
+  )?.value
+
 /** Adapts a PowerSync database and connector to the sync session. */
 export const powerSyncSessionDatabase = (
   db: CommonPowerSyncDatabase,
@@ -81,12 +91,7 @@ export const powerSyncSessionDatabase = (
   disconnect: () => db.disconnect(),
   clear: () => db.disconnectAndClear(),
   pendingUploads: async () => (await db.getUploadQueueStats()).count,
-  owner: async () =>
-    (
-      await db.getOptional<{ value: string }>('select value from device_state where id = ?', [
-        OWNER_KEY,
-      ])
-    )?.value,
+  owner: () => readOwner(db),
   setOwner: async (userId) => {
     await db.execute('insert or replace into device_state (id, value) values (?, ?)', [
       OWNER_KEY,

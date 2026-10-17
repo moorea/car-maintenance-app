@@ -37,3 +37,23 @@ export interface ServiceRecord {
   shop?: string
   notes?: string
 }
+
+/** The signed-in person, as far as the app needs to know. */
+export interface AuthUser {
+  id: string
+  email?: string
+}
+
+export type AuthErrorKind =
+  'invalid-email' | 'invalid-code' | 'rate-limited' | 'network' | 'unknown'
+
+/** A sign-in failure the screen can explain. Adapters translate their own errors into these. */
+export class AuthError extends Error {
+  constructor(
+    readonly kind: AuthErrorKind,
+    message: string = kind,
+  ) {
+    super(message)
+    this.name = 'AuthError'
+  }
+}

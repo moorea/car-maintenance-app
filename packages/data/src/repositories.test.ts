@@ -1,11 +1,11 @@
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { ServiceRecord } from '@car/core'
+import type { ServiceRecord, Vehicle } from '@car/core'
 import { PowerSyncDatabase } from '@powersync/node'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { PowerSyncBackendConnector } from '@powersync/common'
-import { createPowerSyncRepositories } from './repositories'
+import { createPowerSyncRepositories, firstSyncOf } from './repositories'
 import { powerSyncSessionDatabase } from './session'
 import { schema } from './schema'
 
@@ -111,6 +111,33 @@ describe('PowerSync repositories', () => {
     expect(await session.pendingUploads()).toBe(0)
   })
 
+  it("tells a watcher about the owner's vehicles only, and about each change", async () => {
+    await db.execute(
+      "insert into vehicles (id, owner_id, config_id, nickname) values ('v-b', 'u2', 'c1', 'Not mine')",
+    )
+    const repos = createPowerSyncRepositories(db)
+    const updates = collect<Vehicle[]>((cb) => repos.vehicles.watchOwned('u1', cb))
+    await updates.waitFor(1)
+    await db.execute(
+      "insert into vehicles (id, owner_id, config_id, nickname, severe_duty) values ('v-a', 'u1', 'c1', 'Civic', 0)",
+    )
+    const values = await updates.waitFor(2)
+    updates.stop()
+    expect(values[0]).toEqual([])
+    expect(values.at(-1)).toEqual([
+      { id: 'v-a', configId: 'c1', nickname: 'Civic', severeDuty: false },
+    ])
+  })
+
+  it('does not report a first sync on a device that has never synced', async () => {
+    const repos = createPowerSyncRepositories(db)
+    let synced = false
+    const stop = repos.sync.onFirstSync('u1', () => (synced = true))
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    stop()
+    expect(synced).toBe(false)
+  })
+
   it('reads vehicles, odometer readings and the schedule from synced rows', async () => {
     await db.execute(
       "insert into vehicles (id, config_id, nickname, severe_duty) values ('v1', 'c1', 'Civic', 1)",
@@ -134,5 +161,93 @@ describe('PowerSync repositories', () => {
     expect(await repos.schedule.itemsForConfig('c1')).toEqual([
       { id: 'oil', configId: 'c1', task: 'Oil change', intervalMiles: 5000, intervalMonths: 6 },
     ])
+  })
+})
+
+describe('first sync', () => {
+  const source = (state: { hasSynced: boolean; owner: string | undefined }) => {
+    const listeners = new Set<() => void>()
+    return {
+      state,
+      hasSynced: () => state.hasSynced,
+      onStatusChanged: (onChange: () => void) => {
+        listeners.add(onChange)
+        return () => listeners.delete(onChange)
+      },
+      owner: async () => state.owner,
+      change: (next: Partial<typeof state>) => {
+        Object.assign(state, next)
+        for (const l of [...listeners]) l()
+      },
+      listening: () => listeners.size,
+    }
+  }
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 10))
+
+  it("reports at once when this owner's copy has already synced", async () => {
+    const calls: string[] = []
+    firstSyncOf(source({ hasSynced: true, owner: 'u1' }), 'u1', () => calls.push('synced'))
+    await settle()
+    expect(calls).toEqual(['synced'])
+  })
+
+  it('waits for a sync that is still running, then stops listening', async () => {
+    const s = source({ hasSynced: false, owner: 'u1' })
+    const calls: string[] = []
+    firstSyncOf(s, 'u1', () => calls.push('synced'))
+    await settle()
+    expect(calls).toEqual([])
+    s.change({ hasSynced: true })
+    await settle()
+    s.change({})
+    await settle()
+    expect(calls).toEqual(['synced'])
+    expect(s.listening()).toBe(0)
+  })
+
+  it("does not count another account's sync on the same phone", async () => {
+    const s = source({ hasSynced: true, owner: 'u-previous' })
+    const calls: string[] = []
+    firstSyncOf(s, 'u1', () => calls.push('synced'))
+    await settle()
+    expect(calls).toEqual([])
+    // The sync session clears the old copy, records the new owner, then syncs.
+    s.change({ hasSynced: false, owner: undefined })
+    s.change({ owner: 'u1' })
+    await settle()
+    expect(calls).toEqual([])
+    s.change({ hasSynced: true })
+    await settle()
+    expect(calls).toEqual(['synced'])
+  })
+
+  it('checks again on the next status change after a failed read', async () => {
+    const s = source({ hasSynced: true, owner: 'u1' })
+    let fail = true
+    const flaky = {
+      ...s,
+      owner: async () => {
+        if (fail) throw new Error('database closed')
+        return s.state.owner
+      },
+    }
+    const calls: string[] = []
+    firstSyncOf(flaky, 'u1', () => calls.push('synced'))
+    await settle()
+    expect(calls).toEqual([])
+    fail = false
+    s.change({})
+    await settle()
+    expect(calls).toEqual(['synced'])
+  })
+
+  it('reports nothing after it is stopped', async () => {
+    const s = source({ hasSynced: false, owner: 'u1' })
+    const calls: string[] = []
+    const stop = firstSyncOf(s, 'u1', () => calls.push('synced'))
+    stop()
+    s.change({ hasSynced: true })
+    await settle()
+    expect(calls).toEqual([])
   })
 })

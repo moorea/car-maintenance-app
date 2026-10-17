@@ -34,7 +34,7 @@ jobs:
         run: npx expo install --check
       - name: Bundle the app
         working-directory: apps/mobile
-        run: npx expo export --platform ios --platform android --output-dir ${{ runner.temp }}/expo-export
+        run: npx expo export --platform ios --platform android --platform web --output-dir ${{ runner.temp }}/expo-export
 
   database:
     runs-on: ubuntu-latest

@@ -1,16 +1,18 @@
 import type { ServiceLogActions, ServiceLogState, ServiceRecord } from '@car/core'
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native'
-import { TextField } from '../../ui/TextField'
+import { Button, Column, Host, ScrollView, Text } from '@expo/ui'
+import { ActivityIndicator, StyleSheet } from 'react-native'
+import { ERROR, TextField } from '../../ui/TextField'
 
 type Props = ServiceLogState & Pick<ServiceLogActions, 'setField' | 'save'>
 
 const formatCost = (cents: number) => `$${(cents / 100).toFixed(2)}`
+const MUTED = '#666'
 
 function RecordRow({ record }: { record: ServiceRecord }) {
   return (
-    <View style={styles.row}>
-      <Text style={styles.rowTitle}>{record.performedOn}</Text>
-      <Text style={styles.rowMeta}>
+    <Column spacing={2} style={{ paddingVertical: 10 }}>
+      <Text textStyle={{ fontSize: 16, fontWeight: '600' }}>{record.performedOn}</Text>
+      <Text textStyle={{ fontSize: 13, color: MUTED }}>
         {[
           record.odometerMiles !== undefined ? `${record.odometerMiles.toLocaleString()} mi` : null,
           record.shop,
@@ -19,7 +21,7 @@ function RecordRow({ record }: { record: ServiceRecord }) {
           .filter(Boolean)
           .join(' · ')}
       </Text>
-    </View>
+    </Column>
   )
 }
 
@@ -36,14 +38,10 @@ export function ServiceLogView({
   if (status === 'loading') return <ActivityIndicator style={styles.center} />
 
   return (
-    <FlatList
-      contentContainerStyle={styles.container}
-      data={records}
-      keyExtractor={(r) => r.id}
-      renderItem={({ item }) => <RecordRow record={item} />}
-      ListHeaderComponent={
-        <View style={styles.form}>
-          <Text style={styles.heading}>Log service</Text>
+    <Host style={styles.center}>
+      <ScrollView>
+        <Column spacing={12} style={{ padding: 16 }}>
+          <Text textStyle={{ fontSize: 20, fontWeight: '700' }}>Log service</Text>
           <TextField
             label="Date"
             value={draft.performedOn}
@@ -71,38 +69,24 @@ export function ServiceLogView({
             onChangeText={(v) => setField('shop', v)}
             error={fieldErrors.shop}
           />
-          {saveError ? <Text style={styles.error}>{saveError}</Text> : null}
-          <Pressable
-            accessibilityRole="button"
-            style={styles.button}
+          {saveError ? <Text textStyle={{ color: ERROR }}>{saveError}</Text> : null}
+          <Button
+            label={status === 'saving' ? 'Saving…' : 'Save'}
             disabled={status === 'saving'}
             onPress={() => void save()}
-          >
-            <Text style={styles.buttonText}>{status === 'saving' ? 'Saving…' : 'Save'}</Text>
-          </Pressable>
-          <Text style={styles.heading}>History</Text>
-        </View>
-      }
-      ListEmptyComponent={<Text style={styles.rowMeta}>No service logged yet.</Text>}
-    />
+          />
+          <Text textStyle={{ fontSize: 20, fontWeight: '700' }}>History</Text>
+          {records.length === 0 ? (
+            <Text textStyle={{ fontSize: 13, color: MUTED }}>No service logged yet.</Text>
+          ) : (
+            records.map((r) => <RecordRow key={r.id} record={r} />)
+          )}
+        </Column>
+      </ScrollView>
+    </Host>
   )
 }
 
 const styles = StyleSheet.create({
   center: { flex: 1 },
-  container: { padding: 16 },
-  form: { marginBottom: 8 },
-  heading: { fontSize: 20, fontWeight: '700', marginVertical: 12 },
-  row: { paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: '#c8c8c8' },
-  rowTitle: { fontSize: 16, fontWeight: '600' },
-  rowMeta: { fontSize: 13, color: '#666', marginTop: 2 },
-  button: {
-    backgroundColor: '#1565c0',
-    borderRadius: 8,
-    padding: 14,
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  buttonText: { color: 'white', fontSize: 16, fontWeight: '600' },
-  error: { color: '#c62828', marginBottom: 8 },
 })

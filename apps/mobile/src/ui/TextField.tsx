@@ -1,35 +1,48 @@
-import { StyleSheet, Text, TextInput, View, type KeyboardTypeOptions } from 'react-native'
+import { Column, Text, TextInput, useNativeState, type TextInputProps } from '@expo/ui'
+import { useEffect, useRef } from 'react'
 
 interface Props {
   label: string
   value: string
   onChangeText: (value: string) => void
   error?: string | undefined
-  keyboardType?: KeyboardTypeOptions
   placeholder?: string
+  keyboardType?: TextInputProps['keyboardType']
+  autoComplete?: TextInputProps['autoComplete']
+  autoCapitalize?: TextInputProps['autoCapitalize']
 }
 
-export function TextField({ label, value, onChangeText, error, keyboardType, placeholder }: Props) {
+/** A labelled Expo UI text input. The screen model owns the text; the field follows `value`. */
+export function TextField({ label, value, onChangeText, error, ...input }: Props) {
+  const text = useNativeState(value)
+  // What the field last reported. Only a different `value` came from the model (a cleared code
+  // after a resend) and is copied in; comparing with the live native text instead would write a
+  // stale value back over keystrokes typed since.
+  const reported = useRef(value)
+  useEffect(() => {
+    if (value === reported.current) return
+    reported.current = value
+    text.set(value)
+  }, [text, value])
   return (
-    <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
+    <Column spacing={4}>
+      <Text textStyle={{ fontSize: 13, fontWeight: '600' }}>{label}</Text>
       <TextInput
-        accessibilityLabel={label}
-        style={[styles.input, error ? styles.inputError : undefined]}
-        value={value}
-        onChangeText={onChangeText}
-        keyboardType={keyboardType ?? 'default'}
-        placeholder={placeholder ?? ''}
+        value={text}
+        onChangeText={(next) => {
+          reported.current = next
+          onChangeText(next)
+        }}
+        placeholder={input.placeholder ?? ''}
+        keyboardType={input.keyboardType ?? 'default'}
+        autoComplete={input.autoComplete ?? 'off'}
+        autoCapitalize={input.autoCapitalize ?? 'sentences'}
+        autoCorrect={false}
+        style={{ width: '100%', ...(error ? { borderColor: ERROR } : {}) }}
       />
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-    </View>
+      {error ? <Text textStyle={{ fontSize: 12, color: ERROR }}>{error}</Text> : null}
+    </Column>
   )
 }
 
-const styles = StyleSheet.create({
-  field: { marginBottom: 12 },
-  label: { fontSize: 13, fontWeight: '600', marginBottom: 4 },
-  input: { borderWidth: 1, borderColor: '#c8c8c8', borderRadius: 8, padding: 10, fontSize: 16 },
-  inputError: { borderColor: '#c62828' },
-  error: { color: '#c62828', fontSize: 12, marginTop: 4 },
-})
+export const ERROR = '#c62828'
