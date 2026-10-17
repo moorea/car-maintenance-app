@@ -6,6 +6,7 @@ import { localClock } from './clock'
 import { backendConfig } from './config'
 import { createDemoAssistant, createDemoRepositories } from './demo'
 import { createLiveRepositories } from './live'
+import { systemFilePicker, systemFilePreview } from './files'
 import { expoNotifier } from './notifications'
 
 // The composition root: the only place that picks adapters. Screens only ever see ports.
@@ -34,6 +35,8 @@ export const deps = {
   ...repositories,
   notifier,
   reminderSettings,
+  picker: systemFilePicker(),
+  preview: systemFilePreview(),
   reminders: createReminderScheduler({
     ...repositories,
     clock,

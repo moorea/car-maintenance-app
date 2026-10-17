@@ -1,4 +1,9 @@
-import { createServiceLogModel, type SessionState, type Vehicle } from '@car/core'
+import {
+  createAttachmentsModel,
+  createServiceLogModel,
+  type SessionState,
+  type Vehicle,
+} from '@car/core'
 import { useEffect } from 'react'
 import { useStore } from 'zustand'
 import { deps } from '../../bootstrap/deps'
@@ -27,5 +32,14 @@ export function ServiceLogScreen({ vehicle, request, onRequestHandled }: Props) 
     onRequestHandled()
   }, [model, request, onRequestHandled])
   const state = useStore(model)
-  return <ServiceLogView {...state} carName={`${vehicle.year} ${vehicle.make} ${vehicle.model}`} />
+  const attachments = useStore(
+    useScreenModel(vehicle.id, () => createAttachmentsModel({ vehicleId: vehicle.id, ...deps })),
+  )
+  return (
+    <ServiceLogView
+      {...state}
+      attachments={attachments}
+      carName={`${vehicle.year} ${vehicle.make} ${vehicle.model}`}
+    />
+  )
 }

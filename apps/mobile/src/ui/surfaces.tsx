@@ -201,6 +201,26 @@ export function FillColumn({ children, spacing }: { children: ReactNode; spacing
   )
 }
 
+interface FillRowProps {
+  children: ReactNode
+  spacing?: number
+  onPress?: () => void
+}
+
+/** A row that takes its parent row's leftover width, tappable across all of it. */
+export function FillRow({ children, spacing, onPress }: FillRowProps) {
+  return (
+    <Row
+      alignment="center"
+      spacing={spacing ?? 0}
+      {...(onPress ? { onPress } : {})}
+      style={{ flex: 1, minWidth: 0, ...(onPress ? { cursor: 'pointer' } : {}) } as UniversalStyle}
+    >
+      {children}
+    </Row>
+  )
+}
+
 /** A small filled circle, such as a status dot beside a row. */
 export function Dot({ color, size = 10 }: { color: ColorRole; size?: number }) {
   const colors = useColors()

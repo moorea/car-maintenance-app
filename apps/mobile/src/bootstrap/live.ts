@@ -1,6 +1,8 @@
 import 'react-native-url-polyfill/auto'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import {
+  attachmentDownloadUrl,
+  createAttachmentRepo,
   createPowerSyncRepositories,
   createSyncSession,
   powerSyncSessionDatabase,
@@ -15,6 +17,7 @@ import { createClient } from '@supabase/supabase-js'
 import { fetch as streamingFetch } from 'expo/fetch'
 import { AppState } from 'react-native'
 import type { BackendConfig } from './config'
+import { appFiles } from './files'
 
 /**
  * The real backend: an on-device SQLite database that PowerSync keeps in sync with Supabase.
@@ -39,7 +42,20 @@ export const createLiveRepositories = (config: BackendConfig) => {
   )
 
   const db = new PowerSyncDatabase({ schema, database: { dbFilename: 'car-maintenance.db' } })
-  const connector = SupabaseConnector.forClient(supabase, config.powerSyncUrl)
+  const files = appFiles()
+  // Expo's fetch sends the file's bytes as the upload body on every platform.
+  const storage = {
+    url: config.supabaseUrl,
+    anonKey: config.supabaseAnonKey,
+    fetch: streamingFetch as unknown as typeof fetch,
+  }
+  const accessToken = async () => (await supabase.auth.getSession()).data.session?.access_token
+  // An attachment's file uploads with its row, so the row never reaches the server without it.
+  const connector = SupabaseConnector.forClient(supabase, {
+    powerSyncUrl: config.powerSyncUrl,
+    storage,
+    readFile: (id) => files.read(id),
+  })
   const session = createSyncSession(powerSyncSessionDatabase(db, connector))
   const auth = supabaseAuth(supabase.auth, storedSession(AsyncStorage, AUTH_STORAGE_KEY))
   // Sync follows the same view of who is signed in as the screens, so the two never disagree.
@@ -49,9 +65,15 @@ export const createLiveRepositories = (config: BackendConfig) => {
   // answer as it arrives; React Native's built-in one waits for the whole response.
   const assistant = remoteAssistant({
     url: `${config.supabaseUrl}/functions/v1/assistant`,
-    accessToken: async () => (await supabase.auth.getSession()).data.session?.access_token,
+    accessToken,
     fetch: streamingFetch as unknown as typeof fetch,
   })
 
-  return { auth, assistant, ...createPowerSyncRepositories(db) }
+  const attachments = createAttachmentRepo({
+    db,
+    files,
+    downloadUrl: attachmentDownloadUrl({ ...storage, accessToken }),
+  })
+
+  return { auth, assistant, attachments, ...createPowerSyncRepositories(db) }
 }

@@ -15,6 +15,7 @@ streams:
       - SELECT * FROM odometer_readings WHERE vehicle_id IN (SELECT id FROM vehicles WHERE owner_id = auth.user_id())
       - SELECT * FROM service_records WHERE vehicle_id IN (SELECT id FROM vehicles WHERE owner_id = auth.user_id())
       - SELECT * FROM reminders WHERE vehicle_id IN (SELECT id FROM vehicles WHERE owner_id = auth.user_id())
+      - SELECT * FROM attachments WHERE vehicle_id IN (SELECT id FROM vehicles WHERE owner_id = auth.user_id())
 
   # Shared reference data for the configurations the user's vehicles use: schedules, recalls and
   # complaint summaries.

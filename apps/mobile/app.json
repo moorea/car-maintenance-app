@@ -7,6 +7,16 @@
     "userInterfaceStyle": "automatic",
     "ios": { "supportsTablet": false },
     "android": {},
-    "plugins": ["expo-notifications"]
+    "plugins": [
+      "expo-notifications",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Choose a photo of a receipt or document to keep with your car.",
+          "cameraPermission": "Take a photo of a receipt or document to keep with your car.",
+          "microphonePermission": false
+        }
+      ]
+    ]
   }
 }
