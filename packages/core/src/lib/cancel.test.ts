@@ -18,6 +18,17 @@ describe('cancellation', () => {
     expect(calls).toBe(1)
   })
 
+  it('does not tell a listener added after it was cancelled', () => {
+    const { signal, cancel } = cancellation()
+    cancel()
+    let called = false
+    signal.addEventListener('abort', () => {
+      called = true
+    })
+    cancel()
+    expect(called).toBe(false)
+  })
+
   it('does not tell a listener that was removed', () => {
     const { signal, cancel } = cancellation()
     let called = false

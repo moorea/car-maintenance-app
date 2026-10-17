@@ -40,8 +40,10 @@ describe('supabaseBackend', () => {
     const backend = supabaseBackend(supabase, 'user-jwt')
     await backend.insert('vehicles', { id: 'v1' })
     await backend.upsert('vehicles', { id: 'v1' })
+    await backend.update('vehicles', 'v1', {})
     await backend.remove('vehicles', 'v1')
     expect(sent.map((s) => s.authorization)).toEqual([
+      'Bearer user-jwt',
       'Bearer user-jwt',
       'Bearer user-jwt',
       'Bearer user-jwt',
