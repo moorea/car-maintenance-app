@@ -1,14 +1,18 @@
 import type { DevicePreferences, DevicePreferencesRepo } from '@car/core'
 
-const DEFAULTS: DevicePreferences = { onboarded: false, aiSharing: false }
+const DEFAULTS: DevicePreferences = { onboarded: false, aiSharingOwner: null }
 
 const parse = (raw: string | null): DevicePreferences => {
   try {
     const value: unknown = raw === null ? undefined : JSON.parse(raw)
     if (typeof value === 'object' && value !== null) {
       const v = value as Record<string, unknown>
-      // Only an explicit true counts, so a damaged value never shares anything.
-      return { onboarded: v.onboarded === true, aiSharing: v.aiSharing === true }
+      return {
+        onboarded: v.onboarded === true,
+        // Only an account id counts, so a damaged value never shares anything.
+        aiSharingOwner:
+          typeof v.aiSharingOwner === 'string' && v.aiSharingOwner !== '' ? v.aiSharingOwner : null,
+      }
     }
   } catch {
     // A damaged value reads as the defaults.
@@ -18,7 +22,7 @@ const parse = (raw: string | null): DevicePreferences => {
 
 /**
  * Device preferences kept on this phone under `key`, such as in AsyncStorage: whether the
- * introduction was seen, and whether the owner allowed sharing with the assistant's model.
+ * introduction was seen, and who allowed sharing with the assistant's model.
  */
 export const storedDevicePreferences = (
   storage: {
@@ -35,6 +39,9 @@ export const storedDevicePreferences = (
     current ??= preferences
     for (const w of watchers) w(current)
   })
+  // Updates run one at a time, each on top of the last one saved, so two close together (such
+  // as turning sharing off while the introduction finishes) never undo each other.
+  let queue: Promise<unknown> = loaded
 
   return {
     watch: (onChange) => {
@@ -43,11 +50,15 @@ export const storedDevicePreferences = (
       return () => watchers.delete(onChange)
     },
     // Saved before anyone is told, so a failed write never shows a choice that will not last.
-    update: async (change) => {
-      const next = { ...(current ?? (await loaded)), ...change }
-      await storage.setItem(key, JSON.stringify(next))
-      current = next
-      for (const w of watchers) w(current)
+    update: (change) => {
+      const run = queue.then(async () => {
+        const next = { ...(current ?? (await loaded)), ...change }
+        await storage.setItem(key, JSON.stringify(next))
+        current = next
+        for (const w of watchers) w(current)
+      })
+      queue = run.catch(() => {})
+      return run
     },
   }
 }

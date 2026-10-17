@@ -37,5 +37,5 @@ data.
   the app asks before the first question or quote check and can be turned off in Account.
 - **NHTSA VIN decoding** sends only the VIN, with nothing that identifies the person, to a public
   government service. The VIN is already declared under Other User Content.
-- **Data on the phone only** (reminder settings, the intro having been seen, the AI sharing
-  choice, scheduled notifications) is not collected.
+- **Data on the phone only** (reminder settings, the intro having been seen, who allowed AI
+  sharing, scheduled notifications) is not collected.

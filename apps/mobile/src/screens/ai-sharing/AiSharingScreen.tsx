@@ -21,7 +21,7 @@ export function AiSharingGate({
   children: ReactNode
 }) {
   const model = useScreenModel('ai-sharing', () =>
-    createAiSharingModel({ preferences: deps.preferences }),
+    createAiSharingModel({ preferences: deps.preferences, auth: deps.auth }),
   )
   const state = useStore(model)
   if (state.status === 'loading') return <ActivityIndicator style={styles.fill} />

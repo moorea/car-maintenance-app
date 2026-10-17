@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { createReminderScheduler, type IdGenerator } from '@car/core'
+import { createReminderScheduler, guardAiSharing, type IdGenerator } from '@car/core'
 import { demoQuoteReader } from '@car/core/testing'
 import { nhtsaVinDecoder, storedDevicePreferences, storedReminderSettings } from '@car/data'
 import { randomUUID } from 'expo-crypto'
@@ -36,6 +36,8 @@ const notifier = expoNotifier()
 const reminderSettings = storedReminderSettings(AsyncStorage, 'car-maintenance-reminders')
 // Seen the introduction, and allowed Ask to share with Anthropic: both belong to this phone.
 const preferences = storedDevicePreferences(AsyncStorage, 'car-maintenance-preferences')
+// Nothing reaches Anthropic unless the signed-in owner allowed it, whichever screen asks.
+const ai = guardAiSharing({ preferences, auth: repositories.auth }, repositories)
 
 export const deps = {
   clock,
@@ -43,6 +45,7 @@ export const deps = {
   // NHTSA's lookup is free and needs no account, so demo mode uses it too.
   vinDecoder: nhtsaVinDecoder(),
   ...repositories,
+  ...ai,
   notifier,
   reminderSettings,
   preferences,

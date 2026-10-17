@@ -52,10 +52,12 @@ Claude, an AI model made by Anthropic. Before either sends anything, the app tel
 be sent and asks for your permission. You can turn this off at any time in **Account → Privacy**,
 and the rest of the app keeps working.
 
-When you ask a question, Anthropic receives the question, your car's details, its maintenance
-schedule, your service records and odometer readings, and the recalls and owner complaints for its
-model. When you check a quote, it receives the photo. Under its commercial terms, Anthropic does
-not use this data to train its models and deletes it within 30 days. We keep your Ask
+When you ask a question, Anthropic receives the question, your car's details (including its VIN
+and nickname), its maintenance schedule, your odometer readings and service records (including
+costs, shops and your notes), and the recalls and owner complaints for its model. When you check a
+quote, it receives the photo. Under its commercial terms, Anthropic does not use this data to
+train its models and generally deletes it within 30 days, though it may keep data flagged for
+breaking its usage policies longer. We keep your Ask
 conversations in your account until you delete your account.
 
 Ask explains your car's records. It is not a mechanic and cannot inspect your car. For anything
@@ -65,9 +67,9 @@ about safety, have the car checked by a professional.
 
 We keep your data for as long as you have an account. When you delete your account in the app
 (**Account → Delete account**), we delete your account and everything stored for it from our
-database straight away: cars, odometer readings, service records, warranties, reminders, Ask
-conversations and attached files. Copies in our providers' routine backups are overwritten on
-their normal schedule, within 30 days.
+database straight away: cars, odometer readings, service records, warranties, reminders and Ask
+conversations. Attached files are deleted from storage within a few hours. Copies in our
+providers' routine backups are overwritten on their normal schedule, within **[BACKUP PERIOD]**.
 
 ## Your choices and rights
 
@@ -86,8 +88,9 @@ for using them. Email us to use any of them; we will respond within the time the
 ## Security
 
 Data travels encrypted (HTTPS). Each account can read and change only its own data, enforced by
-the database itself. Your phone keeps a copy so the app works offline; it is deleted when you sign
-out or delete your account.
+the database itself. Your phone keeps a copy so the app works offline. It is deleted when you
+delete your account, and when you sign out, unless changes are still waiting to upload; those stay
+until you next sign in.
 
 ## Children
 

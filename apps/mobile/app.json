@@ -82,12 +82,7 @@
       "versionCode": 1
     },
     "plugins": [
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/icon-dark.png"
-        }
-      ],
+      "expo-notifications",
       [
         "expo-image-picker",
         {

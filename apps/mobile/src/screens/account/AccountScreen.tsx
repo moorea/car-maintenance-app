@@ -24,7 +24,9 @@ export function AccountScreen(props: {
   )
   const state = useStore(model)
   const sharing = useStore(
-    useScreenModel('ai-sharing', () => createAiSharingModel({ preferences: deps.preferences })),
+    useScreenModel('ai-sharing', () =>
+      createAiSharingModel({ preferences: deps.preferences, auth: deps.auth }),
+    ),
   )
   return (
     <AccountView

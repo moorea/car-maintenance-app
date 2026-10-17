@@ -17,7 +17,7 @@ type Props = AiSharingState & {
 }
 
 const SENT: Record<Props['feature'], string> = {
-  ask: "Your question, and this car's details, schedule, service log, odometer readings and the recalls and owner complaints for its model.",
+  ask: "Your question, and this car's details (including its VIN and nickname), schedule, odometer readings and service log (with costs, shops and your notes), and the recalls and owner complaints for its model.",
   quote:
     "The photo of the quote, to read its lines. Then, only if you ask about a line, your question and this car's records, as in Ask.",
 }
@@ -55,7 +55,7 @@ export function AiSharingView(props: Props) {
             <Point
               symbol="shield"
               title="How it's handled"
-              body="Anthropic doesn't use it to train its models and keeps it for no more than 30 days. Your Ask conversations stay in your account until you delete the account."
+              body="Under its commercial terms, Anthropic doesn't use it to train its models and generally deletes it within 30 days. Your Ask conversations stay in your account until you delete the account."
             />
           </Card>
 
@@ -75,7 +75,8 @@ export function AiSharingView(props: Props) {
             />
           </Row>
           <Note>
-            You can turn this off in Account at any time. The rest of the app works without it.
+            Ask and the quote checker need this. You can turn it off in Account at any time, and
+            everything else in the app works without it.
           </Note>
           <Button variant="text" label="Privacy policy" onPress={props.onPrivacyPolicy} />
         </Column>

@@ -131,7 +131,7 @@ function Privacy({ aiSharing, onPrivacyPolicy }: Props) {
       <Card padding={0}>
         <Row style={{ paddingHorizontal: 16, paddingVertical: 10 }}>
           <Switch
-            label="Share with Anthropic for Ask"
+            label="Share with Anthropic for Ask and quote checks"
             value={aiSharing.on}
             disabled={aiSharing.status !== 'ready'}
             onValueChange={(on) => void aiSharing.setOn(on)}

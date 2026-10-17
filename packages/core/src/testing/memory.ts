@@ -407,7 +407,7 @@ export const memoryReminderSettings = (
 export const memoryPreferences = (
   initial: Partial<DevicePreferences> = {},
 ): DevicePreferencesRepo & { failNextUpdate: () => void } => {
-  let preferences: DevicePreferences = { onboarded: false, aiSharing: false, ...initial }
+  let preferences: DevicePreferences = { onboarded: false, aiSharingOwner: null, ...initial }
   let fail = false
   const watchers = new Set<(p: DevicePreferences) => void>()
   return {

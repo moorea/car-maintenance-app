@@ -233,11 +233,12 @@ export interface DevicePreferences {
   /** The first-run introduction has been seen or skipped on this phone. */
   onboarded: boolean
   /**
-   * The owner allowed Ask and the quote checker to send their question, their car's records or a
-   * photo of a quote to Anthropic, which runs the model that answers (App Store guideline
-   * 5.1.2(i)). Off until they say yes, and they can turn it off again in Account.
+   * The account id of the owner who allowed Ask and the quote checker to send their question,
+   * their car's records or a photo of a quote to Anthropic, which runs the model that answers
+   * (App Store guideline 5.1.2(i)). Null until someone says yes. Holding the id means someone
+   * else signing in on this phone is asked again.
    */
-  aiSharing: boolean
+  aiSharingOwner: string | null
 }
 
 export interface DevicePreferencesRepo {

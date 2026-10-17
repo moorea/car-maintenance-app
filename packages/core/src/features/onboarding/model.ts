@@ -29,7 +29,7 @@ export const ONBOARDING_PAGES: OnboardingPage[] = [
   {
     symbol: 'bell',
     title: "A heads-up when it's due",
-    body: 'Reminders follow your odometer, not a fixed calendar. Your own work counts in the log, and it all works offline.',
+    body: 'Reminders follow your odometer, not a fixed calendar. Your own work counts in the log, and your garage, log and reminders work offline.',
   },
 ]
 
@@ -68,7 +68,8 @@ export interface OnboardingDeps {
 
 /**
  * Screen model for the introduction a new owner sees before signing in, once per phone. Someone
- * already signed in, such as an owner updating the app, never sees it.
+ * already signed in, such as an owner updating the app, never sees it, even after signing out.
+ * Keep it running while signed in for that.
  */
 export const createOnboardingModel = (deps: OnboardingDeps): OnboardingModel => {
   let stops: Unsubscribe[] = []

@@ -253,7 +253,15 @@ export interface AnswerSource {
 }
 
 export type AssistantErrorKind =
-  'offline' | 'signed-out' | 'not-found' | 'rate-limited' | 'unavailable' | 'declined' | 'unknown'
+  | 'offline'
+  | 'signed-out'
+  | 'not-found'
+  | 'rate-limited'
+  | 'unavailable'
+  | 'declined'
+  /** The owner has not allowed sharing with Anthropic; nothing was sent. */
+  | 'not-allowed'
+  | 'unknown'
 
 /** Why a question got no answer. Adapters translate their own errors into these. */
 export class AssistantError extends Error {

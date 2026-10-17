@@ -7,7 +7,6 @@ import { AiSharingGate } from '../ai-sharing/AiSharingScreen'
 import { AskScreen } from '../ask/AskScreen'
 import { CarScreen } from '../car/CarScreen'
 import { GarageScreen } from '../garage/GarageScreen'
-import { OnboardingGate } from '../onboarding/OnboardingScreen'
 import { QuoteCheckScreen } from '../quote-check/QuoteCheckScreen'
 import { RemindersScreen } from '../reminders/RemindersScreen'
 import { ServiceLogScreen } from '../service-log/ServiceLogScreen'
@@ -41,12 +40,7 @@ const TABS: TabBarItem<AppTab>[] = [
 export function RootView(props: Props) {
   const { status, user, vehicles, selectedVehicleId, addingCar } = props
   if (status === 'starting') return <ActivityIndicator style={styles.fill} />
-  if (status === 'signed-out' || !user)
-    return (
-      <OnboardingGate>
-        <SignInScreen />
-      </OnboardingGate>
-    )
+  if (status === 'signed-out' || !user) return <SignInScreen />
 
   const vehicle = vehicles.find((v) => v.id === selectedVehicleId)
   if (status === 'ready' && vehicle && !addingCar) {
