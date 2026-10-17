@@ -61,6 +61,11 @@ jobs:
     timeout-minutes: 75
     env:
       CI: 1
+      # Pinned so a Maestro release cannot change or break CI unannounced.
+      MAESTRO_VERSION: 2.11.0
+      MAESTRO_CLI_NO_ANALYTICS: 1
+      # Starting the XCTest driver on a cold simulator can take over the 2 minute default.
+      MAESTRO_DRIVER_STARTUP_TIMEOUT: 300000
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
