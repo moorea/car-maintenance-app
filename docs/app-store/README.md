@@ -20,9 +20,13 @@ In the order they block submission:
 4. **A contact address and the policy's open details.** Fill in `[CONTACT EMAIL]`, `[REGION]`
    (the Supabase and PowerSync dashboards show it) and `[BACKUP PERIOD]` (set by the Supabase
    plan) in [privacy-policy.md](privacy-policy.md).
-5. **Host the privacy policy and a support page.** The app links to the policy in the public
-   repository until `EXPO_PUBLIC_PRIVACY_POLICY_URL` points somewhere better, such as a page on
-   the app's own domain. App Store Connect also needs a support URL.
+   The contact address also becomes the support page's email, and the site build warns while
+   any blank is left.
+5. **Turn on GitHub Pages** (one switch): Settings → Pages → Source: GitHub Actions, then run the
+   Deploy site workflow. `apps/site` then publishes the landing page, privacy policy and support
+   page at <https://moorea.github.io/car-maintenance-app/>, which the app and the listing already
+   link to. For a domain of your own, add it in Settings → Pages, set the `SITE_URL` repository
+   variable and `EXPO_PUBLIC_PRIVACY_POLICY_URL` to match.
 6. **Pricing.** The listing says nothing about price until it is decided.
 7. **App Store Connect:** create the app, paste the [App Privacy answers](privacy-labels.md) and
    [listing](listing.md), set availability to the United States, answer the age rating
