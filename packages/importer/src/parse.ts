@@ -69,6 +69,19 @@ const text = (value: string | undefined) => {
 /** The top-level component, before any colon: "POWER TRAIN:AUTOMATIC" is "POWER TRAIN". */
 const topLevel = (component: string) => component.split(':')[0]?.trim().toUpperCase() ?? ''
 
+/** What a collector read, with the first malformed line so a layout change can be diagnosed. */
+export interface Stats {
+  lines: number
+  kept: number
+  malformed: number
+  example?: string
+}
+
+const malformed = (stats: Stats, line: string, fields: number) => {
+  stats.malformed++
+  stats.example ??= `${fields} fields: ${line.slice(0, 300)}`
+}
+
 // Manufacturer communications: 14 tab-separated fields.
 const TSB = {
   id: 0,
@@ -93,21 +106,21 @@ const TSB_FIELDS = 14
  */
 export const bulletinCollector = (wanted: Set<string>) => {
   const byModelYear = new Map<string, Map<number, BulletinRow>>()
-  const stats = { lines: 0, kept: 0, malformed: 0 }
+  const stats: Stats = { lines: 0, kept: 0, malformed: 0 }
   return {
     stats,
     add: (line: string) => {
       stats.lines++
       const f = line.split('\t')
       if (f.length < TSB_FIELDS) {
-        if (line.trim() !== '') stats.malformed++
+        if (line.trim() !== '') malformed(stats, line, f.length)
         return
       }
       const key = keyOf(f[TSB.make] ?? '', f[TSB.model] ?? '', f[TSB.year] ?? '')
       if (!wanted.has(key)) return
       const id = Number(f[TSB.id]?.trim())
       if (!Number.isSafeInteger(id) || id <= 0) {
-        stats.malformed++
+        malformed(stats, line, f.length)
         return
       }
       stats.kept++
@@ -150,21 +163,21 @@ export const MAX_PLAUSIBLE_MILES = 999_999
 /** Collects the mileage of each complaint about the wanted model years. */
 export const milesCollector = (wanted: Set<string>) => {
   const miles = new Map<number, number>()
-  const stats = { lines: 0, kept: 0, malformed: 0 }
+  const stats: Stats = { lines: 0, kept: 0, malformed: 0 }
   return {
     stats,
     add: (line: string) => {
       stats.lines++
       const f = line.split('\t')
       if (f.length < CMPL_MIN_FIELDS) {
-        if (line.trim() !== '') stats.malformed++
+        if (line.trim() !== '') malformed(stats, line, f.length)
         return
       }
       if (!wanted.has(keyOf(f[CMPL.make] ?? '', f[CMPL.model] ?? '', f[CMPL.year] ?? ''))) return
       const odi = Number(f[CMPL.odi]?.trim())
       const value = Number(f[CMPL.miles]?.trim())
       if (!Number.isSafeInteger(odi) || odi <= 0) {
-        stats.malformed++
+        malformed(stats, line, f.length)
         return
       }
       if (!Number.isInteger(value) || value <= 0 || value > MAX_PLAUSIBLE_MILES) return

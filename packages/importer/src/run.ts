@@ -5,6 +5,7 @@ import {
   type BulletinRow,
   type MilesRow,
   type ModelYear,
+  type Stats,
 } from './parse.ts'
 import { sourcesFor, type Source } from './sources.ts'
 
@@ -43,11 +44,11 @@ export const MILES_BATCH = 5_000
  */
 export const MAX_MALFORMED_SHARE = 0.05
 
-const check = (kind: string, stats: { lines: number; malformed: number }) => {
+const check = (kind: string, stats: Stats) => {
   if (stats.lines === 0) throw new Error(`NHTSA's ${kind} files had no lines`)
   if (stats.malformed / stats.lines > MAX_MALFORMED_SHARE)
     throw new Error(
-      `${stats.malformed} of ${stats.lines} lines in NHTSA's ${kind} files are malformed; has the layout changed?`,
+      `${stats.malformed} of ${stats.lines} lines in NHTSA's ${kind} files are malformed; has the layout changed? The first had ${stats.example ?? 'no example'}`,
     )
 }
 

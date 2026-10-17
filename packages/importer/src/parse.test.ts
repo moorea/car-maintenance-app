@@ -134,6 +134,7 @@ describe('bulletinCollector', () => {
     c.add('')
     c.add(tsb({ id: 'abc' }))
     expect(c.stats).toMatchObject({ lines: 3, malformed: 2 })
+    expect(c.stats.example).toBe('3 fields: not\ttab\tseparated')
     expect(c.rowsFor(CRV)).toEqual([])
   })
 
