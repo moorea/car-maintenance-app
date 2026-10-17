@@ -15,3 +15,4 @@ export {
   type BackendError,
   type CrudBackend,
 } from './upload'
+export { makeName, nhtsaVinDecoder } from './vinDecoder'

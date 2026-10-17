@@ -1,0 +1,147 @@
+import type { AddCarActions, AddCarState } from '@car/core'
+import { Button, Column, Host, ScrollView, Switch, Text } from '@expo/ui'
+import { ERROR, TextField } from '../../ui/TextField'
+
+type Props = AddCarState &
+  Pick<
+    AddCarActions,
+    'setVin' | 'lookUpVin' | 'enterManually' | 'back' | 'setField' | 'setSevereDuty' | 'save'
+  > & { onCancel?: (() => void) | undefined }
+
+const MUTED = '#666'
+const TITLE = { fontSize: 24, fontWeight: '700' } as const
+const NOTE = { fontSize: 13, color: MUTED } as const
+
+/** Pure rendering of the add car model: the VIN step, then the details to check and save. */
+export function AddCarView(props: Props) {
+  return (
+    <Host style={{ flex: 1 }}>
+      <ScrollView>
+        <Column spacing={16} style={{ padding: 16 }}>
+          {props.step === 'vin' ? <VinStep {...props} /> : <DetailsStep {...props} />}
+        </Column>
+      </ScrollView>
+    </Host>
+  )
+}
+
+function VinStep({
+  vin,
+  busy,
+  fieldErrors,
+  error,
+  setVin,
+  lookUpVin,
+  enterManually,
+  onCancel,
+}: Props) {
+  return (
+    <>
+      <Text textStyle={TITLE}>Add your car</Text>
+      <Text>
+        Enter your VIN and we'll look up the exact model, so your schedule and recalls match your
+        car.
+      </Text>
+      <TextField
+        label="VIN"
+        value={vin}
+        onChangeText={setVin}
+        error={fieldErrors.vin}
+        placeholder="17 letters and numbers"
+        autoCapitalize="characters"
+      />
+      <Text textStyle={NOTE}>
+        It's on the dashboard by the windshield on the driver's side, on the driver's door frame,
+        and on your registration and insurance card.
+      </Text>
+      {error ? <Text textStyle={{ color: ERROR }}>{error}</Text> : null}
+      <Button
+        label={busy ? 'Looking up…' : 'Look up VIN'}
+        disabled={busy}
+        onPress={() => void lookUpVin()}
+      />
+      <Button
+        variant="text"
+        label="Enter year, make and model instead"
+        disabled={busy}
+        onPress={enterManually}
+      />
+      {onCancel ? (
+        <Button variant="text" label="Cancel" disabled={busy} onPress={onCancel} />
+      ) : null}
+    </>
+  )
+}
+
+function DetailsStep(props: Props) {
+  const { decoded, draft, severeDuty, busy, fieldErrors, error, setField } = props
+  const found = decoded && [decoded.engine, decoded.drivetrain].filter(Boolean).join(' · ')
+  const defaultName = [draft.year, draft.make, draft.model].filter(Boolean).join(' ')
+  return (
+    <>
+      <Text textStyle={TITLE}>{decoded ? 'Is this your car?' : 'Your car'}</Text>
+      {decoded ? (
+        <Text textStyle={NOTE}>{`From VIN ${decoded.vin}${found ? `. ${found}` : ''}`}</Text>
+      ) : null}
+      <TextField
+        label="Year"
+        value={draft.year}
+        onChangeText={(v) => setField('year', v)}
+        error={fieldErrors.year}
+        placeholder="e.g. 2019"
+        keyboardType="number-pad"
+      />
+      <TextField
+        label="Make"
+        value={draft.make}
+        onChangeText={(v) => setField('make', v)}
+        error={fieldErrors.make}
+        placeholder="e.g. Toyota"
+        autoCapitalize="words"
+      />
+      <TextField
+        label="Model"
+        value={draft.model}
+        onChangeText={(v) => setField('model', v)}
+        error={fieldErrors.model}
+        placeholder="e.g. RAV4"
+        autoCapitalize="words"
+      />
+      <TextField
+        label="Trim (optional)"
+        value={draft.trim}
+        onChangeText={(v) => setField('trim', v)}
+        error={fieldErrors.trim}
+        placeholder="e.g. XLE"
+        autoCapitalize="words"
+      />
+      <TextField
+        label="Current mileage (optional)"
+        value={draft.odometerMiles}
+        onChangeText={(v) => setField('odometerMiles', v)}
+        error={fieldErrors.odometerMiles}
+        keyboardType="number-pad"
+      />
+      <TextField
+        label="Nickname (optional)"
+        value={draft.nickname}
+        onChangeText={(v) => setField('nickname', v)}
+        error={fieldErrors.nickname}
+        placeholder={defaultName || 'My car'}
+        autoCapitalize="words"
+      />
+      <Switch value={severeDuty} onValueChange={props.setSevereDuty} label="Severe driving" />
+      <Text textStyle={NOTE}>
+        Mostly short trips, stop-and-go traffic, towing, dusty roads or extreme heat. Uses the
+        shorter service intervals.
+      </Text>
+      {error ? <Text textStyle={{ color: ERROR }}>{error}</Text> : null}
+      <Button
+        label={busy ? 'Saving…' : 'Save car'}
+        disabled={busy}
+        onPress={() => void props.save()}
+      />
+      <Button variant="text" label="Back" disabled={busy} onPress={props.back} />
+    </>
+  )
+}

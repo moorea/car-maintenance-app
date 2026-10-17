@@ -1,4 +1,5 @@
 import type {
+  OdometerReading,
   OdometerRepo,
   ScheduleRepo,
   ServiceRecordRepo,
@@ -10,6 +11,7 @@ import type { CommonPowerSyncDatabase } from '@powersync/common'
 import { readOwner } from './session'
 import {
   fromServiceRecord,
+  fromVehicle,
   toMaintenanceItem,
   toOdometerReading,
   toServiceRecord,
@@ -48,6 +50,19 @@ const watchRows = (
     { signal: controller.signal, tables: [table] },
   )
   return () => controller.abort()
+}
+
+/** Same text format as synced timestamptz values, so local and synced rows sort alike. */
+const now = () => new Date().toISOString().replace('T', ' ')
+
+const insertReading = async (
+  db: Pick<CommonPowerSyncDatabase, 'execute'>,
+  reading: OdometerReading,
+): Promise<void> => {
+  await db.execute(
+    "insert into odometer_readings (id, vehicle_id, read_on, miles, source) values (uuid(), ?, ?, ?, 'manual')",
+    [reading.vehicleId, reading.date, reading.miles],
+  )
 }
 
 /** What the first-sync check reads from PowerSync. */
@@ -125,6 +140,18 @@ export const createPowerSyncRepositories = (
       )
       return row ? toVehicle(row) : undefined
     },
+    // One transaction, so the reading uploads after its car and never on its own.
+    add: async (ownerId, vehicle, firstReading) => {
+      const row = { ...fromVehicle(ownerId, vehicle), updated_at: now() }
+      const columns = Object.keys(row)
+      await db.writeTransaction(async (tx) => {
+        await tx.execute(
+          `insert into vehicles (${columns.join(', ')}) values (${columns.map(() => '?').join(', ')})`,
+          Object.values(row),
+        )
+        if (firstReading) await insertReading(tx, firstReading)
+      })
+    },
   },
 
   records: {
@@ -139,9 +166,7 @@ export const createPowerSyncRepositories = (
       ),
 
     add: async (record) => {
-      // Same text format as synced timestamptz values, so the created_at tie-break sorts both alike.
-      const createdAt = new Date().toISOString().replace('T', ' ')
-      const row = { ...fromServiceRecord(record), created_at: createdAt }
+      const row = { ...fromServiceRecord(record), created_at: now() }
       const columns = Object.keys(row)
       await db.execute(
         `insert into service_records (${columns.join(', ')}) values (${columns.map(() => '?').join(', ')})`,
@@ -158,12 +183,7 @@ export const createPowerSyncRepositories = (
           [vehicleId],
         )
       ).map(toOdometerReading),
-    add: async (reading) => {
-      await db.execute(
-        "insert into odometer_readings (id, vehicle_id, read_on, miles, source) values (uuid(), ?, ?, ?, 'manual')",
-        [reading.vehicleId, reading.date, reading.miles],
-      )
-    },
+    add: (reading) => insertReading(db, reading),
   },
 
   schedule: {

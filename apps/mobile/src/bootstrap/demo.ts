@@ -5,8 +5,25 @@ import {
   memoryServiceRecords,
   memorySync,
   memoryVehicles,
+  memoryVinDecoder,
   OWNER,
 } from '@car/core/testing'
+
+/** A VIN the demo's offline decoder knows, for previews where the real lookup cannot run. */
+export const DEMO_VIN = '1HGCM82633A004352'
+
+/** Decodes only DEMO_VIN, so the web preview never depends on NHTSA being reachable. */
+export const demoVinDecoder = () =>
+  memoryVinDecoder([
+    {
+      vin: DEMO_VIN,
+      year: 2003,
+      make: 'Honda',
+      model: 'Accord',
+      trim: 'EX-V6',
+      engine: '3.0L 6-cyl',
+    },
+  ])
 
 /** Sample data for running the app without a backend, e.g. before Supabase is set up. */
 export const createDemoRepositories = () => ({
@@ -15,7 +32,15 @@ export const createDemoRepositories = () => ({
   auth: memoryAuth({ user: { id: OWNER, email: 'demo@example.com' }, userIdFor: () => OWNER }),
   sync: memorySync(),
   vehicles: memoryVehicles([
-    { id: 'demo', configId: 'demo', nickname: 'Demo car', severeDuty: false },
+    {
+      id: 'demo',
+      configId: 'demo',
+      year: 2021,
+      make: 'Toyota',
+      model: 'RAV4',
+      nickname: 'Demo car',
+      severeDuty: false,
+    },
   ]),
   odometer: memoryOdometer(),
   schedule: memorySchedule(),

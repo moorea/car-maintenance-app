@@ -1,4 +1,5 @@
 import type { Clock, IdGenerator } from '@car/core'
+import { nhtsaVinDecoder } from '@car/data'
 import { randomUUID } from 'expo-crypto'
 import { backendConfig } from './config'
 import { createDemoRepositories } from './demo'
@@ -15,5 +16,7 @@ const config = backendConfig()
 export const deps = {
   clock,
   ids,
+  // NHTSA's lookup is free and needs no account, so demo mode uses it too.
+  vinDecoder: nhtsaVinDecoder(),
   ...(config ? createLiveRepositories(config) : createDemoRepositories()),
 }

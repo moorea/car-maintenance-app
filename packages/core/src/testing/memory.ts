@@ -1,7 +1,10 @@
 import {
   AuthError,
+  VinDecodeError,
   type AuthErrorKind,
   type AuthUser,
+  type DecodedVin,
+  type VinDecodeErrorKind,
   type MaintenanceItem,
   type OdometerReading,
   type ServiceRecord,
@@ -14,6 +17,7 @@ import type {
   IdGenerator,
   SyncStatus,
   OdometerRepo,
+  VinDecoder,
   ScheduleRepo,
   ServiceRecordRepo,
   VehicleRepo,
@@ -24,15 +28,30 @@ import type { IsoDate } from '../lib/date'
 /** The owner `memoryVehicles` assumes when not told otherwise. */
 export const OWNER = 'u1'
 
-/** Vehicles keyed by owner, so tests can model what each signed-in user sees. */
+/**
+ * Vehicles keyed by owner, so tests can model what each signed-in user sees. `added` records the
+ * first odometer reading saved with each new car; `failNextAdd` makes the next save throw.
+ */
 export const memoryVehicles = (
   initial: Vehicle[] = [],
   ownerOf: (vehicle: Vehicle) => string = () => OWNER,
-): VehicleRepo & { set: (vehicles: Vehicle[]) => void } => {
+): VehicleRepo & {
+  set: (vehicles: Vehicle[]) => void
+  added: { ownerId: string; vehicle: Vehicle; firstReading?: OdometerReading }[]
+  failNextAdd: (message: string) => void
+} => {
   let vehicles = [...initial]
+  const addedOwners = new Map<string, string>()
+  const added: { ownerId: string; vehicle: Vehicle; firstReading?: OdometerReading }[] = []
+  let nextFailure: string | undefined
   const watchers = new Set<{ ownerId: string; onChange: (v: Vehicle[]) => void }>()
-  const owned = (ownerId: string) => vehicles.filter((v) => ownerOf(v) === ownerId)
+  const owner = (v: Vehicle) => addedOwners.get(v.id) ?? ownerOf(v)
+  const owned = (ownerId: string) => vehicles.filter((v) => owner(v) === ownerId)
+  const notify = () => {
+    for (const w of watchers) w.onChange(owned(w.ownerId))
+  }
   return {
+    added,
     get: async (id) => vehicles.find((v) => v.id === id),
     watchOwned: (ownerId, onChange) => {
       const watcher = { ownerId, onChange }
@@ -40,12 +59,50 @@ export const memoryVehicles = (
       onChange(owned(ownerId))
       return () => watchers.delete(watcher)
     },
+    add: async (ownerId, vehicle, firstReading) => {
+      if (nextFailure !== undefined) {
+        const message = nextFailure
+        nextFailure = undefined
+        throw new Error(message)
+      }
+      addedOwners.set(vehicle.id, ownerId)
+      vehicles = [...vehicles, vehicle]
+      added.push({ ownerId, vehicle, ...(firstReading && { firstReading }) })
+      notify()
+    },
     /** Replaces the vehicles, as a sync would, and notifies watchers. */
     set: (next) => {
       vehicles = [...next]
-      for (const w of watchers) w.onChange(owned(w.ownerId))
+      notify()
+    },
+    failNextAdd: (message) => {
+      nextFailure = message
     },
   }
+}
+
+/** Decodes the VINs it is given; any other VIN is not found. `failNext` makes the next one throw. */
+export const memoryVinDecoder = (known: DecodedVin[] = []) => {
+  let nextFailure: VinDecodeErrorKind | undefined
+  const looked: string[] = []
+  const decoder: VinDecoder & { looked: string[]; failNext: (kind: VinDecodeErrorKind) => void } = {
+    looked,
+    failNext: (kind) => {
+      nextFailure = kind
+    },
+    decode: async (vin) => {
+      looked.push(vin)
+      if (nextFailure !== undefined) {
+        const kind = nextFailure
+        nextFailure = undefined
+        throw new VinDecodeError(kind)
+      }
+      const found = known.find((d) => d.vin === vin)
+      if (!found) throw new VinDecodeError('not-found')
+      return found
+    },
+  }
+  return decoder
 }
 
 /**

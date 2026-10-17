@@ -20,11 +20,35 @@ type Defined<T> = Omit<T, UndefinedKeys<T>> & {
 const defined = <T extends object>(o: T): Defined<T> =>
   Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as Defined<T>
 
-export const toVehicle = (r: Row): Vehicle => ({
-  id: required(text(r.id), 'id'),
-  configId: required(text(r.config_id), 'config_id'),
-  nickname: text(r.nickname) ?? '',
-  severeDuty: r.severe_duty === 1,
+// A malformed row falls back to blanks rather than throwing, so one bad car never hides the rest.
+export const toVehicle = (r: Row): Vehicle =>
+  defined({
+    id: required(text(r.id), 'id'),
+    configId: text(r.config_id),
+    vin: text(r.vin),
+    year: num(r.year) ?? 0,
+    make: text(r.make) ?? '',
+    model: text(r.model) ?? '',
+    trim: text(r.trim),
+    engine: text(r.engine),
+    drivetrain: text(r.drivetrain),
+    nickname: text(r.nickname) ?? '',
+    severeDuty: r.severe_duty === 1,
+  })
+
+/** The columns the device writes for a new car. The server fills in config_id. */
+export const fromVehicle = (ownerId: string, v: Vehicle) => ({
+  id: v.id,
+  owner_id: ownerId,
+  vin: v.vin ?? null,
+  year: v.year,
+  make: v.make,
+  model: v.model,
+  trim: v.trim ?? null,
+  engine: v.engine ?? null,
+  drivetrain: v.drivetrain ?? null,
+  nickname: v.nickname,
+  severe_duty: v.severeDuty ? 1 : 0,
 })
 
 export const toServiceRecord = (r: Row): ServiceRecord =>

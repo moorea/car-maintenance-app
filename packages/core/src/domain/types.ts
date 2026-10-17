@@ -3,11 +3,46 @@ import type { IsoDate } from '../lib/date'
 export type VehicleId = string
 export type MaintenanceItemId = string
 
-export interface Vehicle {
+/** What the owner's car is. A VIN decode or the owner fills it in; it picks the shared config. */
+export interface VehicleDescription {
+  year: number
+  make: string
+  model: string
+  trim?: string
+  /** Such as "2.0L 4-cyl" or "Electric". */
+  engine?: string
+  /** Such as "FWD" or "AWD". */
+  drivetrain?: string
+}
+
+export interface Vehicle extends VehicleDescription {
   id: VehicleId
-  configId: string
+  /**
+   * The shared configuration (schedule, recalls) the server matched from the description. Absent
+   * until a newly added car has uploaded and synced back.
+   */
+  configId?: string
+  vin?: string
   nickname: string
   severeDuty: boolean
+}
+
+/** What a VIN decodes to. */
+export interface DecodedVin extends VehicleDescription {
+  vin: string
+}
+
+export type VinDecodeErrorKind = 'not-found' | 'network' | 'unknown'
+
+/** A VIN lookup failure the screen can explain. Adapters translate their own errors into these. */
+export class VinDecodeError extends Error {
+  constructor(
+    readonly kind: VinDecodeErrorKind,
+    message: string = kind,
+  ) {
+    super(message)
+    this.name = 'VinDecodeError'
+  }
 }
 
 export interface OdometerReading {
