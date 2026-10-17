@@ -30,6 +30,9 @@ jobs:
       - run: pnpm lint
       - run: pnpm format:check
       - run: pnpm test
+      # The landing, privacy and support pages; deploy-site.yml publishes them after merge.
+      - name: Build the site
+        run: pnpm --filter @car/site build
       # Catches what typechecking cannot: Metro failing to resolve workspace packages, or
       # dependencies that do not match the Expo SDK.
       - name: Expo dependency check

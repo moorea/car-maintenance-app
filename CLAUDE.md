@@ -16,6 +16,8 @@ issues, with reminders and an AI assistant grounded in that data. US only at lau
 - `powersync/sync-rules.yaml`: which rows sync to each user's phone. Tested in `packages/data`.
 - `apps/mobile`: Expo (React Native) app. Thin: screens wire models to pure views.
   `src/bootstrap/deps.ts` is the composition root that picks real or demo adapters.
+- `apps/site`: static landing, privacy policy and support pages, built from the listing copy,
+  `docs/app-store/privacy-policy.md` and the app's colour roles. Deployed to GitHub Pages.
 - `supabase/migrations`: SQL migrations. `supabase/tests`: pgTAP tests for row-level security.
 - `docs/adr`: decisions. Read them before changing architecture.
 
