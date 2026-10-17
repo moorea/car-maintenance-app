@@ -18,3 +18,4 @@ export {
 export { makeName, nhtsaVinDecoder } from './vinDecoder'
 export { storedReminderSettings } from './reminderSettings'
 export * from './assistant'
+export * from './quoteReader'

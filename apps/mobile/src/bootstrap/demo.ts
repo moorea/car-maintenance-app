@@ -263,6 +263,15 @@ export const createDemoRepositories = () => ({
       costCents: 3_898,
       notes: 'Did it myself',
     },
+    {
+      id: 'seed-4',
+      vehicleId: 'demo',
+      itemId: 'demo-engine-air',
+      performedOn: '2026-08-15',
+      odometerMiles: 33_400,
+      costCents: 2_199,
+      notes: 'Did it myself',
+    },
   ]),
 })
 

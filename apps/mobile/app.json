@@ -5,8 +5,20 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
-    "ios": { "supportsTablet": false },
+    "ios": {
+      "supportsTablet": false
+    },
     "android": {},
-    "plugins": ["expo-notifications"]
+    "plugins": [
+      "expo-notifications",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Choose a photo of a shop's quote to check it against your car's schedule.",
+          "cameraPermission": "Photograph a shop's quote to check it against your car's schedule.",
+          "microphonePermission": false
+        }
+      ]
+    ]
   }
 }

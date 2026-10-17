@@ -5,6 +5,8 @@ import type {
   DecodedVin,
   MaintenanceItem,
   OdometerReading,
+  QuoteLine,
+  QuotePhoto,
   SafetyReport,
   ServiceRecord,
   Vehicle,
@@ -221,4 +223,21 @@ export interface LanguageModel {
     onEvent: (event: ModelEvent) => void,
     signal?: CancelSignal,
   ): Promise<ModelStopReason>
+}
+
+/** Reads the lines of a shop's quote from a photo, on the server. Needs a connection. */
+export interface QuoteReader {
+  /**
+   * Resolves with the quote's lines in order, empty when the photo shows no quote. Rejects with
+   * AssistantError, since it shares the assistant's service and daily limit.
+   */
+  read(photo: QuotePhoto, signal?: CancelSignal): Promise<QuoteLine[]>
+}
+
+/** The phone's camera and photo library. */
+export interface PhotoPicker {
+  /** Opens the camera; resolves with the photo, or undefined if the owner cancelled. */
+  take(): Promise<QuotePhoto | undefined>
+  /** Opens the photo library; resolves with the photo, or undefined if the owner cancelled. */
+  choose(): Promise<QuotePhoto | undefined>
 }

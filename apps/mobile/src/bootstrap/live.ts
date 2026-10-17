@@ -9,6 +9,7 @@ import {
   supabaseAuth,
   SupabaseConnector,
   remoteAssistant,
+  remoteQuoteReader,
 } from '@car/data'
 import { PowerSyncDatabase } from '@powersync/react-native'
 import { createClient } from '@supabase/supabase-js'
@@ -53,5 +54,12 @@ export const createLiveRepositories = (config: BackendConfig) => {
     fetch: streamingFetch as unknown as typeof fetch,
   })
 
-  return { auth, assistant, ...createPowerSyncRepositories(db) }
+  // Reading a quote photo runs in the same function; it answers with JSON, so no streaming.
+  const quoteReader = remoteQuoteReader({
+    url: `${config.supabaseUrl}/functions/v1/assistant/read-quote`,
+    accessToken: async () => (await supabase.auth.getSession()).data.session?.access_token,
+    fetch,
+  })
+
+  return { auth, assistant, quoteReader, ...createPowerSyncRepositories(db) }
 }

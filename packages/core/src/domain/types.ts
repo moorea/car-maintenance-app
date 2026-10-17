@@ -193,3 +193,18 @@ export class AssistantError extends Error {
     this.name = 'AssistantError'
   }
 }
+
+/** One line of a shop's quote or recommendation list, as the owner typed it or a photo read it. */
+export interface QuoteLine {
+  /** The work as the shop wrote it, such as "Front brake pads & rotors". */
+  text: string
+  /** The line's price, when the quote shows one. */
+  priceCents?: number
+}
+
+/** A photo of a shop's quote, as the phone's camera or photo library returned it. */
+export interface QuotePhoto {
+  mediaType: 'image/jpeg' | 'image/png' | 'image/webp'
+  /** The image file, base64-encoded, without a `data:` prefix. */
+  base64: string
+}
