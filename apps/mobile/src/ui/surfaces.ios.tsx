@@ -4,16 +4,28 @@ import {
   background,
   buttonBorderShape,
   buttonStyle,
+  contentShape,
   frame,
   glassEffect,
+  onTapGesture,
   padding as paddingModifier,
   shapes,
   tint as tintModifier,
 } from '@expo/ui/swift-ui/modifiers'
 import type { ReactNode } from 'react'
+import { Platform } from 'react-native'
 import { useColors, type ColorRole } from '../theme'
 import { Symbol } from './Symbol'
 import type { SymbolName } from './symbols'
+
+// Liquid Glass arrived in iOS 26. Before that, glass modifiers do nothing, so fall back to the
+// system material and a bordered button.
+const hasGlass = Number.parseInt(String(Platform.Version), 10) >= 26
+
+// Universal `onPress` adds its tap gesture inside the custom modifiers, so only the bare content
+// would respond. Appending it after the fill makes the whole padded shape tappable.
+const tappable = (onPress: (() => void) | undefined) =>
+  onPress ? [contentShape(shapes.rectangle()), onTapGesture(onPress)] : []
 
 interface CardProps {
   children: ReactNode
@@ -30,12 +42,12 @@ export function Card({ children, fill = 'surface', padding = 16, spacing, onPres
   return (
     <Column
       spacing={spacing ?? 0}
-      {...(onPress ? { onPress } : {})}
       // The frame stretches the card before the fill is painted, so the fill spans the width.
       modifiers={[
         paddingModifier({ all: padding }),
         frame({ maxWidth: Infinity, alignment: 'leading' }),
         background(colors[fill], shapes.roundedRectangle({ cornerRadius: 24 })),
+        ...tappable(onPress),
       ]}
     >
       {children}
@@ -50,7 +62,9 @@ export function GlassBar({ children }: { children: ReactNode }) {
       alignment="center"
       modifiers={[
         paddingModifier({ all: 4 }),
-        glassEffect({ glass: { variant: 'regular', interactive: true }, shape: 'capsule' }),
+        hasGlass
+          ? glassEffect({ glass: { variant: 'regular', interactive: true }, shape: 'capsule' })
+          : background({ type: 'material', material: 'regular' }, shapes.capsule()),
       ]}
     >
       {children}
@@ -75,8 +89,14 @@ export function GlassIconButton({
 }: GlassButtonProps) {
   const colors = useColors()
   return (
-    <Button onPress={onPress} modifiers={[buttonStyle('glass'), buttonBorderShape('circle')]}>
-      <Symbol name={symbol} size={size * 0.46} color={colors[tint]} />
+    <Button
+      onPress={onPress}
+      modifiers={[buttonStyle(hasGlass ? 'glass' : 'bordered'), buttonBorderShape('circle')]}
+    >
+      {/* The label sets the button's size; the glass style adds its own margin around it. */}
+      <Column alignment="center" modifiers={[frame({ width: size - 16, height: size - 16 })]}>
+        <Symbol name={symbol} size={size * 0.46} color={colors[tint]} />
+      </Column>
     </Button>
   )
 }
@@ -105,11 +125,11 @@ export function Segment({ children, selected, onPress }: SegmentProps) {
     <Column
       alignment="center"
       spacing={1}
-      onPress={onPress}
       modifiers={[
         paddingModifier({ vertical: 6, horizontal: 4 }),
         frame({ maxWidth: Infinity }),
         ...(selected ? [background(colors.selectedFill, shapes.capsule())] : []),
+        ...tappable(onPress),
       ]}
     >
       {children}
@@ -130,11 +150,11 @@ export function PillButton({ label, onPress, fill, text }: PillButtonProps) {
   return (
     <Row
       alignment="center"
-      onPress={onPress}
       modifiers={[
         frame({ height: 44 }),
         frame({ maxWidth: Infinity }),
         background(colors[fill], shapes.capsule()),
+        ...tappable(onPress),
       ]}
     >
       <Text textStyle={{ fontSize: 16, fontWeight: '600', color: colors[text] }}>{label}</Text>

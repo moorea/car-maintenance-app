@@ -183,4 +183,25 @@ describe('garage model', () => {
     await settle()
     expect(model.getState().nextUp).toEqual(before)
   })
+
+  it('shows an error and no stale rows when the schedule cannot be read', async () => {
+    // The vehicle repo does not know the car, so reading its schedule throws.
+    const failing = createGarageModel({
+      vehicle: car,
+      vehicles: memoryVehicles([]),
+      schedule: memorySchedule([oil]),
+      records: memoryServiceRecords(),
+      odometer: memoryOdometer(readings),
+      clock: fixedClock(TODAY),
+      safety: memorySafety(),
+    })
+    failing.getState().start()
+    await settle()
+    expect(failing.getState()).toMatchObject({
+      status: 'ready',
+      nextUp: undefined,
+      comingUp: [],
+      error: 'Unknown vehicle v1',
+    })
+  })
 })

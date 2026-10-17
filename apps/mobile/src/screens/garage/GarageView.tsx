@@ -119,7 +119,8 @@ function NextUpCard(props: Props) {
       </Card>
     )
   }
-  const forCar = props.vehicles.length > 1 ? ` · ${props.vehicle.nickname.toUpperCase()}` : ''
+  const carName = props.vehicle.nickname || describeCar(props.vehicle)
+  const forCar = props.vehicles.length > 1 ? ` · ${carName.toUpperCase()}` : ''
   return (
     <Card fill="accent" padding={18} spacing={14}>
       <Column spacing={4}>

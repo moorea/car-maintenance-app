@@ -107,6 +107,7 @@ export const createGarageModel = (deps: GarageDeps): GarageModel => {
         }
         set({
           status: vehicle.configId === undefined ? 'unmatched' : 'ready',
+          today: formatWeekday(today),
           odometer:
             latest && currentMiles !== undefined
               ? describeOdometer(latest, currentMiles, today)
@@ -119,6 +120,8 @@ export const createGarageModel = (deps: GarageDeps): GarageModel => {
         if (mine !== generation) return
         set({
           status: 'ready',
+          nextUp: undefined,
+          comingUp: [],
           error: e instanceof Error ? e.message : 'Could not read the schedule',
         })
       }
@@ -131,7 +134,8 @@ export const createGarageModel = (deps: GarageDeps): GarageModel => {
 
       start: () => {
         if (subscriptions.length > 0) return
-        // Logging a service moves the schedule on, so recompute whenever the records change.
+        // Logging a service moves the schedule on, so recompute whenever the records change. A
+        // new odometer reading does not refresh it: the odometer port has no watch yet.
         subscriptions.push(
           deps.records.watchForVehicle(vehicle.id, (records) => void refresh(records)),
         )

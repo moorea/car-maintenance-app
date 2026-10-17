@@ -30,8 +30,10 @@ export const describeWhen = (
       return `Was due at ${formatMiles(due.dueMiles)}`
     return due.dueDate ? `Was due ${formatDay(due.dueDate, today)}` : 'Overdue'
   }
-  if (due.trigger === 'miles' && milesLeft !== undefined)
-    return milesLeft <= 0 ? 'Due now' : `In ${formatMiles(roundMiles(milesLeft))}`
+  if (due.trigger === 'miles' && milesLeft !== undefined) {
+    const rounded = roundMiles(milesLeft)
+    return rounded <= 0 ? 'Due now' : `In ${formatMiles(rounded)}`
+  }
   if (due.dueDate) return due.dueDate === today ? 'Due now' : `By ${formatDay(due.dueDate, today)}`
   return due.dueMiles !== undefined ? `At ${formatMiles(due.dueMiles)}` : 'Due now'
 }
