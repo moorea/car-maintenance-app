@@ -1,5 +1,5 @@
 import type { CoverageState, WarrantyActions, WarrantyRow, WarrantyState } from '@car/core'
-import { BottomSheet, Button, Column, Picker, Row, ScrollView, Spacer, Text } from '@expo/ui'
+import { BottomSheet, Button, Column, Picker, Row, ScrollView, Spacer } from '@expo/ui'
 import type { ReactNode } from 'react'
 import { ActivityIndicator, StyleSheet } from 'react-native'
 import { useColors, type ColorRole } from '../../theme'
@@ -9,6 +9,7 @@ import { TAB_BAR_CLEARANCE } from '../../ui/TabBar'
 import { TextField } from '../../ui/TextField'
 import { Symbol } from '../../ui/Symbol'
 import { Card, FillColumn, GlassIconButton, PillButton, ProgressBar } from '../../ui/surfaces'
+import { Text } from '../../ui/Text'
 
 type Props = WarrantyState &
   Pick<
@@ -46,9 +47,9 @@ export function WarrantyView(props: Props) {
           style={{ padding: 16, paddingTop: 60, paddingBottom: TAB_BAR_CLEARANCE }}
         >
           <Row alignment="center">
-            <GlassIconButton symbol="back" onPress={props.onBack} />
+            <GlassIconButton symbol="back" label="Back" onPress={props.onBack} />
             <Spacer flexible />
-            <GlassIconButton symbol="plus" onPress={props.openNew} />
+            <GlassIconButton symbol="plus" label="Add warranty" onPress={props.openNew} />
           </Row>
           <Column spacing={2}>
             <Text textStyle={{ ...OVERLINE, color: colors.textSecondary }}>
