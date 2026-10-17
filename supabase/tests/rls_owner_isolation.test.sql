@@ -1,7 +1,7 @@
 -- Run with `supabase test db`. Proves one owner can never read or write another owner's car data.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(11);
+select plan(15);
 
 insert into auth.users (id) values
   ('00000000-0000-0000-0000-00000000000a'),
@@ -13,6 +13,9 @@ insert into public.vehicles (id, owner_id, year, make, model, nickname) values
   ('20000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-00000000000b', 2021, 'Toyota', 'RAV4', 'B car');
 insert into public.service_records (vehicle_id, performed_on)
   values ('20000000-0000-0000-0000-00000000000b', '2026-01-01');
+insert into public.warranties (id, vehicle_id, kind, starts_on, months) values
+  ('40000000-0000-0000-0000-00000000000a', '20000000-0000-0000-0000-00000000000a', 'basic', '2024-01-01', 36),
+  ('40000000-0000-0000-0000-00000000000b', '20000000-0000-0000-0000-00000000000b', 'basic', '2024-01-01', 36);
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', true);
@@ -60,6 +63,23 @@ select throws_ok(
 select throws_ok(
   $$ update public.service_records set shop = 'edited' $$,
   '42501', null, 'service history is append-only'
+);
+
+select is((select count(*) from public.warranties)::int, 1,
+  'owner sees only the warranties on their own car');
+select lives_ok(
+  $$ update public.warranties set months = 30 where id = '40000000-0000-0000-0000-00000000000a' $$,
+  'owner can correct a warranty on their own car'
+);
+select throws_ok(
+  $$ update public.warranties set vehicle_id = '20000000-0000-0000-0000-00000000000b'
+     where id = '40000000-0000-0000-0000-00000000000a' $$,
+  '42501', null, 'owner cannot move a warranty onto someone else''s car'
+);
+select throws_ok(
+  $$ insert into public.warranties (vehicle_id, kind, starts_on, months)
+     values ('20000000-0000-0000-0000-00000000000b', 'extended', '2026-01-01', 48) $$,
+  '42501', null, 'owner cannot add a warranty to someone else''s car'
 );
 
 select * from finish();

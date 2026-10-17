@@ -80,6 +80,12 @@ describe('applyCrud', () => {
     expect(dropped?.message).toMatch(/not allowed/)
   })
 
+  it('uploads a warranty edit as an update, since warranties are editable', async () => {
+    const { backend, calls } = fakeBackend()
+    await applyCrud(backend, entry(UpdateType.PATCH, 'warranties', { months: 30 }), context())
+    expect(calls).toEqual([['update', 'warranties', 'row1', { months: 30 }]])
+  })
+
   it('never uploads tables that are read-only on the device', async () => {
     const { backend, calls } = fakeBackend()
     const dropped = await applyCrud(

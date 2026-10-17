@@ -8,9 +8,11 @@ import { CarView } from './CarView'
 export function CarScreen({
   vehicle,
   onCheckQuote,
+  onWarranty,
 }: {
   vehicle: Vehicle
   onCheckQuote: () => void
+  onWarranty: () => void
 }) {
   // A new car gets its configuration once it has synced back, and severe driving changes the
   // intervals, so either starts fresh models.
@@ -22,5 +24,13 @@ export function CarScreen({
   const documents = useStore(
     useScreenModel(vehicle.id, () => createAttachmentsModel({ vehicleId: vehicle.id, ...deps })),
   )
-  return <CarView car={car} safety={safety} documents={documents} onCheckQuote={onCheckQuote} />
+  return (
+    <CarView
+      car={car}
+      safety={safety}
+      documents={documents}
+      onCheckQuote={onCheckQuote}
+      onWarranty={onWarranty}
+    />
+  )
 }

@@ -28,12 +28,13 @@ interface Props {
   safety: SafetyState & Pick<SafetyActions, 'toggle'>
   documents: AttachmentsProps
   onCheckQuote: () => void
+  onWarranty: () => void
 }
 
 const OVERLINE = { fontSize: 13, fontWeight: '600', letterSpacing: 0.5 } as const
 
 /** Pure rendering of a car's page: odometer, documents, then schedule, recalls or known issues. */
-export function CarView({ car, safety, documents, onCheckQuote }: Props) {
+export function CarView({ car, safety, documents, onCheckQuote, onWarranty }: Props) {
   const colors = useColors()
   if (car.status === 'loading') return <ActivityIndicator style={styles.fill} />
 
@@ -58,6 +59,7 @@ export function CarView({ car, safety, documents, onCheckQuote }: Props) {
           </Column>
           <OdometerCard {...car} />
           <QuoteCard onPress={onCheckQuote} />
+          <WarrantyCard onPress={onWarranty} />
           <DocumentsSection {...documents} />
           <SegmentedControl options={sections} selected={car.section} onSelect={car.showSection} />
           {car.section === 'schedule' ? (
@@ -132,6 +134,25 @@ function QuoteCard({ onPress }: { onPress: () => void }) {
           <Text textStyle={{ fontSize: 16, fontWeight: '600' }}>Check a shop’s quote</Text>
           <Text textStyle={{ fontSize: 13, color: colors.textSecondary }}>
             See which recommendations are actually due
+          </Text>
+        </FillColumn>
+        <Symbol name="chevron" size={16} color={colors.textSecondary} />
+      </Row>
+    </Card>
+  )
+}
+
+/** Opens the car's warranties and the proof-of-care report. */
+function WarrantyCard({ onPress }: { onPress: () => void }) {
+  const colors = useColors()
+  return (
+    <Card padding={14} onPress={onPress}>
+      <Row alignment="center" spacing={12}>
+        <Symbol name="shield" size={22} color={colors.accent} />
+        <FillColumn spacing={1}>
+          <Text textStyle={{ fontSize: 16, fontWeight: '600' }}>Warranty & care report</Text>
+          <Text textStyle={{ fontSize: 13, color: colors.textSecondary }}>
+            Coverage left, and a PDF of your service history
           </Text>
         </FillColumn>
         <Symbol name="chevron" size={16} color={colors.textSecondary} />

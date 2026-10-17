@@ -43,6 +43,14 @@ export const SYMBOLS = {
   send: { ios: 'arrow.up', paths: ['M12 19V5M6 11l6-6 6 6'] },
   stop: { ios: 'stop.fill', paths: ['M7 7h10v10H7z'] },
   compose: { ios: 'square.and.pencil', paths: ['M4 20h4L19 9l-4-4L4 16z', 'M13 7l4 4'] },
+  shield: {
+    ios: 'checkmark.shield',
+    paths: ['M12 3l8 3v6c0 4.5-3.4 8.2-8 9-4.6-.8-8-4.5-8-9V6z', 'M8.5 12l2.5 2.5 4.5-5'],
+  },
+  share: {
+    ios: 'square.and.arrow.up',
+    paths: ['M12 15V3M8 7l4-4 4 4', 'M6 11H5v10h14V11h-1'],
+  },
   source: { ios: 'doc.text.magnifyingglass', paths: ['M5 4h10l4 4v12H5z'] },
   camera: {
     ios: 'camera',
