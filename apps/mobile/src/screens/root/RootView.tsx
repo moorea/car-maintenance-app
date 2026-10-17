@@ -2,7 +2,7 @@ import type { SessionActions, SessionState, Vehicle } from '@car/core'
 import { Button, Host, Picker, Row, Spacer, Text } from '@expo/ui'
 import { ActivityIndicator, StyleSheet, View } from 'react-native'
 import { AddCarScreen } from '../add-car/AddCarScreen'
-import { ServiceLogScreen } from '../service-log/ServiceLogScreen'
+import { CarScreen } from '../car/CarScreen'
 import { SignInScreen } from '../sign-in/SignInScreen'
 
 type Props = SessionState &
@@ -35,7 +35,7 @@ export function RootView(props: Props) {
         </Row>
       </Host>
       {showCar ? (
-        <ServiceLogScreen vehicleId={vehicle.id} />
+        <CarScreen vehicle={vehicle} />
       ) : status === 'syncing' ? (
         <View style={styles.fill}>
           <ActivityIndicator style={styles.spinner} />

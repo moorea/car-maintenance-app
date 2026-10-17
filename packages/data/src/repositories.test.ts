@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { ServiceRecord, Vehicle } from '@car/core'
+import type { SafetyReport, ServiceRecord, Vehicle } from '@car/core'
 import { PowerSyncDatabase } from '@powersync/node'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { PowerSyncBackendConnector } from '@powersync/common'
@@ -212,6 +212,72 @@ describe('PowerSync repositories', () => {
     expect(await repos.schedule.itemsForConfig('c1')).toEqual([
       { id: 'oil', configId: 'c1', task: 'Oil change', intervalMiles: 5000, intervalMonths: 6 },
     ])
+  })
+
+  it("reads a configuration's recalls, complaint summaries and check times, and follows changes", async () => {
+    await db.execute(
+      "insert into vehicle_configs (id, make, model, year) values ('c1', 'Toyota', 'RAV4', 2021)",
+    )
+    const repos = createPowerSyncRepositories(db)
+    const reports = collect<SafetyReport>((onChange) => repos.safety.watchForConfig('c1', onChange))
+    expect((await reports.waitFor(1))[0]).toEqual({ recalls: [], complaints: [] })
+
+    await db.writeTransaction(async (tx) => {
+      await tx.execute(
+        "update vehicle_configs set recalls_checked_at = '2026-10-17 12:00:00Z', complaints_checked_at = '2026-10-17 12:01:00Z' where id = 'c1'",
+      )
+      await tx.execute(
+        `insert into recalls (id, config_id, campaign, component, summary, remedy, reported_on, park_it, park_outside, over_the_air)
+         values ('r1', 'c1', '23V123000', 'ELECTRICAL SYSTEM', 'Wiring may chafe.', 'Dealers fix it.', '2023-01-26', 0, 1, 0),
+                ('r2', 'c9', '23V999000', null, 'Another car', null, null, 0, 0, 0)`,
+      )
+      await tx.execute(
+        `insert into complaint_summaries (id, config_id, component, complaints, crashes, fires, injuries, deaths, latest_filed_on, recent)
+         values ('s1', 'c1', 'ENGINE', 4, 1, 1, 2, 0, '2024-03-01', ?)`,
+        [
+          JSON.stringify([
+            { filed_on: '2024-03-01', summary: 'Smoke.' },
+            { filed_on: null, summary: 'Leak.' },
+            { bad: 1 },
+          ]),
+        ],
+      )
+    })
+
+    const values = await reports.waitFor(2)
+    reports.stop()
+    expect(values.at(-1)).toEqual({
+      recallsCheckedAt: '2026-10-17 12:00:00Z',
+      complaintsCheckedAt: '2026-10-17 12:01:00Z',
+      recalls: [
+        {
+          id: 'r1',
+          configId: 'c1',
+          campaign: '23V123000',
+          component: 'ELECTRICAL SYSTEM',
+          summary: 'Wiring may chafe.',
+          remedy: 'Dealers fix it.',
+          reportedOn: '2023-01-26',
+          parkIt: false,
+          parkOutside: true,
+          overTheAir: false,
+        },
+      ],
+      complaints: [
+        {
+          id: 's1',
+          configId: 'c1',
+          component: 'ENGINE',
+          complaints: 4,
+          crashes: 1,
+          fires: 1,
+          injuries: 2,
+          deaths: 0,
+          latestFiledOn: '2024-03-01',
+          recent: [{ filedOn: '2024-03-01', summary: 'Smoke.' }, { summary: 'Leak.' }],
+        },
+      ],
+    })
   })
 })
 

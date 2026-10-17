@@ -7,6 +7,7 @@ import {
   type VinDecodeErrorKind,
   type MaintenanceItem,
   type OdometerReading,
+  type SafetyReport,
   type ServiceRecord,
   type Vehicle,
   type VehicleId,
@@ -17,6 +18,7 @@ import type {
   IdGenerator,
   SyncStatus,
   OdometerRepo,
+  SafetyRepo,
   VinDecoder,
   ScheduleRepo,
   ServiceRecordRepo,
@@ -229,4 +231,25 @@ export const memorySync = (options: { synced?: boolean } = {}) => {
     },
   }
   return sync
+}
+
+const EMPTY_REPORT: SafetyReport = { recalls: [], complaints: [] }
+
+/** Safety reports keyed by config id. `set` replaces one, as a sync would, and notifies watchers. */
+export const memorySafety = (initial: Record<string, SafetyReport> = {}) => {
+  const reports = new Map(Object.entries(initial))
+  const watchers = new Set<{ configId: string; onChange: (r: SafetyReport) => void }>()
+  const repo: SafetyRepo & { set: (configId: string, report: SafetyReport) => void } = {
+    watchForConfig: (configId, onChange) => {
+      const watcher = { configId, onChange }
+      watchers.add(watcher)
+      onChange(reports.get(configId) ?? EMPTY_REPORT)
+      return () => watchers.delete(watcher)
+    },
+    set: (configId, report) => {
+      reports.set(configId, report)
+      for (const w of watchers) if (w.configId === configId) w.onChange(report)
+    },
+  }
+  return repo
 }

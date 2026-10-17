@@ -1,6 +1,8 @@
 import type {
   OdometerReading,
   OdometerRepo,
+  SafetyReport,
+  SafetyRepo,
   ScheduleRepo,
   ServiceRecordRepo,
   SyncStatus,
@@ -12,8 +14,11 @@ import { readOwner } from './session'
 import {
   fromServiceRecord,
   fromVehicle,
+  toComplaintSummary,
   toMaintenanceItem,
   toOdometerReading,
+  toRecall,
+  toSafetyReport,
   toServiceRecord,
   toVehicle,
 } from './rows'
@@ -23,6 +28,7 @@ export interface PowerSyncRepositories {
   records: ServiceRecordRepo
   odometer: OdometerRepo
   schedule: ScheduleRepo
+  safety: SafetyRepo
   sync: SyncStatus
 }
 
@@ -50,6 +56,51 @@ const watchRows = (
     { signal: controller.signal, tables: [table] },
   )
   return () => controller.abort()
+}
+
+/**
+ * Calls `onChange` with a configuration's recalls, complaint summaries and check times once all
+ * three have been read, and again whenever one of them changes.
+ */
+const watchSafety = (
+  db: CommonPowerSyncDatabase,
+  configId: string,
+  onChange: (report: SafetyReport) => void,
+): Unsubscribe => {
+  let config: Row | undefined
+  let recalls: Row[] | undefined
+  let complaints: Row[] | undefined
+  const emit = () => {
+    if (!config || !recalls || !complaints) return
+    onChange(toSafetyReport(config, recalls.map(toRecall), complaints.map(toComplaintSummary)))
+  }
+  const stops = [
+    watchRows(
+      db,
+      'select * from vehicle_configs where id = ?',
+      [configId],
+      'vehicle_configs',
+      (rows) => {
+        config = rows[0] ?? {}
+        emit()
+      },
+    ),
+    watchRows(db, 'select * from recalls where config_id = ?', [configId], 'recalls', (rows) => {
+      recalls = rows
+      emit()
+    }),
+    watchRows(
+      db,
+      'select * from complaint_summaries where config_id = ?',
+      [configId],
+      'complaint_summaries',
+      (rows) => {
+        complaints = rows
+        emit()
+      },
+    ),
+  ]
+  return () => stops.forEach((stop) => stop())
 }
 
 /** Same text format as synced timestamptz values, so local and synced rows sort alike. */
@@ -184,6 +235,10 @@ export const createPowerSyncRepositories = (
         )
       ).map(toOdometerReading),
     add: (reading) => insertReading(db, reading),
+  },
+
+  safety: {
+    watchForConfig: (configId, onChange) => watchSafety(db, configId, onChange),
   },
 
   schedule: {

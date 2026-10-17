@@ -1,7 +1,7 @@
 -- Run with `supabase test db`. Proves table access exists only where a migration grants it.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(15);
+select plan(18);
 
 select ok(
   not exists (
@@ -36,6 +36,12 @@ select table_privs_are('public', 'recalls', 'authenticated',
   array['SELECT'], 'recalls are read-only to users');
 select table_privs_are('public', 'knowledge_chunks', 'authenticated',
   array['SELECT'], 'assistant knowledge is read-only to users');
+select table_privs_are('public', 'complaint_summaries', 'authenticated',
+  array['SELECT'], 'complaint summaries are read-only to users');
+select table_privs_are('public', 'complaints', 'authenticated', array[]::text[],
+  'raw complaints stay on the server');
+select table_privs_are('public', 'nhtsa_fetches', 'authenticated', array[]::text[],
+  'the NHTSA fetch queue is private');
 select table_privs_are('public', 'reminders', 'service_role',
   array['SELECT', 'INSERT', 'UPDATE', 'DELETE'], 'the reminder job can write reminders');
 select table_privs_are('public', 'messages', 'service_role',

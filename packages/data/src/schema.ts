@@ -12,7 +12,41 @@ export const schema = new Schema({
     trim: column.text,
     engine: column.text,
     drivetrain: column.text,
+    recalls_checked_at: column.text,
+    complaints_checked_at: column.text,
   }),
+  recalls: new Table(
+    {
+      config_id: column.text,
+      campaign: column.text,
+      manufacturer: column.text,
+      component: column.text,
+      summary: column.text,
+      consequence: column.text,
+      remedy: column.text,
+      notes: column.text,
+      reported_on: column.text,
+      park_it: column.integer,
+      park_outside: column.integer,
+      over_the_air: column.integer,
+    },
+    { indexes: { by_config: ['config_id'] } },
+  ),
+  complaint_summaries: new Table(
+    {
+      config_id: column.text,
+      component: column.text,
+      complaints: column.integer,
+      crashes: column.integer,
+      fires: column.integer,
+      injuries: column.integer,
+      deaths: column.integer,
+      latest_filed_on: column.text,
+      // JSON text: [{ "filed_on": "2024-05-01", "summary": "..." }]
+      recent: column.text,
+    },
+    { indexes: { by_config: ['config_id'] } },
+  ),
   maintenance_items: new Table(
     {
       config_id: column.text,
