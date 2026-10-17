@@ -24,9 +24,19 @@ const colorLiteralBan = [
     selector: 'Literal[value=/^(?:rgb|rgba|hsl|hsla)\\(/i]',
     message: 'Use a semantic colour from useColors() (apps/mobile/src/theme), not a literal.',
   },
+  {
+    selector: 'TemplateElement[value.raw=/^(?:#[0-9a-fA-F]{3,8}|(?:rgb|rgba|hsl|hsla)\\()/i]',
+    message: 'Use a semantic colour from useColors() (apps/mobile/src/theme), not a literal.',
+  },
+  {
+    // Named colours ('white', 'red', 'transparent') in any *color / *Color style property.
+    selector: 'Property[key.name=/[cC]olor$/] > Literal',
+    message: 'Use a semantic colour from useColors() (apps/mobile/src/theme), not a literal.',
+  },
 ]
 
-const appImportBans = {
+// A separate rule name from the import bans below, so flat-config blocks never override it.
+const themeImportBans = {
   paths: [
     {
       name: '@expo/ui',
@@ -34,7 +44,12 @@ const appImportBans = {
       message: 'Use Host from src/ui/Host, which tints native controls with the theme accent.',
     },
   ],
-  patterns: [{ group: ['@car/core/testing'], message: 'Test adapters stay out of app code.' }],
+  patterns: [
+    {
+      group: ['**/theme/palette', '**/theme/colors'],
+      message: 'Read colours through useColors() from src/theme, never the palette directly.',
+    },
+  ],
 }
 
 export default tseslint.config(
@@ -108,14 +123,28 @@ export default tseslint.config(
   },
   {
     files: ['apps/mobile/**/*.{ts,tsx}'],
-    ignores: ['apps/mobile/src/theme/palette.ts', 'apps/mobile/**/*.test.ts'],
+    ignores: ['apps/mobile/src/theme/palette.ts', 'apps/mobile/**/*.test.{ts,tsx}'],
     rules: { 'no-restricted-syntax': ['error', ...colorLiteralBan] },
+  },
+  {
+    files: ['apps/mobile/**/*.{ts,tsx}'],
+    ignores: ['apps/mobile/src/theme/**', 'apps/mobile/src/ui/Host.tsx'],
+    rules: { '@typescript-eslint/no-restricted-imports': ['error', themeImportBans] },
   },
   {
     // In-memory adapters are for tests; only the composition root may use them as placeholders.
     files: ['apps/mobile/**/*.{ts,tsx}'],
-    ignores: ['apps/mobile/src/bootstrap/**', 'apps/mobile/src/ui/Host.tsx'],
-    rules: { 'no-restricted-imports': ['error', appImportBans] },
+    ignores: ['apps/mobile/src/bootstrap/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            { group: ['@car/core/testing'], message: 'Test adapters stay out of app code.' },
+          ],
+        },
+      ],
+    },
   },
   {
     // Screens and their views only render model state. See ADR 0003.
@@ -126,7 +155,6 @@ export default tseslint.config(
         'error',
         {
           paths: [
-            ...appImportBans.paths,
             {
               name: 'react',
               importNames: ['useState', 'useReducer'],
@@ -134,7 +162,7 @@ export default tseslint.config(
             },
           ],
           patterns: [
-            ...appImportBans.patterns,
+            { group: ['@car/core/testing'], message: 'Test adapters stay out of app code.' },
             {
               group: ['@supabase/*', '@powersync/*'],
               message: 'Screens never talk to the backend directly; go through a model.',

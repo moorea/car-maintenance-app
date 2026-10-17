@@ -49,7 +49,7 @@ export const darkColors: Colors = {
   background: p.black,
   surface: p.gray900,
   separator: p.gray800,
-  textPrimary: p.gray25,
+  textPrimary: p.gray50Cool,
   textSecondary: p.gray400,
   accent: p.teal300,
   accentSubtle: p.teal950,

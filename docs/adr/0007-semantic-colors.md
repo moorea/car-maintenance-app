@@ -13,12 +13,16 @@ The app's colours are defined once, in `apps/mobile/src/theme`, in two layers:
 
 Screens read roles with `useColors()`, which follows the system appearance. They never see the
 palette. The themed `Host` in `src/ui/Host.tsx` passes `accent` to Expo UI as the seed colour,
-so native buttons, switches and pickers pick it up with no per-screen code.
+so native buttons, switches and pickers pick it up with no per-screen code. iOS uses it as the
+exact tint; Android and web derive a tonal palette from it, so their controls get a close
+relative of `accent` rather than the exact value.
 
 ## Rules
 
-- ESLint rejects hex, `rgb()` and `hsl()` literals anywhere in the app except `palette.ts` and
-  tests, and rejects importing `Host` from `@expo/ui` directly.
+- ESLint rejects hex, `rgb()` and `hsl()` literals (strings or templates) and any literal in a
+  `color`/`*Color` property anywhere in the app except `palette.ts` and tests. Outside
+  `src/theme` it also rejects importing the palette or role tables directly, and importing
+  `Host` from `@expo/ui`.
 - A new role is added only when a screen needs a colour whose meaning no role covers. Name it by
   meaning (`warningSubtle`), never by appearance (`lightOrange`).
 - `colors.test.ts` checks every text-on-fill pairing screens use against WCAG AA (4.5:1) in

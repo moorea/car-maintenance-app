@@ -3,6 +3,7 @@ import { darkColors, lightColors, type ColorRole, type Colors } from './colors'
 
 // WCAG 2 relative luminance and contrast ratio for #RRGGBB colours.
 function luminance(hex: string): number {
+  if (!/^#[0-9a-fA-F]{6}$/.test(hex)) throw new Error(`Expected an opaque #RRGGBB colour: ${hex}`)
   const channel = (i: number) => {
     const c = parseInt(hex.slice(i, i + 2), 16) / 255
     return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
