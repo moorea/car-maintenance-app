@@ -39,7 +39,8 @@ const sameNotification = (a: LocalNotification, b: LocalNotification) =>
 
 /**
  * Keeps this device's scheduled reminders in step with the owner's cars: re-plans whenever a car,
- * a service record or an odometer reading changes, and schedules or cancels only the notifications that differ.
+ * a service record or an odometer reading changes, and schedules or cancels only the
+ * notifications that differ.
  * Nothing is scheduled while signed out, while reminders are off or without permission, so
  * signing out or turning reminders off cancels them all.
  */

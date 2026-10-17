@@ -73,6 +73,28 @@ const setup = (
   return { ...deps, scheduler }
 }
 
+/** Wraps the service log and odometer so a test can count the watches still open on them. */
+const openWatches = (d: ReturnType<typeof setup>) => {
+  let open = 0
+  const counted =
+    <T>(watch: (id: string, onChange: (v: T) => void) => () => void) =>
+    (id: string, onChange: (v: T) => void) => {
+      open++
+      const stop = watch(id, onChange)
+      return () => {
+        open--
+        stop()
+      }
+    }
+  return {
+    open: () => open,
+    repos: {
+      records: { ...d.records, watchForVehicle: counted(d.records.watchForVehicle) },
+      odometer: { ...d.odometer, watchForVehicle: counted(d.odometer.watchForVehicle) },
+    },
+  }
+}
+
 const ids = async (notifier: ReturnType<typeof memoryNotifier>) =>
   (await notifier.scheduled()).map((n) => n.id)
 
@@ -306,15 +328,32 @@ describe('createReminderScheduler', () => {
     expect(await ids(d.notifier)).toEqual(PLANNED)
   })
 
-  it('stops following changes once disposed', async () => {
-    const { scheduler, notifier, settings, odometer } = setup()
+  it("stops watching a car's service log and readings once it is gone", async () => {
+    const d = setup()
+    const counter = openWatches(d)
+    const scheduler = createReminderScheduler({ ...d, ...counter.repos })
+    scheduler.start()
+    await scheduler.refresh()
+    expect(counter.open()).toBe(2)
+
+    const car = await d.vehicles.get('v1')
+    if (!car) throw new Error('missing fixture')
+    d.vehicles.set([])
+    expect(counter.open()).toBe(0)
+
+    d.vehicles.set([car])
+    expect(counter.open()).toBe(2)
+    await d.auth.signOut()
+    expect(counter.open()).toBe(0)
+  })
+
+  it('stops following everything once disposed', async () => {
+    const d = setup()
+    const counter = openWatches(d)
+    const scheduler = createReminderScheduler({ ...d, ...counter.repos })
     scheduler.start()
     await scheduler.refresh()
     scheduler.dispose()
-    notifier.log.length = 0
-    await settings.set({ enabled: false })
-    await odometer.add({ vehicleId: 'v1', date: '2026-10-01', miles: 40_000 })
-    await Promise.resolve()
-    expect(notifier.log).toEqual([])
+    expect(counter.open()).toBe(0)
   })
 })
