@@ -1,0 +1,21 @@
+# PowerSync sync rules: which Postgres rows each signed-in user gets on their phone.
+# Paste into the PowerSync dashboard (or deploy with the PowerSync CLI) after changing.
+# Row-level security does not apply to sync, so these rules are the read boundary for the
+# device: every bucket must be scoped by request.user_id(). Writes go through PostgREST,
+# where RLS does apply.
+bucket_definitions:
+  # Everything about one of the user's vehicles.
+  owned_vehicle:
+    parameters: select id as vehicle_id from vehicles where owner_id = request.user_id()
+    data:
+      - select * from vehicles where id = bucket.vehicle_id
+      - select * from odometer_readings where vehicle_id = bucket.vehicle_id
+      - select * from service_records where vehicle_id = bucket.vehicle_id
+      - select * from reminders where vehicle_id = bucket.vehicle_id
+
+  # Shared reference data for the configurations the user's vehicles use.
+  vehicle_config:
+    parameters: select config_id from vehicles where owner_id = request.user_id()
+    data:
+      - select * from vehicle_configs where id = bucket.config_id
+      - select * from maintenance_items where config_id = bucket.config_id

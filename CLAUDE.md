@@ -8,7 +8,12 @@ issues, with reminders and an AI assistant grounded in that data. US only at lau
 - `packages/core`: all behaviour. Domain types, use cases, screen models, Zod schemas, ports.
   Headless: no React, Expo, Supabase or PowerSync imports (ESLint enforces it).
 - `packages/core/src/testing`: in-memory adapters for tests.
+- `packages/data`: real adapters for the core ports over PowerSync (on-device SQLite) and the
+  Supabase upload connector. Headless too: takes the database as a parameter and is tested on
+  Node with `@powersync/node`. See ADR 0004.
+- `powersync/sync-rules.yaml`: which rows sync to each user's phone. Tested in `packages/data`.
 - `apps/mobile`: Expo (React Native) app. Thin: screens wire models to pure views.
+  `src/bootstrap/deps.ts` is the composition root that picks real or demo adapters.
 - `supabase/migrations`: SQL migrations. `supabase/tests`: pgTAP tests for row-level security.
 - `docs/adr`: decisions. Read them before changing architecture.
 
