@@ -220,7 +220,12 @@ export function Dot({ color, label, size = 10 }: DotProps) {
   return (
     <Row
       style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: colors[color] }}
-      modifiers={[label ? accessibilityLabel(label) : accessibilityHidden()]}
+      // An empty shape is not an accessibility element until it is made one.
+      modifiers={
+        label
+          ? [accessibilityElement('ignore'), accessibilityLabel(label)]
+          : [accessibilityHidden()]
+      }
     />
   )
 }

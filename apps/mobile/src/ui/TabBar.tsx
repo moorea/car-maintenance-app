@@ -1,11 +1,13 @@
-import { Row } from '@expo/ui'
+// Tab labels stay a fixed size, as in a native tab bar: grown with Dynamic Type they would overflow
+// the capsule and the space screens leave for it (TAB_BAR_CLEARANCE).
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
+import { Row, Text } from '@expo/ui'
 import { StyleSheet, View } from 'react-native'
 import { useColors } from '../theme'
 import { Host } from './Host'
 import { GlassBar, GlassIconButton, Segment } from './surfaces'
 import { Symbol } from './Symbol'
 import type { SymbolName } from './symbols'
-import { Text } from './Text'
 
 export interface TabBarItem<K extends string> {
   key: K

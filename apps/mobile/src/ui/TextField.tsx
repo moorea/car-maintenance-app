@@ -1,4 +1,5 @@
 import { Column, TextInput, useNativeState, type TextInputProps } from '@expo/ui'
+import { accessibilityLabel } from '@expo/ui/swift-ui/modifiers'
 import { useEffect, useRef } from 'react'
 import { useColors } from '../theme'
 import { Text } from './Text'
@@ -41,6 +42,8 @@ export function TextField({ label, value, onChangeText, error, ...input }: Props
         autoComplete={input.autoComplete ?? 'off'}
         autoCapitalize={input.autoCapitalize ?? 'sentences'}
         autoCorrect={false}
+        // VoiceOver reads the field by the label shown above it, not just its placeholder.
+        modifiers={[accessibilityLabel(label)]}
         style={{ width: '100%', ...(error ? { borderColor: colors.danger } : {}) }}
       />
       {error ? <Text textStyle={{ fontSize: 12, color: colors.danger }}>{error}</Text> : null}
