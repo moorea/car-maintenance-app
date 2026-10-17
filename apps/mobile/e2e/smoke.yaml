@@ -11,9 +11,11 @@ appId: com.moorea.carmaintenance
     timeout: 60000
 - takeScreenshot: 1-garage
 - tapOn: 'Log'
+- assertVisible: 'Service log'
 - waitForAnimationToEnd
 - takeScreenshot: 2-service-log
 - tapOn: 'Car'
+- assertVisible: 'Recalls · 2'
 - waitForAnimationToEnd
 - takeScreenshot: 3-car
 - tapOn: 'Garage'

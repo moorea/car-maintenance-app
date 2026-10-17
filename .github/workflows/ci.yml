@@ -58,16 +58,11 @@ jobs:
   # the web build. Needs no Apple account: simulator builds are not code signed.
   ios:
     runs-on: macos-26
-    permissions:
-      contents: write
     timeout-minutes: 75
     env:
       CI: 1
     steps:
       - uses: actions/checkout@v4
-        with:
-          # The job can write (for the screenshots branch); keep the token away from install scripts.
-          persist-credentials: false
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -94,6 +89,7 @@ jobs:
         run: |
           udid=$(xcrun simctl list devices available --json \
             | jq -r '[.devices[][] | select(.name | startswith("iPhone"))][0].udid')
+          [ "$udid" != null ] || { echo "No iPhone simulator available"; xcrun simctl list; exit 1; }
           echo "Booting $udid"
           xcrun simctl boot "$udid"
           xcrun simctl bootstatus "$udid"
@@ -102,44 +98,67 @@ jobs:
         run: |
           curl -fsSL "https://get.maestro.mobile.dev" | bash
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+          "$HOME/.maestro/bin/maestro" --version
       - name: Smoke test
         run: maestro test --test-output-dir "$RUNNER_TEMP/maestro" apps/mobile/e2e
       - name: Collect screenshots
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           mkdir -p "$RUNNER_TEMP/screenshots"
           # takeScreenshot writes to the working directory; failure screenshots go to the output dir.
-          find . "$RUNNER_TEMP/maestro" -name '*.png' -newer package.json -not -path '*/node_modules/*' -not -path '*/ios/*' \
+          find . "$RUNNER_TEMP/maestro" -name '*.png' -newer package.json \
+            -not -path '*/node_modules/*' -not -path '*/ios/*' \
             -exec cp {} "$RUNNER_TEMP/screenshots/" \; || true
           xcrun simctl io booted screenshot "$RUNNER_TEMP/screenshots/last.png" || true
-      # Also keep the screenshots on the ios-screenshots branch, one folder per commit, so a PR can
-      # show them inline and they can be fetched with plain git. Skipped for forks (no write token).
-      - name: Publish screenshots to the ios-screenshots branch
-        if: always() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
-        env:
-          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-          TOKEN: ${{ github.token }}
-        run: |
-          dir="$RUNNER_TEMP/ios-screenshots"
-          remote="https://x-access-token:$TOKEN@github.com/$GITHUB_REPOSITORY.git"
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if git fetch --depth 1 "$remote" ios-screenshots; then
-            git worktree add "$dir" FETCH_HEAD --detach
-          else
-            git worktree add --detach "$dir" && git -C "$dir" checkout --orphan tmp && git -C "$dir" rm -rfq .
-          fi
-          mkdir -p "$dir/$SHA" && cp "$RUNNER_TEMP"/screenshots/*.png "$dir/$SHA/"
-          git -C "$dir" add "$SHA" && git -C "$dir" commit -qm "iOS simulator screenshots for $SHA"
-          for attempt in 1 2 3; do
-            git -C "$dir" push "$remote" HEAD:refs/heads/ios-screenshots && exit 0
-            git -C "$dir" fetch --depth 1 "$remote" ios-screenshots && git -C "$dir" rebase FETCH_HEAD
-          done
-          exit 1
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: ${{ !cancelled() }}
         with:
           name: ios-simulator
           path: |
             ${{ runner.temp }}/screenshots
             ${{ runner.temp }}/maestro
+
+  # Keeps the latest screenshots on the ios-screenshots branch, one folder per commit, so a PR can
+  # show them inline and they can be fetched with plain git. A separate job so the write token
+  # never shares a runner with install scripts or app code. Skipped for forks (no write token).
+  ios-screenshots:
+    needs: ios
+    if: ${{ !cancelled() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      KEEP: 40
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ios-simulator
+          path: ${{ runner.temp }}/artifact
+      - name: Publish to the ios-screenshots branch
+        env:
+          TOKEN: ${{ github.token }}
+        run: |
+          shots="$RUNNER_TEMP/artifact/screenshots"
+          compgen -G "$shots/*.png" > /dev/null || { echo "No screenshots to publish"; exit 0; }
+          remote="https://x-access-token:$TOKEN@github.com/$GITHUB_REPOSITORY.git"
+          git init -q branch && cd branch
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Each publish replaces the branch with one commit holding the newest $KEEP folders, so
+          # clones never carry the screenshot history.
+          for attempt in 1 2 3; do
+            git rm -rqf --ignore-unmatch . && rm -rf -- * && lease=""
+            if git fetch -q --depth 1 "$remote" ios-screenshots; then
+              git checkout -q --detach FETCH_HEAD
+              lease="$(git rev-parse HEAD)"
+            fi
+            rm -rf "$SHA" && mkdir "$SHA" && cp "$shots"/*.png "$SHA/"
+            grep -vx "$SHA" order.txt 2> /dev/null > order.new || true
+            echo "$SHA" >> order.new && tail -n "$KEEP" order.new > order.txt && rm order.new
+            for dir in */; do grep -qx "${dir%/}" order.txt || rm -rf "$dir"; done
+            git checkout -q --orphan "publish-$attempt"
+            git add -A && git commit -qm "iOS simulator screenshots, latest $SHA"
+            git push -q --force-with-lease="ios-screenshots:$lease" "$remote" HEAD:refs/heads/ios-screenshots && exit 0
+          done
+          exit 1
