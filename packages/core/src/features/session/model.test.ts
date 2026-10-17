@@ -301,6 +301,18 @@ describe('session model, adding a car', () => {
     expect(model.getState().tab).toBe('garage')
   })
 
+  it('goes back from Ask to the code it was asked about, then to the car', () => {
+    const { model } = setup(true, [civic])
+    model.getState().start()
+    model.getState().openTab('car')
+    model.getState().openTab('codes')
+    model.getState().openTab('ask')
+    model.getState().back()
+    expect(model.getState().tab).toBe('codes')
+    model.getState().back()
+    expect(model.getState().tab).toBe('car')
+  })
+
   it('forgets where Ask was opened from once the owner switches tabs', () => {
     const { model } = setup(true, [civic])
     model.getState().start()

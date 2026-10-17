@@ -8,11 +8,13 @@ import { CarView } from './CarView'
 export function CarScreen({
   vehicle,
   onCheckQuote,
+  onTroubleCodes,
   onWarranty,
   onFuel,
 }: {
   vehicle: Vehicle
   onCheckQuote: () => void
+  onTroubleCodes: () => void
   onWarranty: () => void
   onFuel: () => void
 }) {
@@ -32,6 +34,7 @@ export function CarScreen({
       safety={safety}
       documents={documents}
       onCheckQuote={onCheckQuote}
+      onTroubleCodes={onTroubleCodes}
       onWarranty={onWarranty}
       onFuel={onFuel}
     />
