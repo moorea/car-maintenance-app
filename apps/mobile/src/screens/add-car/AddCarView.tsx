@@ -1,6 +1,8 @@
 import type { AddCarActions, AddCarState } from '@car/core'
-import { Button, Column, Host, ScrollView, Switch, Text } from '@expo/ui'
-import { ERROR, TextField } from '../../ui/TextField'
+import { Button, Column, ScrollView, Switch, Text } from '@expo/ui'
+import { Host } from '../../ui/Host'
+import { ErrorText, Note } from '../../ui/Note'
+import { TextField } from '../../ui/TextField'
 
 type Props = AddCarState &
   Pick<
@@ -8,9 +10,7 @@ type Props = AddCarState &
     'setVin' | 'lookUpVin' | 'enterManually' | 'back' | 'setField' | 'setSevereDuty' | 'save'
   > & { onCancel?: (() => void) | undefined }
 
-const MUTED = '#666'
 const TITLE = { fontSize: 24, fontWeight: '700' } as const
-const NOTE = { fontSize: 13, color: MUTED } as const
 
 /** Pure rendering of the add car model: the VIN step, then the details to check and save. */
 export function AddCarView(props: Props) {
@@ -50,11 +50,11 @@ function VinStep({
         placeholder="17 letters and numbers"
         autoCapitalize="characters"
       />
-      <Text textStyle={NOTE}>
+      <Note>
         It's on the dashboard by the windshield on the driver's side, on the driver's door frame,
         and on your registration and insurance card.
-      </Text>
-      {error ? <Text textStyle={{ color: ERROR }}>{error}</Text> : null}
+      </Note>
+      {error ? <ErrorText>{error}</ErrorText> : null}
       <Button
         label={busy ? 'Looking up…' : 'Look up VIN'}
         disabled={busy}
@@ -80,9 +80,7 @@ function DetailsStep(props: Props) {
   return (
     <>
       <Text textStyle={TITLE}>{decoded ? 'Is this your car?' : 'Your car'}</Text>
-      {decoded ? (
-        <Text textStyle={NOTE}>{`From VIN ${decoded.vin}${found ? `. ${found}` : ''}`}</Text>
-      ) : null}
+      {decoded ? <Note>{`From VIN ${decoded.vin}${found ? `. ${found}` : ''}`}</Note> : null}
       <TextField
         label="Year"
         value={draft.year}
@@ -131,11 +129,11 @@ function DetailsStep(props: Props) {
         autoCapitalize="words"
       />
       <Switch value={severeDuty} onValueChange={props.setSevereDuty} label="Severe driving" />
-      <Text textStyle={NOTE}>
+      <Note>
         Mostly short trips, stop-and-go traffic, towing, dusty roads or extreme heat. Uses the
         shorter service intervals.
-      </Text>
-      {error ? <Text textStyle={{ color: ERROR }}>{error}</Text> : null}
+      </Note>
+      {error ? <ErrorText>{error}</ErrorText> : null}
       <Button
         label={busy ? 'Saving…' : 'Save car'}
         disabled={busy}

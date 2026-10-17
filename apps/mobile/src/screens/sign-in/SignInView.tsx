@@ -1,6 +1,8 @@
 import type { SignInActions, SignInState } from '@car/core'
-import { Button, Column, Host, ScrollView, Text } from '@expo/ui'
-import { ERROR, TextField } from '../../ui/TextField'
+import { Button, Column, ScrollView, Text } from '@expo/ui'
+import { Host } from '../../ui/Host'
+import { ErrorText } from '../../ui/Note'
+import { TextField } from '../../ui/TextField'
 
 type Props = SignInState &
   Pick<
@@ -28,7 +30,7 @@ export function SignInView(props: Props) {
                 autoComplete="email"
                 autoCapitalize="none"
               />
-              {error ? <Text textStyle={{ color: ERROR }}>{error}</Text> : null}
+              {error ? <ErrorText>{error}</ErrorText> : null}
               <Button
                 label={busy ? 'Sending…' : 'Email me a code'}
                 disabled={busy}
@@ -47,7 +49,7 @@ export function SignInView(props: Props) {
                 autoComplete="one-time-code"
                 autoCapitalize="none"
               />
-              {error ? <Text textStyle={{ color: ERROR }}>{error}</Text> : null}
+              {error ? <ErrorText>{error}</ErrorText> : null}
               <Button
                 label={busy ? 'Signing in…' : 'Sign in'}
                 disabled={busy}

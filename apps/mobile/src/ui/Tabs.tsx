@@ -1,6 +1,7 @@
-import { Button, Host, Row } from '@expo/ui'
+import { Button, Row } from '@expo/ui'
 import { useState, type ReactNode } from 'react'
 import { StyleSheet, View } from 'react-native'
+import { Host } from './Host'
 
 interface Tab {
   label: string

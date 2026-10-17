@@ -5,15 +5,15 @@ import {
   type SafetyActions,
   type SafetyState,
 } from '@car/core'
-import { Button, Collapsible, Column, Host, ScrollView, Text } from '@expo/ui'
+import { Button, Collapsible, Column, ScrollView, Text } from '@expo/ui'
 import { ActivityIndicator, Linking, StyleSheet } from 'react-native'
+import { useColors } from '../../theme'
+import { Host } from '../../ui/Host'
+import { Note } from '../../ui/Note'
 
 type Props = SafetyState & Pick<SafetyActions, 'toggle'>
 
-const MUTED = '#666'
-const WARNING = '#b3261e'
 const HEADING = { fontSize: 20, fontWeight: '700' } as const
-const NOTE = { fontSize: 13, color: MUTED } as const
 const LABEL = { fontSize: 13, fontWeight: '600' } as const
 
 const plural = (n: number, one: string, many = `${one}s`) =>
@@ -31,7 +31,7 @@ export function SafetyView(props: Props) {
           <Recalls {...props} />
           <Text textStyle={HEADING}>Owner complaints</Text>
           <Complaints {...props} />
-          <Text textStyle={NOTE}>From the National Highway Traffic Safety Administration.</Text>
+          <Note>From the National Highway Traffic Safety Administration.</Note>
         </Column>
       </ScrollView>
     </Host>
@@ -40,10 +40,10 @@ export function SafetyView(props: Props) {
 
 function Recalls({ status, recalls, expanded, toggle, lookupUrl, modelYear }: Props) {
   if (status === 'unmatched') {
-    return <Text textStyle={NOTE}>Recalls appear once your car has synced.</Text>
+    return <Note>Recalls appear once your car has synced.</Note>
   }
   if (status === 'checking') {
-    return <Text textStyle={NOTE}>Checking NHTSA for recalls on your model year…</Text>
+    return <Note>Checking NHTSA for recalls on your model year…</Note>
   }
   return (
     <>
@@ -71,13 +71,14 @@ function Recalls({ status, recalls, expanded, toggle, lookupUrl, modelYear }: Pr
 
 function RecallItem(props: { recall: Recall; open: boolean; onToggle: () => void }) {
   const r = props.recall
+  const colors = useColors()
   const title = r.component ? componentLabel(r.component) : `Recall ${r.campaign}`
   return (
     <Column spacing={4}>
       {r.parkIt ? (
-        <Text textStyle={{ ...LABEL, color: WARNING }}>Do not drive until this is fixed</Text>
+        <Text textStyle={{ ...LABEL, color: colors.danger }}>Do not drive until this is fixed</Text>
       ) : r.parkOutside ? (
-        <Text textStyle={{ ...LABEL, color: WARNING }}>
+        <Text textStyle={{ ...LABEL, color: colors.danger }}>
           Park outside, away from buildings, until this is fixed
         </Text>
       ) : null}
@@ -91,8 +92,8 @@ function RecallItem(props: { recall: Recall; open: boolean; onToggle: () => void
           <Text>{r.summary}</Text>
           {r.consequence ? <Detail label="Risk" text={r.consequence} /> : null}
           {r.remedy ? <Detail label="Fix" text={r.remedy} /> : null}
-          {r.overTheAir ? <Text textStyle={NOTE}>Fixed by an over-the-air update.</Text> : null}
-          <Text textStyle={NOTE}>{`NHTSA campaign ${r.campaign}`}</Text>
+          {r.overTheAir ? <Note>Fixed by an over-the-air update.</Note> : null}
+          <Note>{`NHTSA campaign ${r.campaign}`}</Note>
         </Column>
       </Collapsible>
     </Column>
@@ -101,19 +102,19 @@ function RecallItem(props: { recall: Recall; open: boolean; onToggle: () => void
 
 function Complaints({ status, complaintsChecked, complaints, expanded, toggle, modelYear }: Props) {
   if (status === 'unmatched') {
-    return <Text textStyle={NOTE}>Complaints appear once your car has synced.</Text>
+    return <Note>Complaints appear once your car has synced.</Note>
   }
   if (!complaintsChecked) {
-    return <Text textStyle={NOTE}>Checking NHTSA for owner complaints…</Text>
+    return <Note>Checking NHTSA for owner complaints…</Note>
   }
   if (complaints.length === 0) {
     return <Text>{`Owners have filed no complaints with NHTSA about the ${modelYear}.`}</Text>
   }
   return (
     <>
-      <Text textStyle={NOTE}>
+      <Note>
         {`What owners of the ${modelYear} have reported to NHTSA, by part of the car. A complaint can name more than one part.`}
-      </Text>
+      </Note>
       {complaints.map((c) => (
         <ComplaintItem
           key={c.id}
@@ -128,6 +129,7 @@ function Complaints({ status, complaintsChecked, complaints, expanded, toggle, m
 
 function ComplaintItem(props: { summary: ComplaintSummary; open: boolean; onToggle: () => void }) {
   const c = props.summary
+  const colors = useColors()
   const severity = [
     c.crashes > 0 ? plural(c.crashes, 'crash', 'crashes') : null,
     c.fires > 0 ? plural(c.fires, 'fire') : null,
@@ -143,11 +145,11 @@ function ComplaintItem(props: { summary: ComplaintSummary; open: boolean; onTogg
     >
       <Column spacing={8}>
         {severity.length > 0 ? (
-          <Text textStyle={{ ...LABEL, color: WARNING }}>{severity.join(' · ')}</Text>
+          <Text textStyle={{ ...LABEL, color: colors.danger }}>{severity.join(' · ')}</Text>
         ) : null}
         {c.recent.map((complaint, i) => (
           <Column key={i} spacing={2}>
-            {complaint.filedOn ? <Text textStyle={NOTE}>{complaint.filedOn}</Text> : null}
+            {complaint.filedOn ? <Note>{complaint.filedOn}</Note> : null}
             <Text>{complaint.summary}</Text>
           </Column>
         ))}

@@ -13,6 +13,45 @@ const localStateBan = ['useState', 'useReducer'].flatMap((name) => [
   },
 ])
 
+// Colours come from the theme's semantic roles (apps/mobile/src/theme). Only the palette holds
+// literal values, so the app can be rethemed in one place.
+const colorLiteralBan = [
+  {
+    selector: 'Literal[value=/^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/]',
+    message: 'Use a semantic colour from useColors() (apps/mobile/src/theme), not a literal.',
+  },
+  {
+    selector: 'Literal[value=/^(?:rgb|rgba|hsl|hsla)\\(/i]',
+    message: 'Use a semantic colour from useColors() (apps/mobile/src/theme), not a literal.',
+  },
+  {
+    selector: 'TemplateElement[value.raw=/^(?:#[0-9a-fA-F]{3,8}|(?:rgb|rgba|hsl|hsla)\\()/i]',
+    message: 'Use a semantic colour from useColors() (apps/mobile/src/theme), not a literal.',
+  },
+  {
+    // Named colours ('white', 'red', 'transparent') in any *color / *Color style property.
+    selector: 'Property[key.name=/[cC]olor$/] > Literal',
+    message: 'Use a semantic colour from useColors() (apps/mobile/src/theme), not a literal.',
+  },
+]
+
+// A separate rule name from the import bans below, so flat-config blocks never override it.
+const themeImportBans = {
+  paths: [
+    {
+      name: '@expo/ui',
+      importNames: ['Host'],
+      message: 'Use Host from src/ui/Host, which tints native controls with the theme accent.',
+    },
+  ],
+  patterns: [
+    {
+      group: ['**/theme/palette', '**/theme/colors'],
+      message: 'Read colours through useColors() from src/theme, never the palette directly.',
+    },
+  ],
+}
+
 export default tseslint.config(
   { ignores: ['**/node_modules/**', '**/dist/**', '**/coverage/**', '**/.expo/**'] },
   js.configs.recommended,
@@ -83,6 +122,16 @@ export default tseslint.config(
     rules: reactHooks.configs.recommended.rules,
   },
   {
+    files: ['apps/mobile/**/*.{ts,tsx}'],
+    ignores: ['apps/mobile/src/theme/palette.ts', 'apps/mobile/**/*.test.{ts,tsx}'],
+    rules: { 'no-restricted-syntax': ['error', ...colorLiteralBan] },
+  },
+  {
+    files: ['apps/mobile/**/*.{ts,tsx}'],
+    ignores: ['apps/mobile/src/theme/**', 'apps/mobile/src/ui/Host.tsx'],
+    rules: { '@typescript-eslint/no-restricted-imports': ['error', themeImportBans] },
+  },
+  {
     // In-memory adapters are for tests; only the composition root may use them as placeholders.
     files: ['apps/mobile/**/*.{ts,tsx}'],
     ignores: ['apps/mobile/src/bootstrap/**'],
@@ -101,7 +150,7 @@ export default tseslint.config(
     // Screens and their views only render model state. See ADR 0003.
     files: ['apps/mobile/src/screens/**/*.{ts,tsx}'],
     rules: {
-      'no-restricted-syntax': ['error', ...localStateBan],
+      'no-restricted-syntax': ['error', ...localStateBan, ...colorLiteralBan],
       'no-restricted-imports': [
         'error',
         {

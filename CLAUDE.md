@@ -23,6 +23,8 @@ issues, with reminders and an AI assistant grounded in that data. US only at lau
   (Screen + View). See ADR 0003.
 - New dependency on the outside world: add a port in `core/src/ports`, an in-memory adapter in
   `core/src/testing`, and the real adapter in the app or an edge function. See ADR 0002.
+- Colours: use a semantic role from `useColors()` (`apps/mobile/src/theme`), never a literal.
+  Add a role rather than a one-off colour. See ADR 0007.
 - Dates are ISO `YYYY-MM-DD` strings handled in UTC (`core/src/lib/date.ts`). Money is integer
   cents. Distances are miles.
 - Every behaviour change in core comes with a test. Test names describe behaviour.
