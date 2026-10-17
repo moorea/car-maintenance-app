@@ -49,7 +49,17 @@ export function TextField({ label, value, onChangeText, error, ...input }: Props
           : {})}
         // VoiceOver reads the field by the label shown above it, not just its placeholder.
         modifiers={[accessibilityLabel(label)]}
-        style={{ width: '100%', ...(error ? { borderColor: colors.danger } : {}) }}
+        // Filled like an iOS search field. Without a fill the native field draws nothing, so an
+        // empty field with no placeholder is invisible on iOS. Padding rather than a fixed height
+        // so multiline fields and large text sizes still fit.
+        style={{
+          width: '100%',
+          paddingVertical: 11,
+          paddingHorizontal: 14,
+          borderRadius: 12,
+          backgroundColor: colors.neutralSubtle,
+          ...(error ? { borderWidth: 1, borderColor: colors.danger } : { borderWidth: 0 }),
+        }}
       />
       {error ? <Text textStyle={{ fontSize: 12, color: colors.danger }}>{error}</Text> : null}
     </Column>
