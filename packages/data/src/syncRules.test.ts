@@ -45,8 +45,10 @@ describe('sync streams', () => {
     const sql = readdirSync(migrations)
       .map((f) => readFileSync(migrations + f, 'utf8'))
       .join('\n')
-    const list = /create publication powersync for table([^;]*);/.exec(sql)?.[1] ?? ''
-    const published = list.split(',').map((t) => t.trim().replace(/^public\./, ''))
+    const tables = (list: string) => list.split(',').map((t) => t.trim().replace(/^public\./, ''))
+    const created = /create publication powersync for table([^;]*);/.exec(sql)?.[1] ?? ''
+    const added = [...sql.matchAll(/alter publication powersync add table([^;]*);/g)]
+    const published = [...tables(created), ...added.flatMap((m) => tables(m[1] ?? ''))]
     expect(new Set(published)).toEqual(new Set(syncedTables))
   })
 

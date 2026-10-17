@@ -1,4 +1,12 @@
-import type { MaintenanceItem, OdometerReading, ServiceRecord, Vehicle } from '@car/core'
+import type {
+  ComplaintSummary,
+  MaintenanceItem,
+  OdometerReading,
+  Recall,
+  SafetyReport,
+  ServiceRecord,
+  Vehicle,
+} from '@car/core'
 
 /** SQLite returns NULL for missing values; the domain uses absent properties. */
 type Row = Record<string, unknown>
@@ -89,4 +97,64 @@ export const toMaintenanceItem = (r: Row): MaintenanceItem =>
     intervalMonths: num(r.interval_months),
     severeMiles: num(r.severe_miles),
     severeMonths: num(r.severe_months),
+  })
+
+export const toRecall = (r: Row): Recall =>
+  defined({
+    id: required(text(r.id), 'id'),
+    configId: required(text(r.config_id), 'config_id'),
+    campaign: text(r.campaign) ?? '',
+    component: text(r.component),
+    summary: text(r.summary) ?? '',
+    consequence: text(r.consequence),
+    remedy: text(r.remedy),
+    notes: text(r.notes),
+    reportedOn: text(r.reported_on),
+    parkIt: r.park_it === 1,
+    parkOutside: r.park_outside === 1,
+    overTheAir: r.over_the_air === 1,
+  })
+
+/** `recent` is JSON text; anything unreadable in it is left out. */
+const recentComplaints = (json: unknown): ComplaintSummary['recent'] => {
+  let parsed: unknown
+  try {
+    parsed = typeof json === 'string' ? JSON.parse(json) : []
+  } catch {
+    return []
+  }
+  if (!Array.isArray(parsed)) return []
+  return parsed.flatMap((item: unknown) => {
+    if (typeof item !== 'object' || item === null) return []
+    const { filed_on: filedOn, summary } = item as Record<string, unknown>
+    if (typeof summary !== 'string') return []
+    return [defined({ filedOn: text(filedOn), summary })]
+  })
+}
+
+export const toComplaintSummary = (r: Row): ComplaintSummary =>
+  defined({
+    id: required(text(r.id), 'id'),
+    configId: required(text(r.config_id), 'config_id'),
+    component: text(r.component) ?? '',
+    complaints: num(r.complaints) ?? 0,
+    crashes: num(r.crashes) ?? 0,
+    fires: num(r.fires) ?? 0,
+    injuries: num(r.injuries) ?? 0,
+    deaths: num(r.deaths) ?? 0,
+    latestFiledOn: text(r.latest_filed_on),
+    recent: recentComplaints(r.recent),
+  })
+
+/** A configuration's report from its row (for the check times) and its recalls and complaints. */
+export const toSafetyReport = (
+  config: Row,
+  recalls: Recall[],
+  complaints: ComplaintSummary[],
+): SafetyReport =>
+  defined({
+    recallsCheckedAt: text(config.recalls_checked_at),
+    complaintsCheckedAt: text(config.complaints_checked_at),
+    recalls,
+    complaints,
   })

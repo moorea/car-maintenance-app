@@ -73,6 +73,56 @@ export interface ServiceRecord {
   notes?: string
 }
 
+/**
+ * An NHTSA safety recall for a configuration's model year. It may not cover every car of that
+ * year, and says nothing about whether this car has been fixed; NHTSA's VIN lookup says that.
+ */
+export interface Recall {
+  id: string
+  configId: string
+  /** NHTSA campaign number, such as "23V123000". */
+  campaign: string
+  /** NHTSA's component, upper case, such as "ELECTRICAL SYSTEM: WIRING". */
+  component?: string
+  summary: string
+  consequence?: string
+  remedy?: string
+  notes?: string
+  reportedOn?: IsoDate
+  /** NHTSA says not to drive the car until it is fixed. */
+  parkIt: boolean
+  /** NHTSA says to park outside and away from buildings until it is fixed (fire risk). */
+  parkOutside: boolean
+  /** The fix is a software update sent over the air. */
+  overTheAir: boolean
+}
+
+/** Owner complaints filed with NHTSA about one component of a configuration's model year. */
+export interface ComplaintSummary {
+  id: string
+  configId: string
+  /** NHTSA's component, upper case, such as "ENGINE". */
+  component: string
+  complaints: number
+  crashes: number
+  fires: number
+  injuries: number
+  deaths: number
+  latestFiledOn?: IsoDate
+  /** Up to three of the newest complaints, newest first. */
+  recent: { filedOn?: IsoDate; summary: string }[]
+}
+
+/** What NHTSA knows about a configuration's model year. */
+export interface SafetyReport {
+  /** When NHTSA was last asked about recalls. Absent until the first check after a car is added. */
+  recallsCheckedAt?: string
+  /** When NHTSA was last asked about complaints. */
+  complaintsCheckedAt?: string
+  recalls: Recall[]
+  complaints: ComplaintSummary[]
+}
+
 /** The signed-in person, as far as the app needs to know. */
 export interface AuthUser {
   id: string

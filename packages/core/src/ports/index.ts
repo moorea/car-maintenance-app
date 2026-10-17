@@ -4,6 +4,7 @@ import type {
   DecodedVin,
   MaintenanceItem,
   OdometerReading,
+  SafetyReport,
   ServiceRecord,
   Vehicle,
   VehicleId,
@@ -67,6 +68,12 @@ export interface OdometerRepo {
 
 export interface ScheduleRepo {
   itemsForConfig(configId: string): Promise<MaintenanceItem[]>
+}
+
+/** Recalls and complaints for a configuration, which the server fetches from NHTSA. */
+export interface SafetyRepo {
+  /** Calls `onChange` with the configuration's report now and after every change. */
+  watchForConfig(configId: string, onChange: (report: SafetyReport) => void): Unsubscribe
 }
 
 export interface Clock {
