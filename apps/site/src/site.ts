@@ -33,8 +33,11 @@ export const findPlaceholders = (markdown: string) => [
   ...new Set([...markdown.matchAll(PLACEHOLDER)].map((m) => m[0])),
 ]
 
-/** The policy's contact address, once `[CONTACT EMAIL]` has been replaced with a real one. */
-export const contactEmail = (policyMarkdown: string) => EMAIL.exec(policyMarkdown)?.[0]
+/** The policy's contact address: the one on its "Questions or requests" line, once filled in. */
+export const contactEmail = (policyMarkdown: string) => {
+  const line = /^Questions or requests:.*$/m.exec(policyMarkdown)?.[0]
+  return line ? EMAIL.exec(line)?.[0] : undefined
+}
 
 /** Shows unfilled blanks loudly rather than publishing them as if they were text. */
 const markPlaceholders = (html: string) =>
@@ -235,7 +238,7 @@ ${renderPolicy(input.policyMarkdown)}
     ],
     [
       'What does Ask share, and can I turn it off?',
-      `Ask and the quote checker use Claude, an AI model made by Anthropic. Before either sends anything, the app shows what will be sent and asks you first. Turn it off any time in Account → Privacy; the rest of the app keeps working. The <a href="${href('privacy/')}">privacy policy</a> has the details.`,
+      `Ask and the quote checker use Claude, an AI model made by Anthropic. The first time you use either, the app shows what will be sent and asks you first. Turn it off any time in Account → Privacy; the rest of the app keeps working. The <a href="${href('privacy/')}">privacy policy</a> has the details.`,
     ],
     [
       'Does it work without signal?',

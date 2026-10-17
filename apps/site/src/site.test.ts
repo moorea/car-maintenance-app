@@ -103,6 +103,15 @@ describe('policy blanks', () => {
     expect(site.files['support/index.html']).not.toContain('mailto:')
   })
 
+  it('takes the contact address only from the questions line, not other addresses in the policy', () => {
+    const md =
+      '# Privacy policy\n\nQuestions or requests: **[CONTACT EMAIL]**.\n\nVendor: privacy@vendor.com'
+    expect(contactEmail(md)).toBeUndefined()
+    expect(contactEmail(`${md}\n`.replace('[CONTACT EMAIL]', 'us@example.com'))).toBe(
+      'us@example.com',
+    )
+  })
+
   it('uses the address from the policy once it is filled in', () => {
     const md = '# Privacy policy\n\nQuestions or requests: **help@example.com**.'
     expect(contactEmail(md)).toBe('help@example.com')

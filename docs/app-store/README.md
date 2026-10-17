@@ -24,9 +24,12 @@ In the order they block submission:
    any blank is left.
 5. **Turn on GitHub Pages** (one switch): Settings → Pages → Source: GitHub Actions, then run the
    Deploy site workflow. `apps/site` then publishes the landing page, privacy policy and support
-   page at <https://moorea.github.io/car-maintenance-app/>, which the app and the listing already
-   link to. For a domain of your own, add it in Settings → Pages, set the `SITE_URL` repository
-   variable and `EXPO_PUBLIC_PRIVACY_POLICY_URL` to match.
+   page at <https://moorea.github.io/car-maintenance-app/>, which the listing already links to.
+   Once the privacy page loads there, point the app's default privacy link
+   (`apps/mobile/src/bootstrap/links.ts`) at it before the build that goes to review; until then
+   the app links to the policy in this repository. For a domain of your own, add it in
+   Settings → Pages and set the `SITE_URL` repository variable and
+   `EXPO_PUBLIC_PRIVACY_POLICY_URL` to match.
 6. **Pricing.** The listing says nothing about price until it is decided.
 7. **App Store Connect:** create the app, paste the [App Privacy answers](privacy-labels.md) and
    [listing](listing.md), set availability to the United States, answer the age rating
