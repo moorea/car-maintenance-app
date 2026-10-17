@@ -38,8 +38,8 @@ const sameNotification = (a: LocalNotification, b: LocalNotification) =>
   a.vehicleId === b.vehicleId
 
 /**
- * Keeps this device's scheduled reminders in step with the owner's cars: re-plans whenever a car
- * or a service record changes, and schedules or cancels only the notifications that differ.
+ * Keeps this device's scheduled reminders in step with the owner's cars: re-plans whenever a car,
+ * a service record or an odometer reading changes, and schedules or cancels only the notifications that differ.
  * Nothing is scheduled while signed out, while reminders are off or without permission, so
  * signing out or turning reminders off cancels them all.
  */
@@ -52,7 +52,7 @@ export const createReminderScheduler = (deps: ReminderSchedulerDeps): ReminderSc
   let vehicles: Vehicle[] | undefined
   let stops: Unsubscribe[] = []
   let stopVehicles: Unsubscribe | undefined
-  const stopRecords = new Map<string, Unsubscribe>()
+  const stopCarData = new Map<string, Unsubscribe>()
   let scheduled: LocalNotification[] = []
   const watchers = new Set<(scheduled: LocalNotification[]) => void>()
   let running: Promise<void> | undefined
@@ -112,29 +112,33 @@ export const createReminderScheduler = (deps: ReminderSchedulerDeps): ReminderSc
     return running
   }
 
-  const watchRecords = (owned: Vehicle[]) => {
+  const watchCarData = (owned: Vehicle[]) => {
     const ids = new Set(owned.map((v) => v.id))
-    for (const [id, stop] of stopRecords) {
+    for (const [id, stop] of stopCarData) {
       if (ids.has(id)) continue
       stop()
-      stopRecords.delete(id)
+      stopCarData.delete(id)
     }
     for (const id of ids) {
-      if (stopRecords.has(id)) continue
-      // Every callback re-plans, the first included: it may carry a change made since the last
-      // plan read the records, and a pass with nothing new changes nothing on the device.
-      stopRecords.set(
-        id,
+      if (stopCarData.has(id)) continue
+      // A service or an odometer reading can move a due date. Every callback re-plans, the first
+      // included: it may carry a change made since the last plan read the data, and a pass with
+      // nothing new changes nothing on the device.
+      const stops = [
         deps.records.watchForVehicle(id, () => void refresh()),
-      )
+        deps.odometer.watchForVehicle(id, () => void refresh()),
+      ]
+      stopCarData.set(id, () => {
+        for (const stop of stops) stop()
+      })
     }
   }
 
   const stopFollowingCars = () => {
     stopVehicles?.()
     stopVehicles = undefined
-    for (const stop of stopRecords.values()) stop()
-    stopRecords.clear()
+    for (const stop of stopCarData.values()) stop()
+    stopCarData.clear()
     vehicles = undefined
   }
 
@@ -145,7 +149,7 @@ export const createReminderScheduler = (deps: ReminderSchedulerDeps): ReminderSc
     if (id) {
       stopVehicles = deps.vehicles.watchOwned(id, (owned) => {
         vehicles = owned
-        watchRecords(owned)
+        watchCarData(owned)
         void refresh()
       })
     } else void refresh()

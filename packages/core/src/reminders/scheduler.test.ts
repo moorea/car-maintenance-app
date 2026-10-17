@@ -162,6 +162,32 @@ describe('createReminderScheduler', () => {
     ])
   })
 
+  it('moves mileage reminders as soon as an odometer reading is added', async () => {
+    const { scheduler, notifier, odometer } = setup()
+    scheduler.start()
+    await scheduler.refresh()
+    notifier.log.length = 0
+    const replanned = new Promise<void>((resolve) => {
+      let first = true
+      scheduler.watchScheduled(() => (first ? (first = false) : resolve()))
+    })
+
+    // 1,500 miles in two days: the rotation is now due in about a week, and the oil change moves
+    // forward too.
+    await odometer.add({ vehicleId: 'v1', date: '2026-10-01', miles: 34_500 })
+    await replanned
+
+    expect(notifier.log).toEqual([
+      'cancel reminder:v1:soon:2026-11-14',
+      'cancel reminder:v1:due:2026-11-28',
+      'cancel reminder:v1:soon:2027-04-13',
+      'cancel reminder:v1:due:2027-04-27',
+      'schedule reminder:v1:due:2026-10-09',
+      'schedule reminder:v1:soon:2026-12-10',
+      'schedule reminder:v1:due:2026-12-24',
+    ])
+  })
+
   it('leaves the device alone when nothing changed', async () => {
     const { scheduler, notifier } = setup()
     scheduler.start()
@@ -281,12 +307,14 @@ describe('createReminderScheduler', () => {
   })
 
   it('stops following changes once disposed', async () => {
-    const { scheduler, notifier, settings } = setup()
+    const { scheduler, notifier, settings, odometer } = setup()
     scheduler.start()
     await scheduler.refresh()
     scheduler.dispose()
     notifier.log.length = 0
     await settings.set({ enabled: false })
+    await odometer.add({ vehicleId: 'v1', date: '2026-10-01', miles: 40_000 })
+    await Promise.resolve()
     expect(notifier.log).toEqual([])
   })
 })
