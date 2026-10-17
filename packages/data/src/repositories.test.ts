@@ -35,11 +35,12 @@ const oilChange: ServiceRecord = {
 
 const collect = <T>(subscribe: (onChange: (value: T) => void) => () => void) => {
   const values: T[] = []
-  const waitFor = (count: number) =>
+  /** Waits until `done` holds for the updates so far: a count, or a test of them. */
+  const waitFor = (done: number | ((values: T[]) => boolean)) =>
     new Promise<T[]>((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error(`Got ${values.length} updates`)), 5_000)
       const check = () => {
-        if (values.length >= count) {
+        if (typeof done === 'number' ? values.length >= done : done(values)) {
           clearTimeout(timer)
           resolve(values)
         } else setTimeout(check, 10)
@@ -337,7 +338,14 @@ describe('PowerSync repositories', () => {
       )
     })
 
-    const values = await reports.waitFor(2)
+    // Each table is watched on its own, so the report settles once every one has caught up.
+    const values = await reports.waitFor(
+      (v) =>
+        v.at(-1)?.bulletins?.length === 2 &&
+        v.at(-1)?.recalls.length === 1 &&
+        v.at(-1)?.complaints.length === 1 &&
+        v.at(-1)?.bulletinsCheckedAt !== undefined,
+    )
     reports.stop()
     expect(values.at(-1)).toEqual({
       recallsCheckedAt: '2026-10-17 12:00:00Z',
