@@ -45,9 +45,11 @@ const sameNotification = (a: LocalNotification, b: LocalNotification) =>
  */
 export const createReminderScheduler = (deps: ReminderSchedulerDeps): ReminderScheduler => {
   const log = deps.log ?? (() => {})
-  let userId: string | undefined
-  let enabled = false
-  let vehicles: Vehicle[] = []
+  // undefined until each source has reported once, so a cold start never mistakes "not loaded
+  // yet" for "signed out", "switched off" or "no cars" and cancels everything.
+  let userId: string | null | undefined
+  let enabled: boolean | undefined
+  let vehicles: Vehicle[] | undefined
   let stops: Unsubscribe[] = []
   let stopVehicles: Unsubscribe | undefined
   const stopRecords = new Map<string, Unsubscribe>()
@@ -56,26 +58,34 @@ export const createReminderScheduler = (deps: ReminderSchedulerDeps): ReminderSc
   let running: Promise<void> | undefined
   let again = false
 
-  const plan = async (): Promise<LocalNotification[]> => {
-    if (!userId || !enabled) return []
-    if ((await deps.notifier.permission()) !== 'granted') return []
+  /** What should be scheduled; `active: false` means none at all. undefined while loading. */
+  const plan = async (): Promise<{ active: boolean; desired: LocalNotification[] } | undefined> => {
+    if (enabled === undefined || userId === undefined) return undefined
+    if (!userId || !enabled) return { active: false, desired: [] }
+    if ((await deps.notifier.permission()) !== 'granted') return { active: false, desired: [] }
+    if (vehicles === undefined) return undefined
     const due = getDueItems(deps)
     const cars = await Promise.all(
       vehicles.map(async (vehicle) => ({ vehicle, due: await due(vehicle.id) })),
     )
-    return planNotifications(cars, deps.clock.today())
+    return { active: true, desired: planNotifications(cars, deps.clock.today()) }
   }
 
   const apply = async () => {
-    const desired = await plan()
+    const next = await plan()
+    if (!next) return
+    const today = deps.clock.today()
     const current = await deps.notifier.scheduled()
-    const wanted = new Map(desired.map((n) => [n.id, n]))
+    // The plan only holds dates after today, but one due this morning is still pending: leave it
+    // to fire rather than cancelling it because the app was opened before 9am.
+    const kept = next.active ? current.filter((n) => n.date <= today) : []
+    const wanted = new Set([...next.desired, ...kept].map((n) => n.id))
     for (const n of current) if (!wanted.has(n.id)) await deps.notifier.cancel(n.id)
-    for (const n of desired) {
+    for (const n of next.desired) {
       const existing = current.find((c) => c.id === n.id)
       if (!existing || !sameNotification(existing, n)) await deps.notifier.schedule(n)
     }
-    scheduled = desired
+    scheduled = [...kept, ...next.desired]
     for (const w of watchers) w(scheduled)
   }
 
@@ -102,8 +112,8 @@ export const createReminderScheduler = (deps: ReminderSchedulerDeps): ReminderSc
     return running
   }
 
-  const watchRecords = () => {
-    const ids = new Set(vehicles.map((v) => v.id))
+  const watchRecords = (owned: Vehicle[]) => {
+    const ids = new Set(owned.map((v) => v.id))
     for (const [id, stop] of stopRecords) {
       if (ids.has(id)) continue
       stop()
@@ -111,14 +121,11 @@ export const createReminderScheduler = (deps: ReminderSchedulerDeps): ReminderSc
     }
     for (const id of ids) {
       if (stopRecords.has(id)) continue
-      // The first callback arrives straight away; the refresh below covers it.
-      let first = true
+      // Every callback re-plans, the first included: it may carry a change made since the last
+      // plan read the records, and a pass with nothing new changes nothing on the device.
       stopRecords.set(
         id,
-        deps.records.watchForVehicle(id, () => {
-          if (first) first = false
-          else void refresh()
-        }),
+        deps.records.watchForVehicle(id, () => void refresh()),
       )
     }
   }
@@ -128,17 +135,17 @@ export const createReminderScheduler = (deps: ReminderSchedulerDeps): ReminderSc
     stopVehicles = undefined
     for (const stop of stopRecords.values()) stop()
     stopRecords.clear()
-    vehicles = []
+    vehicles = undefined
   }
 
-  const onUser = (id: string | undefined) => {
+  const onUser = (id: string | null) => {
     if (id === userId) return
     stopFollowingCars()
     userId = id
     if (id) {
       stopVehicles = deps.vehicles.watchOwned(id, (owned) => {
         vehicles = owned
-        watchRecords()
+        watchRecords(owned)
         void refresh()
       })
     } else void refresh()
@@ -153,9 +160,8 @@ export const createReminderScheduler = (deps: ReminderSchedulerDeps): ReminderSc
           enabled = s.enabled
           void refresh()
         }),
-        deps.auth.watchUser((user) => onUser(user?.id)),
+        deps.auth.watchUser((user) => onUser(user?.id ?? null)),
       ]
-      void refresh()
     },
     refresh,
     watchScheduled: (onChange) => {
@@ -168,6 +174,7 @@ export const createReminderScheduler = (deps: ReminderSchedulerDeps): ReminderSc
       stops = []
       stopFollowingCars()
       userId = undefined
+      enabled = undefined
     },
   }
 }

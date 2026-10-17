@@ -68,7 +68,12 @@ export const createRemindersModel = (deps: RemindersDeps): RemindersModel => {
     }
 
     const checkPermission = async () => {
-      permission = await deps.notifier.permission()
+      try {
+        permission = await deps.notifier.permission()
+      } catch {
+        // Unknown reads as not yet asked: the switch shows off and turning it on asks again.
+        permission = 'undetermined'
+      }
       loaded = { ...loaded, permission: true }
       show()
     }

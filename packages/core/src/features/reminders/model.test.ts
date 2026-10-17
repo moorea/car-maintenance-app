@@ -121,6 +121,16 @@ describe('reminders screen model', () => {
     })
   })
 
+  it('still loads when the permission cannot be read', async () => {
+    const s = setup()
+    s.notifier.permission = async () => {
+      throw new Error('not available')
+    }
+    s.model.getState().start()
+    await settled()
+    expect(s.model.getState()).toMatchObject({ status: 'ready', on: false, blocked: false })
+  })
+
   it('opens the system settings', async () => {
     const { model, notifier } = await started({ permission: 'denied' })
     model.getState().openSettings()

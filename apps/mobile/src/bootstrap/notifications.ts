@@ -8,8 +8,10 @@ const ANDROID_CHANNEL = 'reminders'
 
 const toPermission = (s: Notifications.NotificationPermissionsStatus): NotificationPermission => {
   const ios = s.ios?.status
+  // `status`, not `granted`: on Android 13 `granted` stays true when the owner has switched this
+  // app's notifications off in Settings.
   if (
-    s.granted ||
+    s.status === 'granted' ||
     ios === Notifications.IosAuthorizationStatus.PROVISIONAL ||
     ios === Notifications.IosAuthorizationStatus.EPHEMERAL
   )

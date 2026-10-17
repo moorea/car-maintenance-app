@@ -1,14 +1,15 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { createReminderScheduler, type Clock, type IdGenerator } from '@car/core'
+import { createReminderScheduler, type IdGenerator } from '@car/core'
 import { nhtsaVinDecoder, storedReminderSettings } from '@car/data'
 import { randomUUID } from 'expo-crypto'
+import { localClock } from './clock'
 import { backendConfig } from './config'
 import { createDemoRepositories } from './demo'
 import { createLiveRepositories } from './live'
 import { expoNotifier } from './notifications'
 
 // The composition root: the only place that picks adapters. Screens only ever see ports.
-const clock: Clock = { today: () => new Date().toISOString().slice(0, 10) }
+const clock = localClock
 // Ids are UUIDs so rows created offline never collide once uploaded to Postgres.
 const ids: IdGenerator = { next: () => randomUUID() }
 

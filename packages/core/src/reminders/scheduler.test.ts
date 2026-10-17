@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import type { Vehicle } from '../domain/types'
 import type { NotificationPermission } from '../ports'
 import {
-  fixedClock,
   memoryAuth,
   memoryNotifier,
   memoryOdometer,
@@ -16,7 +16,9 @@ import { createReminderScheduler } from './scheduler'
 const setup = (
   options: { enabled?: boolean; permission?: NotificationPermission; signedIn?: boolean } = {},
 ) => {
+  const calendar = { today: '2026-10-01' }
   const deps = {
+    calendar,
     auth: memoryAuth({
       ...(options.signedIn !== false && { user: { id: OWNER } }),
       userIdFor: (email) => `user-${email}`,
@@ -59,7 +61,7 @@ const setup = (
       },
     ]),
     odometer: memoryOdometer([{ vehicleId: 'v1', date: '2026-09-29', miles: 33_000 }]),
-    clock: fixedClock('2026-10-01'),
+    clock: { today: () => calendar.today },
     notifier: memoryNotifier({ permission: options.permission ?? 'granted' }),
     settings: memoryReminderSettings({ enabled: options.enabled ?? true }),
     errors: [] as string[],
@@ -220,6 +222,62 @@ describe('createReminderScheduler', () => {
     await scheduler.refresh()
     expect(seen[0]).toEqual([])
     expect(seen.at(-1)).toEqual(PLANNED)
+  })
+
+  it('keeps a reminder due this morning when the app is opened before it fires', async () => {
+    const { scheduler, notifier, calendar } = setup()
+    scheduler.start()
+    await scheduler.refresh()
+    calendar.today = '2026-11-14'
+    notifier.log.length = 0
+    await scheduler.refresh()
+    expect(notifier.log).toEqual([])
+    expect(await ids(notifier)).toContain('reminder:v1:soon:2026-11-14')
+  })
+
+  it('still cancels a reminder due today when reminders are turned off', async () => {
+    const { scheduler, notifier, calendar, settings } = setup()
+    scheduler.start()
+    await scheduler.refresh()
+    calendar.today = '2026-11-14'
+    await settings.set({ enabled: false })
+    await scheduler.refresh()
+    expect(await ids(notifier)).toEqual([])
+  })
+
+  it('touches nothing on a cold start until the setting and the cars have loaded', async () => {
+    const d = setup()
+    await d.notifier.schedule({
+      id: 'reminder:v1:soon:2026-11-14',
+      date: '2026-11-14',
+      hour: 9,
+      title: 'RAV4: service coming up',
+      body: 'Tire rotation is due in about two weeks (around 35,000 mi).',
+      vehicleId: 'v1',
+    })
+    d.notifier.log.length = 0
+    // Settings and cars arrive later, as they do from storage and the database.
+    let reportSettings: ((s: { enabled: boolean }) => void) | undefined
+    let reportCars: ((v: Vehicle[]) => void) | undefined
+    const scheduler = createReminderScheduler({
+      ...d,
+      settings: { watch: (on) => ((reportSettings = on), () => {}), set: async () => {} },
+      vehicles: {
+        ...d.vehicles,
+        watchOwned: (_owner, on) => ((reportCars = on), () => {}),
+      },
+    })
+    scheduler.start()
+    await scheduler.refresh()
+    reportSettings?.({ enabled: true })
+    await scheduler.refresh()
+    expect(d.notifier.log).toEqual([])
+
+    const car = await d.vehicles.get('v1')
+    reportCars?.(car ? [car] : [])
+    await scheduler.refresh()
+    expect(d.notifier.log).not.toContain('cancel reminder:v1:soon:2026-11-14')
+    expect(await ids(d.notifier)).toEqual(PLANNED)
   })
 
   it('stops following changes once disposed', async () => {

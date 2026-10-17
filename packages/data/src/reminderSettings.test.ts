@@ -42,6 +42,23 @@ describe('storedReminderSettings', () => {
     expect(seen).toEqual([{ enabled: false }, { enabled: true }])
   })
 
+  it('keeps the old setting when saving fails', async () => {
+    const storage = memoryStorage()
+    const repo = storedReminderSettings(
+      {
+        ...storage,
+        setItem: async () => {
+          throw new Error('disk full')
+        },
+      },
+      'reminders',
+    )
+    await settle()
+    const seen = watchAll(repo)
+    await expect(repo.set({ enabled: true })).rejects.toThrow('disk full')
+    expect(seen).toEqual([{ enabled: false }])
+  })
+
   it('treats a damaged stored value as off', async () => {
     const seen = watchAll(
       storedReminderSettings(memoryStorage({ reminders: '{oops' }), 'reminders'),

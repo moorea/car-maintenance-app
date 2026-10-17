@@ -39,10 +39,11 @@ export const storedReminderSettings = (
       if (current) onChange(current)
       return () => watchers.delete(onChange)
     },
+    // Saved before anyone is told, so a failed write never shows a setting that will not last.
     set: async (settings) => {
+      await storage.setItem(key, JSON.stringify(settings))
       current = settings
       for (const w of watchers) w(current)
-      await storage.setItem(key, JSON.stringify(settings))
     },
   }
 }
