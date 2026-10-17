@@ -12,7 +12,17 @@ import { Host } from '../../ui/Host'
 import { TabBar, type TabBarItem } from '../../ui/TabBar'
 
 type Props = SessionState &
-  Pick<SessionActions, 'signOut' | 'openTab' | 'openCar' | 'addCar' | 'cancelAddCar' | 'carAdded'>
+  Pick<
+    SessionActions,
+    | 'signOut'
+    | 'openTab'
+    | 'openCar'
+    | 'logService'
+    | 'logRequestHandled'
+    | 'addCar'
+    | 'cancelAddCar'
+    | 'carAdded'
+  >
 
 const TABS: TabBarItem<AppTab>[] = [
   { key: 'garage', label: 'Garage', symbol: 'garage' },
@@ -78,13 +88,19 @@ function TabContent(props: Props & { vehicle: Vehicle }) {
           onOpenCar={props.openCar}
           onAddCar={props.addCar}
           onReminders={() => props.openTab('reminders')}
-          onLogService={() => props.openTab('log')}
+          onLogService={props.logService}
           onAsk={() => props.openTab('ask')}
           onSignOut={() => void props.signOut()}
         />
       )
     case 'log':
-      return <ServiceLogScreen vehicleId={vehicle.id} />
+      return (
+        <ServiceLogScreen
+          vehicle={vehicle}
+          request={props.logRequest}
+          onRequestHandled={props.logRequestHandled}
+        />
+      )
     case 'car':
       return <CarScreen vehicle={vehicle} />
     case 'ask':

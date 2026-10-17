@@ -310,4 +310,25 @@ describe('session model, adding a car', () => {
     await auth.verifyCode('a@example.com', '123456')
     expect(model.getState().tab).toBe('garage')
   })
+
+  it('opens the service log form for a task, and forgets the request on leaving', () => {
+    const { model } = setup(true, [civic])
+    model.getState().start()
+    model.getState().logService('oil')
+    expect(model.getState()).toMatchObject({ tab: 'log', logRequest: { itemId: 'oil', seq: 1 } })
+    model.getState().logService('oil')
+    expect(model.getState().logRequest?.seq).toBe(2)
+    model.getState().openTab('garage')
+    expect(model.getState().logRequest).toBeUndefined()
+  })
+
+  it('forgets a request to log a service once the form has opened for it', () => {
+    const { model } = setup(true, [civic])
+    model.getState().start()
+    model.getState().logService('oil')
+    model.getState().logRequestHandled()
+    expect(model.getState()).toMatchObject({ tab: 'log', logRequest: undefined })
+    model.getState().logService('tires')
+    expect(model.getState().logRequest).toEqual({ itemId: 'tires', seq: 2 })
+  })
 })

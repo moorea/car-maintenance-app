@@ -1,14 +1,24 @@
 import { describe, expect, it } from 'vitest'
-import { fixedClock, memoryServiceRecords, sequentialIds } from '../../testing'
+import type { MaintenanceItem, ServiceRecord } from '../../domain/types'
+import { fixedClock, memorySchedule, memoryServiceRecords, sequentialIds } from '../../testing'
 import { createServiceLogModel } from './model'
 
-const setup = () => {
-  const records = memoryServiceRecords([
+const tasks: MaintenanceItem[] = [
+  { id: 'oil', configId: 'c1', task: 'Oil & filter change', intervalMiles: 10_000 },
+  { id: 'tires', configId: 'c1', task: 'Tire rotation', intervalMiles: 5_000 },
+]
+
+const setup = (
+  initial: ServiceRecord[] = [
     { id: 'old', vehicleId: 'v1', performedOn: '2026-01-10', shop: 'Old shop' },
     { id: 'other-car', vehicleId: 'v2', performedOn: '2026-05-01' },
-  ])
+  ],
+) => {
+  const records = memoryServiceRecords(initial)
   const model = createServiceLogModel({
     vehicleId: 'v1',
+    configId: 'c1',
+    schedule: memorySchedule(tasks),
     records,
     clock: fixedClock('2026-10-17'),
     ids: sequentialIds('rec'),
@@ -17,10 +27,16 @@ const setup = () => {
   return { model, records }
 }
 
+// The in-memory schedule resolves at once, so a few microtask turns let it arrive.
+const settle = async () => {
+  for (let i = 0; i < 10; i++) await Promise.resolve()
+}
+
 describe('service log screen model', () => {
   it('stays loading until started', () => {
     const model = createServiceLogModel({
       vehicleId: 'v1',
+      schedule: memorySchedule(),
       records: memoryServiceRecords(),
       clock: fixedClock('2026-10-17'),
       ids: sequentialIds(),
@@ -39,6 +55,7 @@ describe('service log screen model', () => {
   it('saves a valid draft, shows it newest first and resets the form', async () => {
     const { model } = setup()
     const { setField, save } = model.getState()
+    setField('notes', 'Wipers')
     setField('odometerMiles', '41250')
     setField('cost', '89.99')
     setField('shop', '  Main St Garage ')
@@ -53,6 +70,7 @@ describe('service log screen model', () => {
       odometerMiles: 41_250,
       costCents: 8_999,
       shop: 'Main St Garage',
+      notes: 'Wipers',
     })
     expect(s.draft.shop).toBe('')
     expect(s.status).toBe('ready')
@@ -81,8 +99,17 @@ describe('service log screen model', () => {
     expect(model.getState().fieldErrors.odometerMiles).toBeUndefined()
   })
 
+  it('requires what was done when no scheduled task is picked', async () => {
+    const { model } = setup()
+    expect(await model.getState().save()).toBe(false)
+    expect(model.getState().fieldErrors).toEqual({ notes: 'Say what was done' })
+    model.getState().setField('itemId', 'oil')
+    expect(await model.getState().save()).toBe(true)
+  })
+
   it('surfaces a storage failure as an error state', async () => {
     const { model, records } = setup()
+    model.getState().setField('itemId', 'oil')
     records.failNextAdd('Disk full')
     expect(await model.getState().save()).toBe(false)
     expect(model.getState()).toMatchObject({ status: 'error', saveError: 'Disk full' })
@@ -90,6 +117,7 @@ describe('service log screen model', () => {
 
   it('clears a previous save error once a save succeeds', async () => {
     const { model, records } = setup()
+    model.getState().setField('itemId', 'oil')
     records.failNextAdd('Disk full')
     await model.getState().save()
     expect(await model.getState().save()).toBe(true)
@@ -98,6 +126,7 @@ describe('service log screen model', () => {
 
   it('ignores a second save while the first is still running', async () => {
     const { model } = setup()
+    model.getState().setField('itemId', 'oil')
     const first = model.getState().save()
     const second = model.getState().save()
     expect(await Promise.all([first, second])).toEqual([true, false])
@@ -125,5 +154,204 @@ describe('service log screen model', () => {
     await records.add({ id: 'late', vehicleId: 'v1', performedOn: '2026-10-18' })
     model.getState().start()
     expect(model.getState().records.map((r) => r.id)).toEqual(['late', 'old'])
+  })
+
+  describe('history', () => {
+    const history: ServiceRecord[] = [
+      {
+        id: 'a',
+        vehicleId: 'v1',
+        itemId: 'oil',
+        performedOn: '2026-08-14',
+        odometerMiles: 41_250,
+        costCents: 8_995,
+        shop: 'Main St Auto',
+      },
+      { id: 'b', vehicleId: 'v1', performedOn: '2026-10-02', costCents: 3_898, notes: 'Wipers' },
+      {
+        id: 'c',
+        vehicleId: 'v1',
+        itemId: 'tires',
+        performedOn: '2025-05-20',
+        costCents: 2_400,
+        shop: 'Dealer',
+      },
+    ]
+
+    it('groups records by month, newest first, naming the task done', async () => {
+      const { model } = setup(history)
+      await settle()
+      const groups = model.getState().groups
+      expect(groups.map((g) => g.label)).toEqual(['October', 'August', 'May 2025'])
+      expect(groups[1]?.entries[0]).toEqual({
+        id: 'a',
+        month: 'Aug',
+        day: '14',
+        what: 'Oil & filter change',
+        where: 'Main St Auto · 41,250 mi',
+        cost: '$89.95',
+      })
+      expect(groups[0]?.entries[0]?.what).toBe('Wipers')
+    })
+
+    it('totals what was spent this year and counts every service', () => {
+      const { model } = setup(history)
+      expect(model.getState().summary).toEqual({
+        spentLabel: 'Spent in 2026',
+        spent: '$128.93',
+        count: 3,
+      })
+    })
+
+    it('filters by task, shop or notes, ignoring case', async () => {
+      const { model } = setup(history)
+      await settle()
+      model.getState().setQuery('main st')
+      expect(model.getState().groups.flatMap((g) => g.entries.map((e) => e.id))).toEqual(['a'])
+      model.getState().setQuery('TIRE')
+      expect(model.getState().groups.flatMap((g) => g.entries.map((e) => e.id))).toEqual(['c'])
+      model.getState().setQuery('')
+      expect(model.getState().groups).toHaveLength(3)
+    })
+
+    it('searches the notes of a record that also has a task', async () => {
+      const { model } = setup([
+        { id: 'n', vehicleId: 'v1', itemId: 'oil', performedOn: '2026-09-01', notes: 'Synthetic' },
+        ...history,
+      ])
+      await settle()
+      model.getState().setQuery('synth')
+      expect(model.getState().groups.flatMap((g) => g.entries.map((e) => e.id))).toEqual(['n'])
+    })
+
+    it('names January without a year and last December with one', () => {
+      const { model } = setup([
+        { id: 'j', vehicleId: 'v1', performedOn: '2026-01-05', costCents: 1_000, notes: 'Wash' },
+        { id: 'd', vehicleId: 'v1', performedOn: '2025-12-30', costCents: 5_000, notes: 'Wax' },
+      ])
+      expect(model.getState().groups.map((g) => g.label)).toEqual(['January', 'December 2025'])
+      expect(model.getState().summary.spent).toBe('$10.00')
+    })
+
+    it('has no task names before the car has synced, and loads them once it has', async () => {
+      const records = memoryServiceRecords(history)
+      let reads = 0
+      const schedule = memorySchedule(tasks)
+      const model = createServiceLogModel({
+        vehicleId: 'v1',
+        schedule: {
+          itemsForConfig: (id) => {
+            reads++
+            return schedule.itemsForConfig(id)
+          },
+        },
+        records,
+        clock: fixedClock('2026-10-17'),
+        ids: sequentialIds('rec'),
+      })
+      model.getState().start()
+      model.getState().openForm()
+      model.getState().setField('shop', 'Dealer')
+      await settle()
+      expect(reads).toBe(0)
+      expect(model.getState().tasks).toEqual([])
+      model.getState().setConfig('c1')
+      await settle()
+      expect(model.getState().tasks).toHaveLength(2)
+      expect(model.getState().groups[1]?.entries[0]?.what).toBe('Oil & filter change')
+      // The draft in the open form survives the config arriving.
+      expect(model.getState()).toMatchObject({ adding: true, draft: { shop: 'Dealer' } })
+    })
+
+    it('falls back to notes when the schedule cannot be read', async () => {
+      const model = createServiceLogModel({
+        vehicleId: 'v1',
+        configId: 'c1',
+        schedule: { itemsForConfig: () => Promise.reject(new Error('offline')) },
+        records: memoryServiceRecords(history),
+        clock: fixedClock('2026-10-17'),
+        ids: sequentialIds('rec'),
+      })
+      model.getState().start()
+      await settle()
+      expect(model.getState()).toMatchObject({ status: 'ready', tasks: [] })
+      expect(model.getState().groups[0]?.entries[0]?.what).toBe('Wipers')
+    })
+
+    it('ignores a schedule that arrives after dispose', async () => {
+      const { model } = setup(history)
+      model.getState().dispose()
+      await settle()
+      expect(model.getState().tasks).toEqual([])
+    })
+
+    it("offers the car's scheduled tasks for what was done", async () => {
+      const { model } = setup(history)
+      await settle()
+      expect(model.getState().tasks).toEqual([
+        { id: 'oil', task: 'Oil & filter change' },
+        { id: 'tires', task: 'Tire rotation' },
+      ])
+    })
+  })
+
+  describe('the form', () => {
+    it('is closed until opened, and opens with a task chosen', () => {
+      const { model } = setup()
+      expect(model.getState().adding).toBe(false)
+      model.getState().openForm('oil')
+      expect(model.getState()).toMatchObject({ adding: true, draft: { itemId: 'oil' } })
+      model.getState().closeForm()
+      expect(model.getState().adding).toBe(false)
+    })
+
+    it('opens with an empty draft, clearing errors from before', async () => {
+      const { model, records } = setup()
+      model.getState().openForm('oil')
+      model.getState().setField('odometerMiles', 'abc')
+      await model.getState().save()
+      model.getState().setField('odometerMiles', '100')
+      records.failNextAdd('Disk full')
+      await model.getState().save()
+      model.getState().openForm()
+      expect(model.getState()).toMatchObject({
+        adding: true,
+        draft: { itemId: '', odometerMiles: '' },
+        fieldErrors: {},
+        saveError: undefined,
+      })
+    })
+
+    it('reopens with the error when a save fails after the form was closed', async () => {
+      const { model, records } = setup()
+      model.getState().openForm('oil')
+      records.failNextAdd('Disk full')
+      const saving = model.getState().save()
+      model.getState().closeForm()
+      expect(model.getState().adding).toBe(false)
+      expect(await saving).toBe(false)
+      expect(model.getState()).toMatchObject({
+        adding: true,
+        saveError: 'Disk full',
+        draft: { itemId: 'oil' },
+      })
+    })
+
+    it('stays closed when a save finishes after the form was closed', async () => {
+      const { model } = setup()
+      model.getState().openForm('oil')
+      const saving = model.getState().save()
+      model.getState().closeForm()
+      expect(await saving).toBe(true)
+      expect(model.getState().adding).toBe(false)
+    })
+
+    it('closes once the service is saved', async () => {
+      const { model } = setup()
+      model.getState().openForm('oil')
+      expect(await model.getState().save()).toBe(true)
+      expect(model.getState()).toMatchObject({ adding: false, draft: { itemId: '' } })
+      expect(model.getState().records[0]?.itemId).toBe('oil')
+    })
   })
 })
