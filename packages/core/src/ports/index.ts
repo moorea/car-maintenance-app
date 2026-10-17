@@ -20,10 +20,13 @@ export interface VehicleRepo {
   watchOwned(ownerId: string, onChange: (vehicles: Vehicle[]) => void): Unsubscribe
 }
 
-/** Whether this device's copy of the owner's data has finished its first download. */
+/** Whether this device's copy of an owner's data has finished its first download. */
 export interface SyncStatus {
-  /** Calls `onSynced` once the first full sync has completed (immediately if it already has). */
-  onFirstSync(onSynced: () => void): Unsubscribe
+  /**
+   * Calls `onSynced` once a full sync of `ownerId`'s data has completed (immediately if it already
+   * has). Another account's earlier sync on the same phone does not count.
+   */
+  onFirstSync(ownerId: string, onSynced: () => void): Unsubscribe
 }
 
 /** Passwordless email sign-in: the owner types their email, then the code they were sent. */
@@ -34,6 +37,7 @@ export interface AuthPort {
   sendCode(email: string): Promise<void>
   /** Signs in with the emailed code. Throws AuthError. */
   verifyCode(email: string, code: string): Promise<void>
+  /** Always ends signed out on this device, even offline; may still throw if the server was not told. */
   signOut(): Promise<void>
 }
 

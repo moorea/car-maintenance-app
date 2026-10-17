@@ -157,7 +157,7 @@ export const memorySync = (options: { synced?: boolean } = {}) => {
   let synced = options.synced ?? true
   const waiting = new Set<() => void>()
   const sync: SyncStatus & { complete: () => void } = {
-    onFirstSync: (onSynced) => {
+    onFirstSync: (_ownerId, onSynced) => {
       if (synced) {
         onSynced()
         return () => {}

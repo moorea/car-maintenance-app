@@ -1,4 +1,4 @@
-export { authErrorKind, storedUserReader, supabaseAuth, type StoredUserReader } from './auth'
+export { authErrorKind, storedSession, supabaseAuth, type StoredSession } from './auth'
 export { schema, UPLOADABLE_TABLES, type UploadableTable } from './schema'
 export { createPowerSyncRepositories, type PowerSyncRepositories } from './repositories'
 export { SupabaseConnector, supabaseBackend, type SupabaseAuth } from './connector'

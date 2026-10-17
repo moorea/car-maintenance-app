@@ -1,5 +1,5 @@
 import { Column, Text, TextInput, useNativeState, type TextInputProps } from '@expo/ui'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 
 interface Props {
   label: string
@@ -15,16 +15,24 @@ interface Props {
 /** A labelled Expo UI text input. The screen model owns the text; the field follows `value`. */
 export function TextField({ label, value, onChangeText, error, ...input }: Props) {
   const text = useNativeState(value)
-  // The model can change the text itself (a cleared code after a resend), so copy it in.
+  // What the field last reported. Only a different `value` came from the model (a cleared code
+  // after a resend) and is copied in; comparing with the live native text instead would write a
+  // stale value back over keystrokes typed since.
+  const reported = useRef(value)
   useEffect(() => {
-    if (text.get() !== value) text.set(value)
+    if (value === reported.current) return
+    reported.current = value
+    text.set(value)
   }, [text, value])
   return (
     <Column spacing={4}>
       <Text textStyle={{ fontSize: 13, fontWeight: '600' }}>{label}</Text>
       <TextInput
         value={text}
-        onChangeText={onChangeText}
+        onChangeText={(next) => {
+          reported.current = next
+          onChangeText(next)
+        }}
         placeholder={input.placeholder ?? ''}
         keyboardType={input.keyboardType ?? 'default'}
         autoComplete={input.autoComplete ?? 'off'}

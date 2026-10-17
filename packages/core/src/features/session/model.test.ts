@@ -48,6 +48,23 @@ describe('session model', () => {
     expect(model.getState().status).toBe('ready')
   })
 
+  it('does not ask for a car on a synced device before its cars have loaded', () => {
+    let deliver: (vehicles: Vehicle[]) => void = () => {}
+    const auth = memoryAuth({ user: { id: 'u1' } })
+    const vehicles = {
+      ...memoryVehicles(),
+      watchOwned: (_ownerId: string, onChange: (vehicles: Vehicle[]) => void) => {
+        deliver = onChange
+        return () => {}
+      },
+    }
+    const model = createSessionModel({ auth, vehicles, sync: memorySync() })
+    model.getState().start()
+    expect(model.getState().status).toBe('starting')
+    deliver([civic])
+    expect(model.getState().status).toBe('ready')
+  })
+
   it('asks for a car once the first sync finds none', () => {
     const { sync, model } = setup(true, [], false)
     model.getState().start()

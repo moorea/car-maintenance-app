@@ -36,11 +36,14 @@ export const createSessionModel = (deps: {
   // An empty list means "no cars" only once the first sync is done; before that it means
   // "not downloaded yet", and saying "add a car" would invite a duplicate.
   let synced = false
+  // Until the first vehicles result arrives the list is just the empty placeholder.
+  let vehiclesLoaded = false
   // undefined until the first auth callback; then the signed-in user's id, or null.
   let currentUserId: string | null | undefined
 
   return createStore<SessionState & SessionActions>()((set, get) => {
     const showVehicles = (vehicles: Vehicle[]) => {
+      vehiclesLoaded = true
       const sorted = [...vehicles].sort((a, b) => a.nickname.localeCompare(b.nickname))
       const kept = sorted.find((v) => v.id === get().selectedVehicleId)
       const selected = kept ?? sorted[0]
@@ -63,6 +66,7 @@ export const createSessionModel = (deps: {
       stopVehicles = undefined
       stopSync = undefined
       synced = false
+      vehiclesLoaded = false
       if (!user) {
         set({ status: 'signed-out', user: undefined, vehicles: [], selectedVehicleId: undefined })
         return
@@ -70,9 +74,9 @@ export const createSessionModel = (deps: {
       // 'starting' until the vehicles arrive, so no screen flashes in between.
       set({ status: 'starting', user, vehicles: [], selectedVehicleId: undefined })
       stopVehicles = deps.vehicles.watchOwned(user.id, showVehicles)
-      stopSync = deps.sync.onFirstSync(() => {
+      stopSync = deps.sync.onFirstSync(user.id, () => {
         synced = true
-        showVehicles(get().vehicles)
+        if (vehiclesLoaded) showVehicles(get().vehicles)
       })
     }
 

@@ -7,6 +7,7 @@ import type {
   VehicleRepo,
 } from '@car/core'
 import type { CommonPowerSyncDatabase } from '@powersync/common'
+import { readOwner } from './session'
 import {
   fromServiceRecord,
   toMaintenanceItem,
@@ -49,25 +50,58 @@ const watchRows = (
   return () => controller.abort()
 }
 
+/** What the first-sync check reads from PowerSync. */
+export interface SyncSource {
+  hasSynced(): boolean
+  onStatusChanged(onChange: () => void): () => void
+  /** The user whose data the local copy holds. */
+  owner(): Promise<string | undefined>
+}
+
+/**
+ * Calls `onSynced` once the local copy has fully synced and belongs to `ownerId`. After an account
+ * switch PowerSync still reports the previous owner's sync until their copy is cleared, which
+ * would tell the new owner they have no cars before theirs have downloaded.
+ */
+export const firstSyncOf = (
+  source: SyncSource,
+  ownerId: string,
+  onSynced: () => void,
+): (() => void) => {
+  let done = false
+  let check = Promise.resolve()
+  const recheck = () => {
+    check = check.then(async () => {
+      if (done || !source.hasSynced()) return
+      if ((await source.owner()) !== ownerId || done) return
+      done = true
+      stop()
+      onSynced()
+    })
+  }
+  const stop = source.onStatusChanged(recheck)
+  recheck()
+  return () => {
+    done = true
+    stop()
+  }
+}
+
 /** The core ports implemented over the on-device PowerSync (SQLite) database. */
 export const createPowerSyncRepositories = (
   db: CommonPowerSyncDatabase,
 ): PowerSyncRepositories => ({
   sync: {
-    onFirstSync: (onSynced) => {
-      if (db.currentStatus.hasSynced) {
-        onSynced()
-        return () => {}
-      }
-      const dispose = db.registerListener({
-        statusChanged: (status) => {
-          if (!status.hasSynced) return
-          dispose()
-          onSynced()
+    onFirstSync: (ownerId, onSynced) =>
+      firstSyncOf(
+        {
+          hasSynced: () => db.currentStatus.hasSynced === true,
+          onStatusChanged: (onChange) => db.registerListener({ statusChanged: onChange }),
+          owner: () => readOwner(db),
         },
-      })
-      return dispose
-    },
+        ownerId,
+        onSynced,
+      ),
   },
 
   vehicles: {

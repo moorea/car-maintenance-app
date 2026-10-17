@@ -5,7 +5,7 @@ import {
   createSyncSession,
   powerSyncSessionDatabase,
   schema,
-  storedUserReader,
+  storedSession,
   supabaseAuth,
   SupabaseConnector,
 } from '@car/data'
@@ -39,7 +39,7 @@ export const createLiveRepositories = (config: BackendConfig) => {
   const db = new PowerSyncDatabase({ schema, database: { dbFilename: 'car-maintenance.db' } })
   const connector = SupabaseConnector.forClient(supabase, config.powerSyncUrl)
   const session = createSyncSession(powerSyncSessionDatabase(db, connector))
-  const auth = supabaseAuth(supabase.auth, storedUserReader(AsyncStorage, AUTH_STORAGE_KEY))
+  const auth = supabaseAuth(supabase.auth, storedSession(AsyncStorage, AUTH_STORAGE_KEY))
   // Sync follows the same view of who is signed in as the screens, so the two never disagree.
   auth.watchUser((user) => void session.setUser(user?.id ?? null).catch(() => {}))
 

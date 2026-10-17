@@ -5,7 +5,7 @@ import type { ServiceRecord, Vehicle } from '@car/core'
 import { PowerSyncDatabase } from '@powersync/node'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { PowerSyncBackendConnector } from '@powersync/common'
-import { createPowerSyncRepositories } from './repositories'
+import { createPowerSyncRepositories, firstSyncOf } from './repositories'
 import { powerSyncSessionDatabase } from './session'
 import { schema } from './schema'
 
@@ -132,7 +132,7 @@ describe('PowerSync repositories', () => {
   it('does not report a first sync on a device that has never synced', async () => {
     const repos = createPowerSyncRepositories(db)
     let synced = false
-    const stop = repos.sync.onFirstSync(() => (synced = true))
+    const stop = repos.sync.onFirstSync('u1', () => (synced = true))
     await new Promise((resolve) => setTimeout(resolve, 50))
     stop()
     expect(synced).toBe(false)
@@ -161,5 +161,73 @@ describe('PowerSync repositories', () => {
     expect(await repos.schedule.itemsForConfig('c1')).toEqual([
       { id: 'oil', configId: 'c1', task: 'Oil change', intervalMiles: 5000, intervalMonths: 6 },
     ])
+  })
+})
+
+describe('first sync', () => {
+  const source = (state: { hasSynced: boolean; owner: string | undefined }) => {
+    const listeners = new Set<() => void>()
+    return {
+      state,
+      hasSynced: () => state.hasSynced,
+      onStatusChanged: (onChange: () => void) => {
+        listeners.add(onChange)
+        return () => listeners.delete(onChange)
+      },
+      owner: async () => state.owner,
+      change: (next: Partial<typeof state>) => {
+        Object.assign(state, next)
+        for (const l of [...listeners]) l()
+      },
+      listening: () => listeners.size,
+    }
+  }
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 10))
+
+  it("reports at once when this owner's copy has already synced", async () => {
+    const calls: string[] = []
+    firstSyncOf(source({ hasSynced: true, owner: 'u1' }), 'u1', () => calls.push('synced'))
+    await settle()
+    expect(calls).toEqual(['synced'])
+  })
+
+  it('waits for a sync that is still running, then stops listening', async () => {
+    const s = source({ hasSynced: false, owner: 'u1' })
+    const calls: string[] = []
+    firstSyncOf(s, 'u1', () => calls.push('synced'))
+    await settle()
+    expect(calls).toEqual([])
+    s.change({ hasSynced: true })
+    await settle()
+    s.change({})
+    await settle()
+    expect(calls).toEqual(['synced'])
+    expect(s.listening()).toBe(0)
+  })
+
+  it("does not count another account's sync on the same phone", async () => {
+    const s = source({ hasSynced: true, owner: 'u-previous' })
+    const calls: string[] = []
+    firstSyncOf(s, 'u1', () => calls.push('synced'))
+    await settle()
+    expect(calls).toEqual([])
+    // The sync session clears the old copy, records the new owner, then syncs.
+    s.change({ hasSynced: false, owner: undefined })
+    s.change({ owner: 'u1' })
+    await settle()
+    expect(calls).toEqual([])
+    s.change({ hasSynced: true })
+    await settle()
+    expect(calls).toEqual(['synced'])
+  })
+
+  it('reports nothing after it is stopped', async () => {
+    const s = source({ hasSynced: false, owner: 'u1' })
+    const calls: string[] = []
+    const stop = firstSyncOf(s, 'u1', () => calls.push('synced'))
+    stop()
+    s.change({ hasSynced: true })
+    await settle()
+    expect(calls).toEqual([])
   })
 })
