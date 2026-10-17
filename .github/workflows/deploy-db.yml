@@ -1,0 +1,34 @@
+name: Deploy database
+
+# Applies new migrations in supabase/migrations to the hosted Supabase project after they merge.
+# Migrations are checked by the CI database job (SQL lint and pgTAP) before they can merge.
+on:
+  push:
+    branches: [main]
+    paths: ['supabase/migrations/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Never run two deploys at once; a later one waits rather than cancelling one mid-migration.
+concurrency:
+  group: deploy-db
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PROJECT_REF: vdklyvktmbcocwmiqkze
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.121.0
+      - run: supabase link --project-ref "$PROJECT_REF"
+      - name: Show pending migrations
+        run: supabase migration list
+      - run: supabase db push

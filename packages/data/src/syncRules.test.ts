@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { SqlSyncRules } from '@powersync/service-sync-rules'
 import { describe, expect, it } from 'vitest'
@@ -26,6 +26,17 @@ describe('sync rules', () => {
     expect(new Set(synced)).toEqual(
       new Set(schema.tables.filter((t) => !t.localOnly).map((t) => t.name)),
     )
+  })
+
+  it('only sync tables that Postgres publishes to PowerSync', () => {
+    const migrations = fileURLToPath(new URL('../../../supabase/migrations/', import.meta.url))
+    const sql = readdirSync(migrations)
+      .map((f) => readFileSync(migrations + f, 'utf8'))
+      .join('\n')
+    const list = /create publication powersync for table([^;]*);/.exec(sql)?.[1] ?? ''
+    const published = list.split(',').map((t) => t.trim().replace(/^public\./, ''))
+    const synced = buckets.flatMap((b) => b.data.map((q) => /\bfrom\s+(\w+)/i.exec(q)?.[1]))
+    expect(new Set(published)).toEqual(new Set(synced))
   })
 
   it('scope every bucket to the signed-in user', () => {

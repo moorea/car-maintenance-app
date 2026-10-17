@@ -20,6 +20,10 @@ Screens read and write SQLite only; PowerSync syncs it with Supabase Postgres in
 - **Sign-in and sign-out** go through one serialized sync session (`createSyncSession`). Signing
   out deletes the local copy only once everything has uploaded; otherwise it is kept for the same
   user's next sign-in. Signing in as a different user deletes the previous user's copy first.
+- **Table access** is granted per table and operation in migrations; new tables are not exposed
+  to the Data API by default, and anonymous users get nothing. Migrations deploy to the hosted
+  project from `.github/workflows/deploy-db.yml` after they merge. PowerSync replicates the
+  tables in the `powersync` publication, which must match the sync rules.
 - **Ids** are UUIDs generated on the device, so rows created offline never collide.
 - `packages/data` takes the database as a parameter and imports only `@powersync/common`. The app
   passes the React Native database; tests pass `@powersync/node` with a temporary file.
