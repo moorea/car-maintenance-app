@@ -34,6 +34,19 @@ const read = (api: ReturnType<typeof fakeApi>) =>
   anthropicQuoteReader(api.client, { model: 'claude-opus-5-5' }).read(SAMPLE_PHOTO)
 
 describe('reading a quote photo with Claude', () => {
+  it('stops the request when the owner cancels', async () => {
+    const api = fakeApi(() => ok(message('{"lines":[]}')))
+    const controller = new AbortController()
+    controller.abort()
+    await expect(
+      anthropicQuoteReader(api.client, { model: 'claude-opus-5-5' }).read(
+        SAMPLE_PHOTO,
+        controller.signal,
+      ),
+    ).rejects.toThrow(/aborted/)
+    expect(api.bodies).toHaveLength(0)
+  })
+
   it('sends the photo and asks for the lines as structured output', async () => {
     const api = fakeApi(() => ok(message('{"lines":[]}')))
     await read(api)
@@ -93,7 +106,9 @@ describe('reading a quote photo with Claude', () => {
   })
 })
 
-const setup = (options: { noReader?: boolean; dailyLimit?: number; asked?: number } = {}) => {
+const setup = (
+  options: { noReader?: boolean; dailyLimit?: number; asked?: number; storeDown?: boolean } = {},
+) => {
   const reader = controlledQuoteReader()
   let asked = options.asked ?? 0
   const logged: string[] = []
@@ -101,6 +116,7 @@ const setup = (options: { noReader?: boolean; dailyLimit?: number; asked?: numbe
     userFor: async (token) => (token === 'good' ? 'u1' : undefined),
     storeFor: () => ({
       claimQuestion: async (limit) => {
+        if (options.storeDown) throw new Error('database down')
         if (asked >= limit) return false
         asked += 1
         return true
@@ -185,5 +201,20 @@ describe('the read-quote endpoint', () => {
     expect(res.status).toBe(500)
     expect(await res.json()).toEqual({ error: 'unknown' })
     expect(logged).toEqual(['Reading a quote failed'])
+  })
+
+  it('answers a failure of its own as unknown and logs it', async () => {
+    const { handler, logged } = setup({ storeDown: true })
+    const res = await handler(post({ photo: SAMPLE_PHOTO }))
+    expect(res.status).toBe(500)
+    expect(logged).toEqual(['Quote request failed'])
+  })
+
+  it('only takes POST', async () => {
+    const { handler } = setup()
+    const get = new Request('http://localhost/assistant/read-quote', {
+      headers: { authorization: 'Bearer good' },
+    })
+    expect((await handler(get)).status).toBe(500)
   })
 })
