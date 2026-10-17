@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm format:check
+      - run: pnpm test
+      # Catches what typechecking cannot: Metro failing to resolve workspace packages, or
+      # dependencies that do not match the Expo SDK.
+      - name: Expo dependency check
+        working-directory: apps/mobile
+        run: npx expo install --check
+      - name: Bundle the app
+        working-directory: apps/mobile
+        run: npx expo export --platform ios --platform android --output-dir ${{ runner.temp }}/expo-export
+
+  database:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.121.0
+      - run: supabase db start
+      - name: Lint SQL
+        run: supabase db lint --level warning --fail-on warning
+      - run: supabase test db
