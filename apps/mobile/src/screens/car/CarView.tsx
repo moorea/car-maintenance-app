@@ -29,12 +29,13 @@ interface Props {
   documents: AttachmentsProps
   onCheckQuote: () => void
   onWarranty: () => void
+  onFuel: () => void
 }
 
 const OVERLINE = { fontSize: 13, fontWeight: '600', letterSpacing: 0.5 } as const
 
 /** Pure rendering of a car's page: odometer, documents, then schedule, recalls or known issues. */
-export function CarView({ car, safety, documents, onCheckQuote, onWarranty }: Props) {
+export function CarView({ car, safety, documents, onCheckQuote, onWarranty, onFuel }: Props) {
   const colors = useColors()
   if (car.status === 'loading') return <ActivityIndicator style={styles.fill} />
 
@@ -59,6 +60,7 @@ export function CarView({ car, safety, documents, onCheckQuote, onWarranty }: Pr
           </Column>
           <OdometerCard {...car} />
           <QuoteCard onPress={onCheckQuote} />
+          <FuelCard onPress={onFuel} />
           <WarrantyCard onPress={onWarranty} />
           <DocumentsSection {...documents} />
           <SegmentedControl options={sections} selected={car.section} onSelect={car.showSection} />
@@ -134,6 +136,25 @@ function QuoteCard({ onPress }: { onPress: () => void }) {
           <Text textStyle={{ fontSize: 16, fontWeight: '600' }}>Check a shop’s quote</Text>
           <Text textStyle={{ fontSize: 13, color: colors.textSecondary }}>
             See which recommendations are actually due
+          </Text>
+        </FillColumn>
+        <Symbol name="chevron" size={16} color={colors.textSecondary} />
+      </Row>
+    </Card>
+  )
+}
+
+/** Opens the car's fill-ups and what it costs to run. */
+function FuelCard({ onPress }: { onPress: () => void }) {
+  const colors = useColors()
+  return (
+    <Card padding={14} onPress={onPress}>
+      <Row alignment="center" spacing={12}>
+        <Symbol name="fuel" size={22} color={colors.accent} />
+        <FillColumn spacing={1}>
+          <Text textStyle={{ fontSize: 16, fontWeight: '600' }}>Fuel & costs</Text>
+          <Text textStyle={{ fontSize: 13, color: colors.textSecondary }}>
+            Log fill-ups, see economy and what the car costs each month
           </Text>
         </FillColumn>
         <Symbol name="chevron" size={16} color={colors.textSecondary} />

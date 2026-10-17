@@ -83,6 +83,37 @@ export interface ServiceRecord {
   notes?: string
 }
 
+/** What a fill-up put in the car: fuel by the gallon, or charge by the kilowatt-hour. */
+export type EnergyKind = 'fuel' | 'electric'
+
+/**
+ * A fill-up at the pump or a charging session. Its odometer reading counts as one of the car's
+ * readings. Editable and deletable, and can be entered late, out of order.
+ */
+export interface FillUp {
+  id: string
+  vehicleId: VehicleId
+  filledOn: IsoDate
+  odometerMiles: number
+  energy: EnergyKind
+  /** Gallons of fuel or kWh of charge. */
+  quantity: number
+  /** The total paid; absent when free or not known. */
+  costCents?: number
+  /**
+   * The tank was filled, or the battery charged to the owner's usual limit. Economy is measured
+   * from one full fill-up to the next, adding up the partial ones between.
+   */
+  full: boolean
+  /**
+   * At least one fill-up before this one was not logged, so the distance since the last logged
+   * one says nothing about economy.
+   */
+  missedPrevious: boolean
+  station?: string
+  notes?: string
+}
+
 /** What a warranty covers. Factory warranties usually come as several of these at once. */
 export type WarrantyKind =
   'basic' | 'powertrain' | 'corrosion' | 'emissions' | 'hybrid-battery' | 'extended' | 'other'
@@ -253,7 +284,15 @@ export interface AnswerSource {
 }
 
 export type AssistantErrorKind =
-  'offline' | 'signed-out' | 'not-found' | 'rate-limited' | 'unavailable' | 'declined' | 'unknown'
+  | 'offline'
+  | 'signed-out'
+  | 'not-found'
+  | 'rate-limited'
+  | 'unavailable'
+  | 'declined'
+  /** The owner has not allowed sharing with Anthropic; nothing was sent. */
+  | 'not-allowed'
+  | 'unknown'
 
 /** Why a question got no answer. Adapters translate their own errors into these. */
 export class AssistantError extends Error {

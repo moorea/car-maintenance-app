@@ -2,6 +2,8 @@ import type {
   Attachment,
   AttachmentKind,
   ComplaintSummary,
+  EnergyKind,
+  FillUp,
   MaintenanceItem,
   OdometerReading,
   Recall,
@@ -122,6 +124,38 @@ export const fromWarranty = (w: Warranty) => ({
   end_miles: w.endMiles ?? null,
   policy_number: w.policyNumber ?? null,
   notes: w.notes ?? null,
+})
+
+// Anything but charging reads as fuel, so a kind from a newer app version still shows.
+const energyOf = (v: unknown): EnergyKind => (v === 'electric' ? 'electric' : 'fuel')
+
+export const toFillUp = (r: Row): FillUp =>
+  defined({
+    id: required(text(r.id), 'id'),
+    vehicleId: required(text(r.vehicle_id), 'vehicle_id'),
+    filledOn: required(text(r.filled_on), 'filled_on'),
+    odometerMiles: num(r.odometer_miles) ?? 0,
+    energy: energyOf(r.energy),
+    quantity: num(r.quantity) ?? 0,
+    costCents: num(r.cost_cents),
+    full: r.full_tank === 1,
+    missedPrevious: r.missed_previous === 1,
+    station: text(r.station),
+    notes: text(r.notes),
+  })
+
+export const fromFillUp = (f: FillUp) => ({
+  id: f.id,
+  vehicle_id: f.vehicleId,
+  filled_on: f.filledOn,
+  odometer_miles: f.odometerMiles,
+  energy: f.energy,
+  quantity: f.quantity,
+  cost_cents: f.costCents ?? null,
+  full_tank: f.full ? 1 : 0,
+  missed_previous: f.missedPrevious ? 1 : 0,
+  station: f.station ?? null,
+  notes: f.notes ?? null,
 })
 
 const KINDS: readonly AttachmentKind[] = ['receipt', 'registration', 'insurance', 'other']

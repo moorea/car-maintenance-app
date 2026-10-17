@@ -46,3 +46,19 @@ describe.each([
     expect(contrast(colors[text], colors[fill])).toBeGreaterThanOrEqual(4.5)
   })
 })
+
+// Chart marks only need to stand out from what they sit on (WCAG 1.4.11, 3:1). Stacked marks
+// are drawn with a gap between them, so they never need to stand out from each other.
+const marks: [mark: ColorRole, fill: ColorRole][] = [
+  ['accent', 'surface'],
+  ['chartSecondary', 'surface'],
+]
+
+describe.each([
+  ['light', lightColors],
+  ['dark', darkColors],
+] as [string, Colors][])('%s chart colours', (_, colors) => {
+  it.each(marks)('keep %s visible against %s (3:1)', (mark, fill) => {
+    expect(contrast(colors[mark], colors[fill])).toBeGreaterThanOrEqual(3)
+  })
+})

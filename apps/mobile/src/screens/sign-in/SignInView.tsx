@@ -9,7 +9,7 @@ type Props = SignInState &
   Pick<
     SignInActions,
     'setEmail' | 'setCode' | 'submitEmail' | 'submitCode' | 'resend' | 'changeEmail'
-  >
+  > & { onPrivacyPolicy: () => void }
 
 /** Pure rendering of the sign-in model: the email step, then the code step. */
 export function SignInView(props: Props) {
@@ -70,6 +70,7 @@ export function SignInView(props: Props) {
               />
             </>
           )}
+          <Button variant="text" label="Privacy policy" onPress={props.onPrivacyPolicy} />
         </Column>
       </ScrollView>
     </Host>

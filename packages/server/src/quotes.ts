@@ -127,6 +127,8 @@ const STATUS: Record<AssistantErrorKind, number> = {
   'rate-limited': 429,
   unavailable: 503,
   declined: 422,
+  // Never raised on the server: the app refuses before sending. Kept for completeness.
+  'not-allowed': 403,
   unknown: 500,
 }
 

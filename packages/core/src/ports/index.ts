@@ -4,6 +4,7 @@ import type {
   Attachment,
   AuthUser,
   DecodedVin,
+  FillUp,
   MaintenanceItem,
   OdometerReading,
   PickedFile,
@@ -96,6 +97,17 @@ export interface WarrantyRepo {
   watchForVehicle(vehicleId: VehicleId, onChange: (warranties: Warranty[]) => void): Unsubscribe
   /** Adds the warranty, or replaces the one with the same id. */
   save(warranty: Warranty): Promise<void>
+  remove(id: string): Promise<void>
+}
+
+/** The car's fill-ups and charging sessions. Editable, unlike the service history. */
+export interface FillUpRepo {
+  /** The car's fill-ups, newest first. */
+  listForVehicle(vehicleId: VehicleId): Promise<FillUp[]>
+  /** Calls `onChange` with the car's fill-ups, newest first, now and after every change. */
+  watchForVehicle(vehicleId: VehicleId, onChange: (fillUps: FillUp[]) => void): Unsubscribe
+  /** Adds the fill-up, or replaces the one with the same id. */
+  save(fillUp: FillUp): Promise<void>
   remove(id: string): Promise<void>
 }
 
@@ -226,6 +238,26 @@ export interface ReminderSettingsRepo {
   /** Calls `onChange` with the settings now and after every change. */
   watch(onChange: (settings: ReminderSettings) => void): Unsubscribe
   set(settings: ReminderSettings): Promise<void>
+}
+
+/** Choices kept on this device that belong to the person holding it, not to an account. */
+export interface DevicePreferences {
+  /** The first-run introduction has been seen or skipped on this phone. */
+  onboarded: boolean
+  /**
+   * The account id of the owner who allowed Ask and the quote checker to send their question,
+   * their car's records or a photo of a quote to Anthropic, which runs the model that answers
+   * (App Store guideline 5.1.2(i)). Null until someone says yes. Holding the id means someone
+   * else signing in on this phone is asked again.
+   */
+  aiSharingOwner: string | null
+}
+
+export interface DevicePreferencesRepo {
+  /** Calls `onChange` with the preferences once they are read, and after every change. */
+  watch(onChange: (preferences: DevicePreferences) => void): Unsubscribe
+  /** Saves the given preferences, keeping the others. */
+  update(change: Partial<DevicePreferences>): Promise<void>
 }
 
 /** The part of the platform's AbortSignal that core relies on; core has no DOM types. */

@@ -3,6 +3,7 @@ import { Button, Row } from '@expo/ui'
 import { ActivityIndicator, StyleSheet, View } from 'react-native'
 import { AccountScreen } from '../account/AccountScreen'
 import { AddCarScreen } from '../add-car/AddCarScreen'
+import { AiSharingGate } from '../ai-sharing/AiSharingScreen'
 import { AskScreen } from '../ask/AskScreen'
 import { CarScreen } from '../car/CarScreen'
 import { GarageScreen } from '../garage/GarageScreen'
@@ -11,6 +12,7 @@ import { RemindersScreen } from '../reminders/RemindersScreen'
 import { ServiceLogScreen } from '../service-log/ServiceLogScreen'
 import { SignInScreen } from '../sign-in/SignInScreen'
 import { WarrantyScreen } from '../warranty/WarrantyScreen'
+import { FuelScreen } from '../fuel/FuelScreen'
 import { YourDataScreen } from '../your-data/YourDataScreen'
 import { askModelFor } from '../../models/askModels'
 import { Host } from '../../ui/Host'
@@ -51,8 +53,8 @@ export function RootView(props: Props) {
         {props.tab === 'ask' || props.tab === 'quote' ? null : (
           <TabBar
             tabs={TABS}
-            // The warranty page belongs to the car, so the car's tab stays selected there.
-            selected={props.tab === 'warranty' ? 'car' : props.tab}
+            // The warranty and fuel pages belong to the car, so the car's tab stays selected there.
+            selected={props.tab === 'warranty' || props.tab === 'fuel' ? 'car' : props.tab}
             onSelect={props.openTab}
             action={{
               symbol: 'ask',
@@ -136,25 +138,34 @@ function TabContent(props: Props & { vehicle: Vehicle }) {
           vehicle={vehicle}
           onCheckQuote={() => props.openTab('quote')}
           onWarranty={() => props.openTab('warranty')}
+          onFuel={() => props.openTab('fuel')}
         />
       )
+    case 'fuel':
+      return <FuelScreen vehicle={vehicle} onBack={() => props.openTab('car')} />
     case 'warranty':
       return <WarrantyScreen vehicle={vehicle} onBack={() => props.openTab('car')} />
     case 'ask':
-      return <AskScreen vehicle={vehicle} onBack={props.back} />
+      return (
+        <AiSharingGate feature="ask" onBack={props.back}>
+          <AskScreen vehicle={vehicle} onBack={props.back} />
+        </AiSharingGate>
+      )
     case 'quote':
       return (
-        <QuoteCheckScreen
-          vehicle={vehicle}
-          onBack={props.back}
-          onAsk={(question) => {
-            props.openTab('ask')
-            const ask = askModelFor(vehicle).getState()
-            // While Ask is still answering, the question waits in the composer to send.
-            if (ask.status === 'ready') ask.ask(question)
-            else ask.setDraft(question)
-          }}
-        />
+        <AiSharingGate feature="quote" onBack={props.back}>
+          <QuoteCheckScreen
+            vehicle={vehicle}
+            onBack={props.back}
+            onAsk={(question) => {
+              props.openTab('ask')
+              const ask = askModelFor(vehicle).getState()
+              // While Ask is still answering, the question waits in the composer to send.
+              if (ask.status === 'ready') ask.ask(question)
+              else ask.setDraft(question)
+            }}
+          />
+        </AiSharingGate>
       )
     case 'reminders':
       return <RemindersScreen />
