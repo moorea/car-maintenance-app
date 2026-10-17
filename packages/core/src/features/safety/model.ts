@@ -17,6 +17,7 @@ import {
   mayBeFree,
   type BulletinGroup,
   type NearbyIssue,
+  currentBulletins,
 } from '../../lib/knownIssues'
 import { recallLookupUrl } from '../../lib/nhtsa'
 import type { Clock, OdometerRepo, SafetyRepo, ServiceRecordRepo, Unsubscribe } from '../../ports'
@@ -99,7 +100,7 @@ const byMostComplaints = (a: ComplaintSummary, b: ComplaintSummary) =>
 const nearbyIssues = (report: SafetyReport, miles: number | undefined): NearbyIssues => {
   if (!hasMileageData(report.complaints)) return { status: 'no-data', issues: [] }
   if (miles === undefined) return { status: 'no-odometer', issues: [] }
-  const near = issuesNearMileage(report.complaints, report.bulletins ?? [], miles)
+  const near = issuesNearMileage(report.complaints, currentBulletins(report.bulletins ?? []), miles)
   return {
     status: 'ready',
     window: describeMileageWindow(near.from, near.to),
@@ -118,7 +119,7 @@ export const createSafetyModel = (deps: SafetyDeps): SafetyModel => {
   return createStore<SafetyState & SafetyActions>()((set) => {
     const show = () => {
       if (!report) return
-      const bulletins = [...(report.bulletins ?? [])].sort(byBulletinImportance)
+      const bulletins = currentBulletins(report.bulletins ?? []).sort(byBulletinImportance)
       set({
         status: report.recallsCheckedAt === undefined ? 'checking' : 'ready',
         recalls: [...report.recalls].sort(byUrgencyThenNewest),

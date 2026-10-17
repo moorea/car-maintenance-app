@@ -9,6 +9,7 @@ import {
 } from '../../domain/types'
 import { cancellation } from '../../lib/cancel'
 import { formatCents } from '../../lib/format'
+import { currentBulletins } from '../../lib/knownIssues'
 import { MAX_QUOTE_PHOTO_BASE64 } from '../../schemas/quote'
 import type {
   Clock,
@@ -206,7 +207,7 @@ export const createQuoteCheckModel = (deps: QuoteCheckDeps): QuoteCheckModel => 
         disposed = false
         stopSafety = deps.safety.watchForConfig(vehicle.configId, (report) => {
           recalls = report.recalls
-          bulletins = report.bulletins ?? []
+          bulletins = currentBulletins(report.bulletins ?? [])
         })
       },
 

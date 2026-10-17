@@ -153,7 +153,13 @@ export const readableSummary = (text: string): string => {
   )
 }
 
-const sentences = (bulletin: Bulletin) => readableSummary(bulletin.summary).split(/(?<=\.)\s+/)
+// A label some manufacturers open every summary with, such as "Service Bulletin - ".
+const LEADING_LABEL = /^(?:[A-Z][A-Za-z]*\s){0,4}[A-Z][A-Za-z]*\s+[-–]\s+/
+
+const sentences = (bulletin: Bulletin) =>
+  readableSummary(bulletin.summary)
+    .replace(LEADING_LABEL, '')
+    .split(/(?<=\.)\s+/)
 
 /** The first sentence of a bulletin's summary, cut to a title's length. */
 export const bulletinTitle = (bulletin: Bulletin): string => {
@@ -165,7 +171,31 @@ export const bulletinTitle = (bulletin: Bulletin): string => {
 /** The rest of a bulletin's summary after its title; empty when the title is all of it. */
 export const bulletinBody = (bulletin: Bulletin): string => {
   const [first = '', ...rest] = sentences(bulletin)
-  return first.replace(/\.$/, '').length > 90 ? readableSummary(bulletin.summary) : rest.join(' ')
+  return first.replace(/\.$/, '').length > 90 ? sentences(bulletin).join(' ') : rest.join(' ')
+}
+
+const OBSOLETE = /^\s*obsolete\b/i
+const revisionOf = (documentId: string) => documentId.replace(/\s*\brev(?:ision)?\.?\s*\d+$/i, '')
+
+/**
+ * The bulletins that still apply: without those the manufacturer marked obsolete, and with only
+ * the newest revision of a bulletin ("T-SB-0104-21 Rev2" replaces "T-SB-0104-21").
+ */
+export const currentBulletins = (bulletins: Bulletin[]): Bulletin[] => {
+  const newest = new Map<string, Bulletin>()
+  const rest: Bulletin[] = []
+  for (const b of bulletins) {
+    if (OBSOLETE.test(b.summary)) continue
+    if (!b.documentId) {
+      rest.push(b)
+      continue
+    }
+    const key = `${b.kind}|${revisionOf(b.documentId)}`
+    const seen = newest.get(key)
+    const later = (x: Bulletin) => `${x.issuedOn ?? ''}|${String(x.nhtsaId).padStart(12, '0')}`
+    if (!seen || later(b) > later(seen)) newest.set(key, b)
+  }
+  return [...rest, ...newest.values()]
 }
 
 /** Bulletins about one part of the car. */

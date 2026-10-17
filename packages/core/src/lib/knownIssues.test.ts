@@ -5,6 +5,7 @@ import {
   bulletinName,
   bulletinTitle,
   byBulletinImportance,
+  currentBulletins,
   describeMileageWindow,
   groupBulletins,
   hasMileageData,
@@ -180,6 +181,20 @@ describe('bulletins', () => {
     expect(bulletinName(bulletin({ nhtsaId: 7, kind: 'warranty' }))).toBe('Warranty extension #7')
   })
 
+  it('drops the label a summary opens with', () => {
+    expect(
+      bulletinTitle(
+        bulletin({
+          nhtsaId: 1,
+          summary: 'Service Bulletin - The head gasket may leak. Replace it.',
+        }),
+      ),
+    ).toBe('The head gasket may leak')
+    expect(
+      bulletinTitle(bulletin({ nhtsaId: 1, summary: 'Low-speed shudder - check the CVT.' })),
+    ).toBe('Low-speed shudder - check the CVT')
+  })
+
   it('takes its title from the first sentence of the summary', () => {
     expect(
       bulletinTitle(
@@ -189,6 +204,26 @@ describe('bulletins', () => {
         }),
       ),
     ).toBe('The CVT may judder when accelerating from a stop')
+  })
+})
+
+describe('currentBulletins', () => {
+  it('leaves out bulletins the manufacturer marked obsolete', () => {
+    const current = currentBulletins([
+      bulletin({ nhtsaId: 1, summary: 'OBSOLETE NOTICE February 27, 2026: no longer applicable.' }),
+      bulletin({ nhtsaId: 2 }),
+    ])
+    expect(current.map((b) => b.nhtsaId)).toEqual([2])
+  })
+
+  it('keeps only the newest revision of a bulletin', () => {
+    const current = currentBulletins([
+      bulletin({ nhtsaId: 1, documentId: 'T-SB-0104-21', issuedOn: '2021-06-01' }),
+      bulletin({ nhtsaId: 3, documentId: 'T-SB-0104-21 Rev2', issuedOn: '2023-01-01' }),
+      bulletin({ nhtsaId: 2, documentId: 'T-SB-0104-21 Rev1', issuedOn: '2022-01-01' }),
+      bulletin({ nhtsaId: 4, documentId: 'T-SB-0200-22' }),
+    ])
+    expect(current.map((b) => b.nhtsaId).sort()).toEqual([3, 4])
   })
 })
 

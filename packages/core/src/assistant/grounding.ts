@@ -20,6 +20,7 @@ import {
   issuesNearMileage,
   MILEAGE_BAND,
   readableSummary,
+  currentBulletins,
 } from '../lib/knownIssues'
 import { componentLabel, recallLookupUrl } from '../lib/nhtsa'
 import { BASELINE_SOURCE } from '../lib/schedule'
@@ -119,7 +120,12 @@ const carDocument = (facts: CarFacts, currentMiles: number | undefined, estimate
 /** One line on which parts owners most reported around the car's mileage, when that is known. */
 const nearbyLine = (facts: CarFacts, miles: number | undefined) => {
   if (miles === undefined) return undefined
-  const near = issuesNearMileage(facts.safety.complaints, facts.safety.bulletins ?? [], miles, 5)
+  const near = issuesNearMileage(
+    facts.safety.complaints,
+    currentBulletins(facts.safety.bulletins ?? []),
+    miles,
+    5,
+  )
   if (near.issues.length === 0) return undefined
   return `Between ${describeMileageWindow(near.from, near.to)}, around this car's mileage, owners of this model year most often reported: ${near.issues
     .map((i) => `${i.component} (${i.complaints} complaints)`)
@@ -316,7 +322,7 @@ export const groundingDocuments = (facts: CarFacts): GroundedDocument[] => {
       source: { kind: 'recall', id: recall.campaign, label: `Recall ${recall.campaign}` },
     })
   }
-  const bulletins = [...(facts.safety.bulletins ?? [])].sort(byBulletinImportance)
+  const bulletins = currentBulletins(facts.safety.bulletins ?? []).sort(byBulletinImportance)
   for (const bulletin of bulletins.slice(0, MAX_BULLETINS)) {
     const name = bulletinName(bulletin)
     docs.push({
