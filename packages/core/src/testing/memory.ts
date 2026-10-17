@@ -455,6 +455,7 @@ export const memoryAttachments = (
       attachments = [...next]
       notify()
     },
+    listForVehicle: async (vehicleId) => forVehicle(vehicleId),
     watchForVehicle: (vehicleId, onChange) => {
       const watcher = { vehicleId, onChange }
       watchers.add(watcher)

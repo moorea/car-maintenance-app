@@ -87,10 +87,10 @@ export const dueItemsFor = ({ vehicle, items, records, readings, today }: DueInp
   return { items: due, mileage, currentMiles }
 }
 
-/** Every scheduled item for a vehicle with its projected due date, soonest first. */
-export const getDueItems =
+/** A vehicle's scheduled items with their projected due dates, and how it is driven. */
+export const getDueSummary =
   (deps: GetDueItemsDeps) =>
-  async (vehicleId: VehicleId): Promise<DueProjection[]> => {
+  async (vehicleId: VehicleId): Promise<DueSummary> => {
     const vehicle = await deps.vehicles.get(vehicleId)
     if (!vehicle) throw new Error(`Unknown vehicle ${vehicleId}`)
 
@@ -100,5 +100,11 @@ export const getDueItems =
       deps.records.listForVehicle(vehicleId),
       deps.odometer.listForVehicle(vehicleId),
     ])
-    return dueItemsFor({ vehicle, items, records, readings, today: deps.clock.today() }).items
+    return dueItemsFor({ vehicle, items, records, readings, today: deps.clock.today() })
   }
+
+/** Every scheduled item for a vehicle with its projected due date, soonest first. */
+export const getDueItems =
+  (deps: GetDueItemsDeps) =>
+  async (vehicleId: VehicleId): Promise<DueProjection[]> =>
+    (await getDueSummary(deps)(vehicleId)).items

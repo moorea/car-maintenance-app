@@ -93,7 +93,11 @@ const historySection = (report: CareReport) => {
       (h) => `<tr>
   ${cell(h.date)}
   <td class="num">${h.miles === undefined ? '' : e(h.miles)}</td>
-  <td><strong>${e(h.what)}</strong>${h.notes ? `<div class="quiet">${e(h.notes)}</div>` : ''}</td>
+  <td><strong>${e(h.what)}</strong>${h.notes ? `<div class="quiet">${e(h.notes)}</div>` : ''}${
+    h.documents.length > 0
+      ? `<div class="quiet"><span class="tag">ON FILE</span> ${h.documents.map(e).join(', ')}</div>`
+      : ''
+  }</td>
   <td>${e(h.by)}${h.diy ? ' <span class="tag">DIY</span>' : ''}</td>
   <td class="num">${h.cost === undefined ? '' : e(h.cost)}</td>
 </tr>`,
@@ -159,11 +163,11 @@ ${facts ? `<div class="quiet">${facts}</div>` : ''}
   <div class="figure"><span class="quiet">Done by the owner</span><b>${summary.diy}</b></div>
   <div class="figure"><span class="quiet">Spent on maintenance</span><b>${e(summary.spent)}</b></div>
 </div>
-${summary.span ? `<p class="quiet">Records from ${e(summary.span)}.</p>` : ''}
+${summary.span ? `<p class="quiet">Records from ${e(summary.span)}.${summary.withDocuments > 0 ? ` ${summary.withDocuments} of ${summary.services} with a receipt or document on file.` : ''}</p>` : ''}
 ${warrantiesSection(report)}
 ${scheduleSection(report)}
 ${historySection(report)}
-<footer>Records entered by the owner. Work done by the owner is listed as DIY; keep receipts for parts and fluids to support a warranty claim.</footer>
+<footer>Records entered by the owner. Work done by the owner is listed as DIY. Receipts and documents marked on file are kept by the owner and can be provided on request.</footer>
 </body>
 </html>
 `

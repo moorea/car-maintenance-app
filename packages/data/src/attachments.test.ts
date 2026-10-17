@@ -97,6 +97,13 @@ describe('PowerSync attachments', () => {
     expect(seen[0]).toStrictEqual([receipt])
   })
 
+  it('lists the attachments of a car for a one-off read', async () => {
+    const attachments = makeRepo()
+    await attachments.add(receipt, picked())
+    expect(await attachments.listForVehicle('v1')).toStrictEqual([receipt])
+    expect(await attachments.listForVehicle('other')).toEqual([])
+  })
+
   it('leaves the service absent for a document of the car itself', async () => {
     const attachments = makeRepo()
     const { serviceRecordId: _, ...card } = { ...receipt, id: 'a2', kind: 'insurance' as const }

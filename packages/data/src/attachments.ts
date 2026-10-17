@@ -102,6 +102,9 @@ export const createAttachmentRepo = ({
   }
 
   return {
+    listForVehicle: async (vehicleId) =>
+      (await db.getAll<Record<string, unknown>>(FOR_VEHICLE, [vehicleId])).map(toAttachment),
+
     watchForVehicle: (vehicleId, onChange) =>
       watchRows(db, FOR_VEHICLE, [vehicleId], 'attachments', (rows) =>
         onChange(rows.map(toAttachment)),
