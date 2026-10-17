@@ -2,6 +2,7 @@ import type { ServiceLogActions, ServiceLogState, ServiceRecord } from '@car/cor
 import { Button, Column, ScrollView, Text } from '@expo/ui'
 import { ActivityIndicator, StyleSheet } from 'react-native'
 import { Host } from '../../ui/Host'
+import { TAB_BAR_CLEARANCE } from '../../ui/TabBar'
 import { ErrorText, Note } from '../../ui/Note'
 import { TextField } from '../../ui/TextField'
 
@@ -41,7 +42,7 @@ export function ServiceLogView({
   return (
     <Host style={styles.center}>
       <ScrollView>
-        <Column spacing={12} style={{ padding: 16 }}>
+        <Column spacing={12} style={{ padding: 16, paddingBottom: TAB_BAR_CLEARANCE }}>
           <Text textStyle={{ fontSize: 20, fontWeight: '700' }}>Log service</Text>
           <TextField
             label="Date"

@@ -9,7 +9,7 @@ import {
   memoryVinDecoder,
   OWNER,
 } from '@car/core/testing'
-import type { SafetyReport } from '@car/core'
+import type { MaintenanceItem, SafetyReport } from '@car/core'
 
 /** A VIN the demo's offline decoder knows, for previews where the real lookup cannot run. */
 export const DEMO_VIN = '1HGCM82633A004352'
@@ -96,6 +96,49 @@ const DEMO_SAFETY: SafetyReport = {
   ],
 }
 
+/** A sample maintenance schedule for the demo car, shaped like an OEM's. Not Toyota's real one. */
+const DEMO_SCHEDULE: MaintenanceItem[] = [
+  {
+    id: 'demo-oil',
+    configId: 'demo',
+    task: 'Oil & filter change',
+    intervalMiles: 10_000,
+    intervalMonths: 12,
+    severeMiles: 5_000,
+    severeMonths: 6,
+  },
+  {
+    id: 'demo-tires',
+    configId: 'demo',
+    task: 'Tire rotation',
+    intervalMiles: 5_000,
+    intervalMonths: 6,
+  },
+  {
+    id: 'demo-cabin',
+    configId: 'demo',
+    task: 'Cabin air filter',
+    intervalMiles: 15_000,
+    intervalMonths: 18,
+  },
+  {
+    id: 'demo-engine-air',
+    configId: 'demo',
+    task: 'Engine air filter',
+    intervalMiles: 30_000,
+    intervalMonths: 36,
+    severeMiles: 15_000,
+  },
+  { id: 'demo-brake-fluid', configId: 'demo', task: 'Brake fluid', intervalMonths: 36 },
+  {
+    id: 'demo-coolant',
+    configId: 'demo',
+    task: 'Engine coolant',
+    intervalMiles: 100_000,
+    intervalMonths: 120,
+  },
+]
+
 /** Sample data for running the app without a backend, e.g. before Supabase is set up. */
 export const createDemoRepositories = () => ({
   // Already signed in, so the demo opens on the sample car. After signing out, any email with
@@ -109,20 +152,46 @@ export const createDemoRepositories = () => ({
       year: 2021,
       make: 'Toyota',
       model: 'RAV4',
+      trim: 'XLE',
+      engine: '2.5L 4-cyl',
+      drivetrain: 'AWD',
       nickname: 'Demo car',
       severeDuty: false,
     },
   ]),
-  odometer: memoryOdometer(),
-  schedule: memorySchedule(),
+  odometer: memoryOdometer([
+    { vehicleId: 'demo', date: '2026-04-02', miles: 24_150 },
+    { vehicleId: 'demo', date: '2026-10-10', miles: 35_780 },
+  ]),
+  schedule: memorySchedule(DEMO_SCHEDULE),
   safety: memorySafety({ demo: DEMO_SAFETY }),
   records: memoryServiceRecords([
     {
       id: 'seed-1',
       vehicleId: 'demo',
+      itemId: 'demo-oil',
       performedOn: '2026-07-01',
       odometerMiles: 30_000,
+      costCents: 8_995,
       shop: 'Demo Garage',
+    },
+    {
+      id: 'seed-2',
+      vehicleId: 'demo',
+      itemId: 'demo-tires',
+      performedOn: '2026-03-14',
+      odometerMiles: 23_400,
+      costCents: 2_400,
+      shop: 'Demo Garage',
+    },
+    {
+      id: 'seed-3',
+      vehicleId: 'demo',
+      itemId: 'demo-cabin',
+      performedOn: '2025-09-20',
+      odometerMiles: 18_200,
+      costCents: 3_898,
+      notes: 'Did it myself',
     },
   ]),
 })

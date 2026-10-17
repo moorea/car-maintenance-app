@@ -27,6 +27,16 @@ export interface Colors {
   warningSubtle: string
   /** Something is wrong or unsafe: form errors, do-not-drive recalls. */
   danger: string
+  /** Quiet grey fill behind low-priority labels, such as a "later" status pill. */
+  neutralSubtle: string
+  /** Liquid Glass fill where the platform draws no native glass (web, Android). */
+  glass: string
+  /** The bright edge of a glass control. */
+  glassEdge: string
+  /** Shadow under floating glass controls. */
+  glassShadow: string
+  /** Behind the selected item in a tab bar or segmented control. */
+  selectedFill: string
 }
 
 export type ColorRole = keyof Colors
@@ -43,6 +53,11 @@ export const lightColors: Colors = {
   warning: p.orange700,
   warningSubtle: p.orange50,
   danger: p.red700,
+  neutralSubtle: p.gray75,
+  glass: p.whiteGlass,
+  glassEdge: p.whiteGlassEdge,
+  glassShadow: p.shadowSoft,
+  selectedFill: p.graySelected,
 }
 
 export const darkColors: Colors = {
@@ -57,4 +72,9 @@ export const darkColors: Colors = {
   warning: p.orange300,
   warningSubtle: p.orange950,
   danger: p.red200,
+  neutralSubtle: p.gray850,
+  glass: p.charcoalGlass,
+  glassEdge: p.charcoalGlassEdge,
+  glassShadow: p.shadowDark,
+  selectedFill: p.graySelectedDark,
 }

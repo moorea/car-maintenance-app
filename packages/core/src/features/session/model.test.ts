@@ -208,4 +208,36 @@ describe('session model, adding a car', () => {
     model.getState().addCar()
     expect(model.getState().addingCar).toBe(false)
   })
+
+  it('opens on the garage tab and switches tabs', () => {
+    const { model } = setup(true, [civic])
+    model.getState().start()
+    expect(model.getState().tab).toBe('garage')
+    model.getState().openTab('log')
+    expect(model.getState().tab).toBe('log')
+  })
+
+  it("opens a car's page from the garage, selecting that car", () => {
+    const { model } = setup(true, [civic, accord])
+    model.getState().start()
+    model.getState().openCar('v-civic')
+    expect(model.getState()).toMatchObject({ tab: 'car', selectedVehicleId: 'v-civic' })
+  })
+
+  it('stays put when asked to open a car the owner does not have', () => {
+    const { model } = setup(true, [civic])
+    model.getState().start()
+    model.getState().openCar('v-unknown')
+    expect(model.getState()).toMatchObject({ tab: 'garage', selectedVehicleId: 'v-civic' })
+  })
+
+  it('goes back to the garage after signing out and in again', async () => {
+    const { auth, model } = setup(true, [civic])
+    model.getState().start()
+    model.getState().openTab('car')
+    await model.getState().signOut()
+    await auth.sendCode('a@example.com')
+    await auth.verifyCode('a@example.com', '123456')
+    expect(model.getState().tab).toBe('garage')
+  })
 })
