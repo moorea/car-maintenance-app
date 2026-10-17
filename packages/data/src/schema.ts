@@ -62,7 +62,10 @@ export const schema = new Schema({
     },
     { indexes: { by_vehicle: ['vehicle_id'] } },
   ),
+  // Never synced or uploaded: facts about this phone's copy, such as whose data it holds.
+  device_state: new Table({ value: column.text }, { localOnly: true }),
 })
 
 /** Tables the app writes locally and uploads. Everything else is read-only on the device. */
 export const UPLOADABLE_TABLES = ['vehicles', 'odometer_readings', 'service_records'] as const
+export type UploadableTable = (typeof UPLOADABLE_TABLES)[number]

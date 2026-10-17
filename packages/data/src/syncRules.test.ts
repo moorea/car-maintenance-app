@@ -23,7 +23,9 @@ describe('sync rules', () => {
 
   it('sync exactly the tables in the device schema', () => {
     const synced = buckets.flatMap((b) => b.data.map((q) => /\bfrom\s+(\w+)/i.exec(q)?.[1]))
-    expect(new Set(synced)).toEqual(new Set(schema.tables.map((t) => t.name)))
+    expect(new Set(synced)).toEqual(
+      new Set(schema.tables.filter((t) => !t.localOnly).map((t) => t.name)),
+    )
   })
 
   it('scope every bucket to the signed-in user', () => {

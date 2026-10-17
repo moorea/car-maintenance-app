@@ -4,7 +4,9 @@ import { join } from 'node:path'
 import type { ServiceRecord } from '@car/core'
 import { PowerSyncDatabase } from '@powersync/node'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import type { PowerSyncBackendConnector } from '@powersync/common'
 import { createPowerSyncRepositories } from './repositories'
+import { powerSyncSessionDatabase } from './session'
 import { schema } from './schema'
 
 let dir: string
@@ -77,9 +79,19 @@ describe('PowerSync repositories', () => {
     await updates.waitFor(1)
     await repos.records.add(oilChange)
     const values = await updates.waitFor(2)
-    updates.stop()
     expect(values[0]).toEqual([])
     expect(values.at(-1)).toEqual([oilChange])
+  })
+
+  it('stops telling a watcher about changes once it unsubscribes', async () => {
+    const repos = createPowerSyncRepositories(db)
+    const updates = collect<ServiceRecord[]>((cb) => repos.records.watchForVehicle('v1', cb))
+    const before = (await updates.waitFor(1)).length
+    updates.stop()
+    await repos.records.add(oilChange)
+    // Give a stray update time to arrive before checking that none did.
+    await new Promise((resolve) => setTimeout(resolve, 200))
+    expect((await updates.waitFor(0)).length).toBe(before)
   })
 
   it('queues local saves for upload', async () => {
@@ -88,6 +100,15 @@ describe('PowerSync repositories', () => {
     await repos.odometer.add({ vehicleId: 'v1', date: '2026-09-01', miles: 42_000 })
     const tx = await db.getNextCrudTransaction()
     expect(tx?.crud.map((c) => [c.op, c.table])).toEqual([['PUT', 'service_records']])
+  })
+
+  it('remembers whose data the local copy holds, without queueing it for upload', async () => {
+    const session = powerSyncSessionDatabase(db, {} as PowerSyncBackendConnector)
+    expect(await session.owner()).toBeUndefined()
+    await session.setOwner('user-a')
+    await session.setOwner('user-b')
+    expect(await session.owner()).toBe('user-b')
+    expect(await session.pendingUploads()).toBe(0)
   })
 
   it('reads vehicles, odometer readings and the schedule from synced rows', async () => {

@@ -56,7 +56,9 @@ export const createPowerSyncRepositories = (
     },
 
     add: async (record) => {
-      const row = { ...fromServiceRecord(record), created_at: new Date().toISOString() }
+      // Same text format as synced timestamptz values, so the created_at tie-break sorts both alike.
+      const createdAt = new Date().toISOString().replace('T', ' ')
+      const row = { ...fromServiceRecord(record), created_at: createdAt }
       const columns = Object.keys(row)
       await db.execute(
         `insert into service_records (${columns.join(', ')}) values (${columns.map(() => '?').join(', ')})`,

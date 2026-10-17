@@ -11,6 +11,9 @@ const ids: IdGenerator = { next: () => randomUUID() }
 
 const config = backendConfig()
 
+/** 'live' when backend settings are present; otherwise the app runs on demo data. */
+export const mode = config ? 'live' : 'demo'
+
 export const deps = {
   clock,
   ids,

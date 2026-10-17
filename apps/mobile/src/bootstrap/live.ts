@@ -1,6 +1,12 @@
 import 'react-native-url-polyfill/auto'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { createPowerSyncRepositories, schema, SupabaseConnector } from '@car/data'
+import {
+  createPowerSyncRepositories,
+  createSyncSession,
+  powerSyncSessionDatabase,
+  schema,
+  SupabaseConnector,
+} from '@car/data'
 import { PowerSyncDatabase } from '@powersync/react-native'
 import { createClient } from '@supabase/supabase-js'
 import { AppState } from 'react-native'
@@ -25,13 +31,11 @@ export const createLiveRepositories = (config: BackendConfig) => {
   )
 
   const db = new PowerSyncDatabase({ schema, database: { dbFilename: 'car-maintenance.db' } })
-  const connector = new SupabaseConnector(supabase, config.powerSyncUrl)
-  supabase.auth.onAuthStateChange((event, session) => {
-    // Signing out wipes the local copy so the next person on this phone cannot see it.
-    if (event === 'SIGNED_OUT') void db.disconnectAndClear()
-    else if (session && (event === 'INITIAL_SESSION' || event === 'SIGNED_IN'))
-      void db.connect(connector)
+  const connector = SupabaseConnector.forClient(supabase, config.powerSyncUrl)
+  const session = createSyncSession(powerSyncSessionDatabase(db, connector))
+  supabase.auth.onAuthStateChange((_event, authSession) => {
+    void session.setUser(authSession?.user.id ?? null).catch(() => {})
   })
 
-  return { supabase, ...createPowerSyncRepositories(db) }
+  return createPowerSyncRepositories(db)
 }

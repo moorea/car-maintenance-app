@@ -12,9 +12,14 @@ Screens read and write SQLite only; PowerSync syncs it with Supabase Postgres in
 - **Writes** go up through PostgREST as the signed-in user (`SupabaseConnector`), so the RLS
   policies in `supabase/migrations` are the write boundary.
 - **Rejected uploads**: a change that fails with bad data (SQLSTATE class 22), a constraint
-  violation (class 23) or an RLS refusal (42501) is dropped and logged, because retrying it would
-  block every later change. Any other failure is retried. Service records are append-only on the
-  server, so a correction is a delete plus an insert, never an update.
+  violation (class 23), an RLS refusal for a signed-in user (42501) or any other 4xx is dropped
+  and logged, because retrying it would block every later change. 401, 408, 429, 5xx and network
+  failures are retried, and nothing uploads while signed out. Service records and odometer
+  readings are append-only: the device refuses to upload an update to them, inserts are
+  `ON CONFLICT DO NOTHING` so a retry is harmless, and a correction is a delete plus an insert.
+- **Sign-in and sign-out** go through one serialized sync session (`createSyncSession`). Signing
+  out deletes the local copy only once everything has uploaded; otherwise it is kept for the same
+  user's next sign-in. Signing in as a different user deletes the previous user's copy first.
 - **Ids** are UUIDs generated on the device, so rows created offline never collide.
 - `packages/data` takes the database as a parameter and imports only `@powersync/common`. The app
   passes the React Native database; tests pass `@powersync/node` with a temporary file.

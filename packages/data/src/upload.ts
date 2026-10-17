@@ -1,29 +1,50 @@
 import { UpdateType, type CommonPowerSyncDatabase, type CrudEntry } from '@powersync/common'
-import { UPLOADABLE_TABLES } from './schema'
+import type { UploadableTable } from './schema'
 
 /** The writes the uploader needs from the backend. Each resolves with an error instead of throwing. */
 export interface CrudBackend {
+  /** Inserts the row, or does nothing if a row with its id already exists. */
+  insert(table: string, row: Record<string, unknown>): Promise<BackendError | null>
+  /** Inserts the row, or replaces the existing row with its id. */
   upsert(table: string, row: Record<string, unknown>): Promise<BackendError | null>
+  /** Updates the row; reports an error when no row was updated (missing, or refused by RLS). */
   update(table: string, id: string, changes: Record<string, unknown>): Promise<BackendError | null>
   remove(table: string, id: string): Promise<BackendError | null>
 }
 
-/** A Postgres error as PostgREST reports it; `code` is the SQLSTATE. */
+/** A failed write. `code` is the SQLSTATE or PostgREST code, `status` the HTTP status. */
 export interface BackendError {
   code?: string | undefined
+  status?: number | undefined
   message: string
 }
 
 /**
- * Errors that will fail the same way on every retry: bad data (class 22), constraint violations
- * (class 23) and row-level security refusals (42501). Retrying these would block every later
- * change in the queue forever, so the change is dropped instead.
+ * Errors that will fail the same way on every retry, so retrying would block every later change in
+ * the queue forever: bad data (SQLSTATE class 22), constraint violations (class 23), an RLS refusal
+ * for a signed-in user (42501), and any other client error. A 401 means the request went out
+ * without a valid session, and 408 and 429 are transient, so those are retried with the rest.
  */
-export const isPermanent = (error: BackendError): boolean =>
-  error.code !== undefined &&
-  (error.code.startsWith('22') || error.code.startsWith('23') || error.code === '42501')
+export const isPermanent = (error: BackendError): boolean => {
+  const { code = '', status = 0 } = error
+  if (status === 401 || status === 408 || status === 429) return false
+  if (code.startsWith('22') || code.startsWith('23') || code === '42501') return true
+  return status >= 400 && status < 500
+}
 
-const uploadable = new Set<string>(UPLOADABLE_TABLES)
+/**
+ * What the device may change on the server, per table. Service records and odometer readings are
+ * append-only (a correction is a delete plus an insert), so a local update to them is refused here
+ * rather than uploaded and silently reverted.
+ */
+const ALLOWED: Record<UploadableTable, readonly UpdateType[]> = {
+  vehicles: [UpdateType.PUT, UpdateType.PATCH, UpdateType.DELETE],
+  service_records: [UpdateType.PUT, UpdateType.DELETE],
+  odometer_readings: [UpdateType.PUT],
+}
+const APPEND_ONLY = new Set<string>(['service_records', 'odometer_readings'])
+
+const isUploadable = (table: string): table is UploadableTable => Object.hasOwn(ALLOWED, table)
 
 /**
  * Sends one local change to the backend. Returns the permanent error if the change was dropped,
@@ -33,13 +54,18 @@ export const applyCrud = async (
   backend: CrudBackend,
   entry: CrudEntry,
 ): Promise<BackendError | null> => {
-  if (!uploadable.has(entry.table)) {
-    return { message: `${entry.table} is read-only on the device` }
+  if (!isUploadable(entry.table)) return { message: `${entry.table} is read-only on the device` }
+  if (!ALLOWED[entry.table].includes(entry.op)) {
+    return { message: `${entry.op} is not allowed on ${entry.table}` }
   }
   const data = entry.opData ?? {}
+  const row = { ...data, id: entry.id }
   const error =
     entry.op === UpdateType.PUT
-      ? await backend.upsert(entry.table, { ...data, id: entry.id })
+      ? // A retried insert must not turn into an update, which append-only tables refuse.
+        APPEND_ONLY.has(entry.table)
+        ? await backend.insert(entry.table, row)
+        : await backend.upsert(entry.table, row)
       : entry.op === UpdateType.PATCH
         ? await backend.update(entry.table, entry.id, data)
         : await backend.remove(entry.table, entry.id)
