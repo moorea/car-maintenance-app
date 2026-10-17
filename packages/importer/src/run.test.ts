@@ -32,7 +32,10 @@ const tsb = (id: number, model = 'CR-V') =>
 const complaint = (odi: number, miles: number) =>
   ['1', odi, 'Honda', 'HONDA', 'CR-V', '2017', ...Array(11).fill(''), miles].join('\t')
 
-const fakeDb = (owned: (ModelYear & { waiting: boolean })[], etags = new Map<string, string>()) => {
+const fakeDb = (
+  owned: (ModelYear & { waiting: boolean; bulletins?: number })[],
+  etags = new Map<string, string>(),
+) => {
   const stored = {
     bulletins: [] as { modelYear: ModelYear; rows: BulletinRow[] }[],
     miles: [] as MilesRow[][],
@@ -40,12 +43,22 @@ const fakeDb = (owned: (ModelYear & { waiting: boolean })[], etags = new Map<str
     imported: undefined as Map<string, string> | undefined,
   }
   const db: ImportDb = {
-    ownedModelYears: async () => owned,
+    ownedModelYears: async () => owned.map((o) => ({ bulletins: 0, ...o })),
     importedEtags: async () => etags,
     storeBulletins: async (modelYear, rows) => void stored.bulletins.push({ modelYear, rows }),
     storeMiles: async (rows) => void stored.miles.push(rows),
     refreshMileage: async () => void stored.refreshed++,
     recordImported: async (e) => void (stored.imported = e),
+    transaction: async (store) => {
+      const before = { bulletins: stored.bulletins.length, miles: stored.miles.length }
+      try {
+        await store()
+      } catch (e) {
+        stored.bulletins.length = before.bulletins
+        stored.miles.length = before.miles
+        throw e
+      }
+    },
   }
   return { db, stored }
 }
@@ -82,7 +95,7 @@ describe('runImport', () => {
     expect(result).toEqual({ status: 'imported', modelYears: 1, bulletins: 1, miles: 1 })
     expect(read).toEqual(['tsbs-2015', 'cmpl-2015'])
     expect(stored.bulletins).toEqual([
-      { modelYear: { ...CRV, waiting: true }, rows: [expect.objectContaining({ nhtsa_id: 1 })] },
+      { modelYear: CRV, rows: [expect.objectContaining({ nhtsa_id: 1 })] },
     ])
     expect(stored.miles).toEqual([[{ odi_number: 11, miles: 88_000 }]])
     expect(stored.refreshed).toBe(1)
@@ -163,6 +176,38 @@ describe('runImport', () => {
     const { db, stored } = fakeDb([{ make: 'kia', model: 'soul', year: 2016, waiting: true }])
     await runImport({ db, files: fakeFiles(CONTENTS).files, sources: SOURCES, log })
     expect(stored.bulletins).toEqual([expect.objectContaining({ rows: [] })])
+  })
+
+  it('stops rather than wipe most of a model year’s bulletins, unless forced', async () => {
+    const { files } = fakeFiles({
+      'tsbs-2015': [tsb(1)],
+      'tsbs-2010': [],
+      'cmpl-2015': [complaint(9, 1)],
+    })
+    const { db, stored } = fakeDb([{ ...CRV, waiting: false, bulletins: 40 }])
+    await expect(runImport({ db, files, sources: SOURCES, log: () => {} })).rejects.toThrow(
+      '2017 honda cr-v (40 to 1)',
+    )
+    expect(stored.bulletins).toEqual([])
+    await runImport({ db, files, sources: SOURCES, log: () => {}, force: true })
+    expect(stored.bulletins[0]?.rows).toHaveLength(1)
+  })
+
+  it('stores nothing when storing fails part way', async () => {
+    const { db, stored } = fakeDb([{ ...CRV, waiting: true }])
+    db.refreshMileage = async () => {
+      throw new Error('connection lost')
+    }
+    const { files } = fakeFiles({
+      'tsbs-2015': [tsb(1)],
+      'tsbs-2010': [],
+      'cmpl-2015': [complaint(9, 1)],
+    })
+    await expect(runImport({ db, files, sources: SOURCES, log: () => {} })).rejects.toThrow(
+      'connection lost',
+    )
+    expect(stored.bulletins).toEqual([])
+    expect(stored.imported).toBeUndefined()
   })
 
   it('stores mileages in batches', async () => {

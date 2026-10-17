@@ -9,7 +9,8 @@ export const postgresDb = (client: pg.ClientBase): ImportDb => ({
       model: string
       year: number
       waiting: boolean
-    }>('select make, model, year, waiting from public.nhtsa_owned_model_years()')
+      bulletins: number
+    }>('select make, model, year, waiting, bulletins from public.nhtsa_owned_model_years()')
     return rows
   },
 
@@ -46,5 +47,16 @@ export const postgresDb = (client: pg.ClientBase): ImportDb => ({
        on conflict (file) do update set etag = excluded.etag, imported_at = excluded.imported_at`,
       [JSON.stringify(Object.fromEntries(etags))],
     )
+  },
+
+  transaction: async (store) => {
+    await client.query('begin')
+    try {
+      await store()
+      await client.query('commit')
+    } catch (e) {
+      await client.query('rollback')
+      throw e
+    }
   },
 })

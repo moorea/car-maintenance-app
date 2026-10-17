@@ -66,18 +66,29 @@ grant select on public.complaints_with_miles to service_role;
 -- Model years -------------------------------------------------------------------------------
 
 -- The model years someone owns, up to next year's, as nhtsa_run fetches them: make and model
--- lower-cased, and whether any of their configs is still waiting for its first bulletins.
+-- lower-cased, whether any of their configs is still waiting for its first bulletins, and how
+-- many bulletins are stored for them, so the importer can refuse to wipe them on a misread.
 create function public.nhtsa_owned_model_years()
-  returns table (make text, model text, year int, waiting boolean)
+  returns table (make text, model text, year int, waiting boolean, bulletins int)
   language sql stable set search_path = ''
 as $$
-  select pg_catalog.lower(c.make), pg_catalog.lower(c.model), c.year,
-         pg_catalog.bool_or(c.bulletins_checked_at is null)
-    from public.vehicle_configs c
-   where exists (select 1 from public.vehicles v where v.config_id = c.id)
-     and c.year <= pg_catalog.date_part('year', pg_catalog.now())::int + 1
-   group by 1, 2, 3
-   order by 3 desc, 1, 2
+  with owned as (
+    select pg_catalog.lower(c.make) as make, pg_catalog.lower(c.model) as model, c.year,
+           pg_catalog.bool_or(c.bulletins_checked_at is null) as waiting
+      from public.vehicle_configs c
+     where exists (select 1 from public.vehicles v where v.config_id = c.id)
+       and c.year <= pg_catalog.date_part('year', pg_catalog.now())::int + 1
+     group by 1, 2, 3
+  )
+  select o.make, o.model, o.year, o.waiting,
+         (select pg_catalog.count(distinct b.nhtsa_id)::int
+            from public.bulletins b
+            join public.vehicle_configs c on c.id = b.config_id
+           where pg_catalog.lower(c.make) = o.make
+             and pg_catalog.lower(c.model) = o.model
+             and c.year = o.year)
+    from owned o
+   order by o.year desc, o.make, o.model
 $$;
 
 -- Bulletins ---------------------------------------------------------------------------------

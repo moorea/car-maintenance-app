@@ -1,7 +1,10 @@
 /**
  * Where NHTSA's bulk files are. Both are split into chunks by the year NHTSA received the record
- * ("MFR_COMMS_RECEIVED_2020-2024.zip"), and new chunks appear as years pass, so the list is read
+ * ("TSBS_RECEIVED_2020-2024.zip"), and new chunks appear as years pass, so the list is read
  * from NHTSA's datasets page, with the chunks known when this was written as a fallback.
+ *
+ * Manufacturer communications come from the TSBS zips, which hold the tab-separated flat file
+ * with every field. The MFR_COMMS zips hold only a comma-separated summary without NHTSA's ids.
  */
 
 export type SourceKind = 'bulletins' | 'complaints'
@@ -18,7 +21,7 @@ export const DATASETS_PAGE = 'https://www.nhtsa.gov/nhtsa-datasets-and-apis'
 
 const BASE = 'https://static.nhtsa.gov/odi/ffdd'
 const PATTERN =
-  /https:\/\/static\.nhtsa\.gov\/odi\/ffdd\/(tsbs\/MFR_COMMS|cmpl\/COMPLAINTS)_RECEIVED_(\d{4})-(\d{4})\.zip/g
+  /https:\/\/static\.nhtsa\.gov\/odi\/ffdd\/(tsbs\/TSBS|cmpl\/COMPLAINTS)_RECEIVED_(\d{4})-(\d{4})\.zip/g
 
 const FALLBACK_RANGES = [
   [1995, 1999],
@@ -31,7 +34,7 @@ const FALLBACK_RANGES = [
 ] as const
 
 export const FALLBACK_SOURCES: Source[] = FALLBACK_RANGES.flatMap(([from, to]) => [
-  { kind: 'bulletins', url: `${BASE}/tsbs/MFR_COMMS_RECEIVED_${from}-${to}.zip`, from, to },
+  { kind: 'bulletins', url: `${BASE}/tsbs/TSBS_RECEIVED_${from}-${to}.zip`, from, to },
   { kind: 'complaints', url: `${BASE}/cmpl/COMPLAINTS_RECEIVED_${from}-${to}.zip`, from, to },
 ])
 
@@ -60,3 +63,20 @@ export const sourcesFor = (sources: Source[], years: number[]): Source[] => {
   const oldest = Math.min(...years)
   return sources.filter((s) => s.to >= oldest - 1)
 }
+
+/** The first year NHTSA's chunked files cover. */
+export const FIRST_YEAR = 1995
+
+/**
+ * Whether `sources` cover every year from 1995 to `year` for both kinds, without gaps. A page that
+ * lists fewer would leave older bulletins unread, and the import would remove them.
+ */
+export const coversEveryYear = (sources: Source[], year: number): boolean =>
+  (['bulletins', 'complaints'] as const).every((kind) => {
+    let covered = FIRST_YEAR - 1
+    for (const s of sources.filter((s) => s.kind === kind).sort((a, b) => a.from - b.from)) {
+      if (s.from > covered + 1) return false
+      covered = Math.max(covered, s.to)
+    }
+    return covered >= year
+  })

@@ -8,7 +8,8 @@ The car's Known issues tab shows the manufacturer's service bulletins and warran
 a "coming up at your mileage" card counting what owners of the same model year reported around the
 car's odometer. Both feed Ask and the quote checker.
 
-- **Source: NHTSA's free bulk files.** Manufacturer communications (`MFR_COMMS_RECEIVED_*.zip`)
+- **Source: NHTSA's free bulk files.** Manufacturer communications (`TSBS_RECEIVED_*.zip`, the tab-separated flat file;
+  `MFR_COMMS_RECEIVED_*.zip` is only a comma-separated summary)
   and complaints (`COMPLAINTS_RECEIVED_*.zip`) from `static.nhtsa.gov/odi/ffdd`. NHTSA's API has
   neither the bulletins' text nor a complaint's mileage, and no paid account is needed.
 - **A Node importer in GitHub Actions** (`packages/importer`, `import-nhtsa.yml`), not pg_net

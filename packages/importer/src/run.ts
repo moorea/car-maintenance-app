@@ -11,8 +11,11 @@ import { sourcesFor, type Source } from './sources.ts'
 
 /** What the import needs from the database. The real one calls the migration's functions. */
 export interface ImportDb {
-  /** Owned model years, and whether any of their configs still waits for its first bulletins. */
-  ownedModelYears(): Promise<(ModelYear & { waiting: boolean })[]>
+  /**
+   * Owned model years, whether any of their configs still waits for its first bulletins, and how
+   * many bulletins are stored for them.
+   */
+  ownedModelYears(): Promise<(ModelYear & { waiting: boolean; bulletins: number })[]>
   /** The ETag each file had when it was last imported. */
   importedEtags(): Promise<Map<string, string>>
   /** Replaces one model year's bulletins with `rows`. */
@@ -21,6 +24,8 @@ export interface ImportDb {
   /** Recomputes every owned config's complaint counts by mileage. */
   refreshMileage(): Promise<void>
   recordImported(etags: Map<string, string>): Promise<void>
+  /** Runs `store` in one transaction, so a failure part way stores nothing. */
+  transaction(store: () => Promise<void>): Promise<void>
 }
 
 /** NHTSA's files. */
@@ -43,6 +48,12 @@ export const MILES_BATCH = 5_000
  * import stops rather than replace every model year's bulletins with what it misread.
  */
 export const MAX_MALFORMED_SHARE = 0.05
+
+/**
+ * A model year whose stored bulletins would shrink below this share stops the import unless it
+ * is forced: NHTSA does not withdraw bulletins in bulk, so it means the files were misread.
+ */
+export const MIN_KEPT_SHARE = 0.5
 
 const check = (kind: string, stats: Stats) => {
   if (stats.lines === 0) throw new Error(`NHTSA's ${kind} files had no lines`)
@@ -103,21 +114,31 @@ export const runImport = async (options: {
   check('manufacturer communications', bulletins.stats)
   check('complaints', miles.stats)
 
-  let storedBulletins = 0
-  for (const modelYear of owned) {
-    const rows = bulletins.rowsFor(modelYear)
-    storedBulletins += rows.length
-    await db.storeBulletins(modelYear, rows)
+  const planned = owned.map((o) => ({
+    modelYear: { make: o.make, model: o.model, year: o.year },
+    before: o.bulletins,
+    rows: bulletins.rowsFor(o),
+  }))
+  const shrunk = planned.filter((p) => p.rows.length < p.before * MIN_KEPT_SHARE)
+  const [first] = shrunk
+  if (first && !options.force) {
+    const { year, make, model } = first.modelYear
+    throw new Error(
+      `${shrunk.length} model years would lose most of their bulletins, such as ${year} ${make} ${model} (${first.before} to ${first.rows.length}); has the layout changed? Run with --force if NHTSA really withdrew them.`,
+    )
   }
+  const storedBulletins = planned.reduce((n, p) => n + p.rows.length, 0)
   const mileRows = miles.rows()
-  for (let i = 0; i < mileRows.length; i += MILES_BATCH)
-    await db.storeMiles(mileRows.slice(i, i + MILES_BATCH))
-  await db.refreshMileage()
-
   const imported = new Map(
     [...etags].flatMap(([url, etag]) => (etag === undefined ? [] : [[url, etag] as const])),
   )
-  await db.recordImported(imported)
+  await db.transaction(async () => {
+    for (const { modelYear, rows } of planned) await db.storeBulletins(modelYear, rows)
+    for (let i = 0; i < mileRows.length; i += MILES_BATCH)
+      await db.storeMiles(mileRows.slice(i, i + MILES_BATCH))
+    await db.refreshMileage()
+    await db.recordImported(imported)
+  })
   log(`Stored ${storedBulletins} bulletins and ${mileRows.length} complaint mileages.`)
   return {
     status: 'imported',

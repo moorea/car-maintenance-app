@@ -3,7 +3,7 @@
 -- mileage, and readable only where they should be.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(20);
+select plan(24);
 
 -- Fixtures: two trims of one owned model year, and a model year nobody owns. ----------------
 
@@ -55,6 +55,8 @@ select is(
 );
 select is((select array_agg(waiting) from public.nhtsa_owned_model_years()), array[false],
   'a stored model year no longer waits');
+select is((select array_agg(bulletins) from public.nhtsa_owned_model_years()), array[2],
+  'the importer is told how many bulletins a model year has');
 
 -- An unchanged bulletin is not rewritten; a gone one is removed.
 create temporary table before as select id, xmin::text as version from public.bulletins
@@ -162,6 +164,19 @@ select ok(
   and not has_function_privilege('authenticated', 'public.nhtsa_store_complaint_miles(jsonb)',
     'execute'),
   'owners cannot store bulletins or mileages'
+);
+select table_privs_are('public', 'bulletins', 'anon', array[]::text[],
+  'signed-out visitors cannot read bulletins');
+select table_privs_are('public', 'nhtsa_imports', 'authenticated', array[]::text[],
+  'the import log stays on the server');
+select ok(
+  not has_function_privilege('anon', 'public.nhtsa_store_bulletins(text, text, int, jsonb)',
+    'execute')
+  and not has_function_privilege('anon', 'public.nhtsa_refresh_complaint_mileage()', 'execute')
+  and not has_function_privilege('authenticated', 'public.nhtsa_owned_model_years()', 'execute')
+  and not has_function_privilege('authenticated', 'public.nhtsa_refresh_complaint_mileage()',
+    'execute'),
+  'nobody but the importer can run the import functions'
 );
 
 select * from finish();

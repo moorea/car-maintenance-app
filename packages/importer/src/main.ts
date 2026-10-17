@@ -4,7 +4,13 @@ import { postgresDb } from './db.ts'
 import { httpFiles } from './files.ts'
 import type { ModelYear } from './parse.ts'
 import { runImport, type ImportDb } from './run.ts'
-import { DATASETS_PAGE, FALLBACK_SOURCES, sourcesFromPage, type Source } from './sources.ts'
+import {
+  coversEveryYear,
+  DATASETS_PAGE,
+  FALLBACK_SOURCES,
+  sourcesFromPage,
+  type Source,
+} from './sources.ts'
 
 /**
  * Imports NHTSA's manufacturer communications and complaint mileages into Supabase. Runs on a
@@ -27,9 +33,10 @@ const sources = async (): Promise<Source[]> => {
   try {
     const response = await fetch(DATASETS_PAGE)
     const found = response.ok ? sourcesFromPage(await response.text()) : []
-    if (found.some((s) => s.kind === 'bulletins') && found.some((s) => s.kind === 'complaints'))
-      return found
-    log(`No files listed on ${DATASETS_PAGE} (${response.status}); using the known ones.`)
+    if (coversEveryYear(found, new Date().getUTCFullYear())) return found
+    log(
+      `${DATASETS_PAGE} (${response.status}) does not list every year's files; using the known ones.`,
+    )
   } catch (e) {
     log(`Could not read ${DATASETS_PAGE}: ${String(e)}; using the known ones.`)
   }
@@ -38,7 +45,7 @@ const sources = async (): Promise<Source[]> => {
 
 /** A database that stores nothing and prints what it would have stored. */
 const dryRunDb = (modelYears: ModelYear[]): ImportDb => ({
-  ownedModelYears: async () => modelYears.map((m) => ({ ...m, waiting: true })),
+  ownedModelYears: async () => modelYears.map((m) => ({ ...m, waiting: true, bulletins: 0 })),
   importedEtags: async () => new Map(),
   storeBulletins: async (m, rows) => {
     const kinds = Object.entries(
@@ -56,6 +63,7 @@ const dryRunDb = (modelYears: ModelYear[]): ImportDb => ({
   },
   refreshMileage: async () => {},
   recordImported: async () => {},
+  transaction: async (store) => store(),
 })
 
 const parseModelYear = (value: string): ModelYear => {
@@ -75,8 +83,14 @@ const main = async () => {
   const url = process.env.DATABASE_URL
   if (!url) throw new Error('Set DATABASE_URL (and PGPASSWORD) to the Supabase database')
   // Supabase's pooler presents a certificate from Supabase's own CA, which Node does not know;
-  // the connection is still encrypted.
-  const client = new pg.Client({ connectionString: url, ssl: { rejectUnauthorized: false } })
+  // the connection is still encrypted. An sslmode in the URL would override this, so it is
+  // dropped.
+  const connectionString = new URL(url)
+  connectionString.searchParams.delete('sslmode')
+  const client = new pg.Client({
+    connectionString: connectionString.toString(),
+    ssl: { rejectUnauthorized: false },
+  })
   await client.connect()
   try {
     const result = await runImport({
