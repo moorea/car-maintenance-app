@@ -40,9 +40,30 @@ export const systemFilePicker = (): FilePicker => ({
   },
 })
 
-/** Quick Look on iOS: zoom, share, print and markup come with it. */
+const EXTENSIONS: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/heic': 'heic',
+  'image/heif': 'heif',
+  'application/pdf': 'pdf',
+}
+
+/**
+ * Quick Look on iOS: zoom, share, print and markup come with it. Quick Look decides what a file is
+ * from its extension, and the kept copy is named by attachment id, so it shows a copy named after
+ * the attachment, with the right extension, from the cache.
+ */
 export const systemFilePreview = (): FilePreview => ({
-  show: (uri) => new File(uri).preview(),
+  show: async (uri, { name, contentType }) => {
+    const dir = new Directory(Paths.cache, 'preview')
+    if (dir.exists) dir.delete()
+    dir.create({ intermediates: true })
+    const extension = EXTENSIONS[contentType] ?? 'bin'
+    const base = name.replace(/\.[A-Za-z0-9]{1,5}$/, '').replace(/[/:]/g, '-') || 'Document'
+    const copy = new File(dir, `${base}.${extension}`)
+    await new File(uri).copy(copy)
+    await copy.preview({ title: base, mimeType: contentType })
+  },
 })
 
 /**

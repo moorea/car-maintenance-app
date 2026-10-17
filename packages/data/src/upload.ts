@@ -63,6 +63,9 @@ const APPEND_ONLY = new Set<string>(['service_records', 'odometer_readings', 'at
 
 const isUploadable = (table: string): table is UploadableTable => Object.hasOwn(ALLOWED, table)
 
+/** A foreign key to a missing row, or the RLS check that a service belongs to the same car. */
+const isMissingParent = (error: BackendError) => error.code === '23503' || error.code === '42501'
+
 /** Returns a permanent error to drop the change with, or throws a temporary one for a retry. */
 const settle = (table: string, error: BackendError | null): BackendError | null => {
   if (!error || isPermanent(error)) return error
@@ -94,7 +97,14 @@ const applyAttachment = async (
   const contentType = typeof row.content_type === 'string' ? row.content_type : ''
   const dropped = settle('storage', await backend.putFile(path, bytes, contentType))
   if (dropped) return dropped
-  const refused = settle(entry.table, await backend.insert(entry.table, row))
+  let refused = settle(entry.table, await backend.insert(entry.table, row))
+  // Its service was deleted on another phone before this upload: keep the receipt with the car.
+  if (refused && row.service_record_id != null && isMissingParent(refused)) {
+    refused = settle(
+      entry.table,
+      await backend.insert(entry.table, { ...row, service_record_id: null }),
+    )
+  }
   // Best effort: the row will never arrive, so its file would only take up the owner's space.
   if (refused) await backend.removeFile(path).catch(() => null)
   return refused

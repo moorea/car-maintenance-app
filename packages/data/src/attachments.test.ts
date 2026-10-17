@@ -230,6 +230,15 @@ describe('PowerSync attachments', () => {
     await waitFor(() => localFiles().join() === 'a1', 'the cleanup')
   })
 
+  it('deletes every kept file once the local copy is cleared at sign-out', async () => {
+    const attachments = makeRepo()
+    await attachments.add(receipt, picked())
+    attachments.dispose()
+    await db.disconnectAndClear()
+    await attachments.cleanUp()
+    expect(localFiles()).toEqual([])
+  })
+
   it('never deletes a file added while a cleanup is due', async () => {
     const attachments = makeRepo()
     await Promise.all(

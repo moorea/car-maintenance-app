@@ -15,6 +15,11 @@ export interface AttachmentRepoOptions {
 }
 
 export interface PowerSyncAttachmentRepo extends AttachmentRepo {
+  /**
+   * Deletes local files with no attachment row. Runs on every change to the table; call it too
+   * after the local copy is cleared at sign-out, so no one else's documents stay on the phone.
+   */
+  cleanUp(): Promise<void>
   /** Stops removing files whose attachment was deleted. */
   dispose(): void
 }
@@ -50,12 +55,11 @@ export const createAttachmentRepo = ({
   // Deletes local files with no attachment row: deleted on another phone, a local add whose upload
   // was dropped, or a copy cleared at sign-out. One pass waiting is enough for any number of
   // changes.
-  let cleanupWaiting = false
-  const cleanUp = () => {
-    if (cleanupWaiting) return
-    cleanupWaiting = true
-    serially(async () => {
-      cleanupWaiting = false
+  let cleanupWaiting: Promise<void> | undefined
+  const cleanUp = (): Promise<void> => {
+    if (cleanupWaiting) return cleanupWaiting
+    cleanupWaiting = serially(async () => {
+      cleanupWaiting = undefined
       const rows = await db.getAll<{ id: string }>('select id from attachments')
       const ids = new Set(rows.map((r) => r.id))
       for (const name of await files.list()) {
@@ -64,8 +68,11 @@ export const createAttachmentRepo = ({
         await files.remove(name)
       }
     }).catch((error: unknown) => log(`Attachment file cleanup failed: ${String(error)}`))
+    return cleanupWaiting
   }
-  const stopCleanup = watchRows(db, 'select id from attachments', [], 'attachments', cleanUp)
+  const stopCleanup = watchRows(db, 'select id from attachments', [], 'attachments', () => {
+    void cleanUp()
+  })
 
   const download = async (id: string): Promise<string> => {
     const local = await files.uri(id)
@@ -126,7 +133,11 @@ export const createAttachmentRepo = ({
       const { id } = attachment
       const running = downloads.get(id)
       if (running) return running
-      const opening = download(id).finally(() => downloads.delete(id))
+      const opening = download(id).finally(() => {
+        downloads.delete(id)
+        // Deleted while downloading: the cleanup skipped it then.
+        void cleanUp()
+      })
       downloads.set(id, opening)
       return opening
     },
@@ -137,6 +148,8 @@ export const createAttachmentRepo = ({
         await db.execute('delete from attachments where id = ?', [attachment.id])
         await files.remove(attachment.id)
       }),
+
+    cleanUp,
 
     dispose: stopCleanup,
   }

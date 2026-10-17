@@ -49,7 +49,7 @@ const toStorageError = async (response: Response): Promise<BackendError> => {
   const reported = Number(str(body.statusCode) ?? body.statusCode)
   // Storage reports these as 403 AccessDenied, like an RLS refusal, so the message tells them apart.
   const invalidToken =
-    code === 'InvalidJWT' || /\bjwt\b|"exp" claim|signature verification failed/i.test(message)
+    code === 'InvalidJWT' || /jwt expired|"exp" claim|signature verification failed/i.test(message)
   const status = invalidToken
     ? 401
     : Number.isInteger(reported) && reported >= 400 && reported < 600

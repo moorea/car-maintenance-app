@@ -115,6 +115,30 @@ describe('attachments screen model', () => {
     expect(model.getState().documents[0]).toMatchObject({ title: 'Insurance card', pdf: true })
   })
 
+  it('keeps names within what the server stores, and names unnamed files', async () => {
+    const { model, picker } = setup()
+    picker.queue({ ...pdf, name: `${'a'.repeat(300)}.pdf` })
+    await model.getState().attach({ kind: 'other' }, 'files')
+    picker.queue({ ...pdf, name: '   ' })
+    await model.getState().attach({ kind: 'other' }, 'files')
+    expect(
+      model
+        .getState()
+        .attachments.slice(0, 2)
+        .map((a) => a.name),
+    ).toEqual(['Document', 'a'.repeat(255)])
+  })
+
+  it('passes the name and type to the system viewer', async () => {
+    const { model, preview } = setup()
+    const shown: unknown[] = []
+    preview.show = async (uri, file) => {
+      shown.push([uri, file.name, file.contentType])
+    }
+    await model.getState().open('reg')
+    expect(shown).toEqual([['memory://reg', 'scan.pdf', 'application/pdf']])
+  })
+
   it('does nothing when the owner cancels the picker', async () => {
     const { model, attachments } = setup()
     expect(await model.getState().attach({ kind: 'insurance' }, 'photos')).toBe(false)
@@ -134,6 +158,10 @@ describe('attachments screen model', () => {
     picker.queue({ ...pdf, name: 'notes.docx', contentType: 'application/msword' })
     await model.getState().attach({ kind: 'other' }, 'files')
     expect(model.getState().error).toBe('Choose a photo or a PDF.')
+
+    picker.queue({ ...pdf, sizeBytes: 0 })
+    await model.getState().attach({ kind: 'other' }, 'files')
+    expect(model.getState().error).toBe('That file is empty.')
 
     picker.queue({ ...pdf, sizeBytes: 26 * 1024 * 1024 })
     await model.getState().attach({ kind: 'other' }, 'files')

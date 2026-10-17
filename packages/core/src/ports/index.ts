@@ -97,8 +97,11 @@ export interface AttachmentRepo {
 
 /** Shows a file full screen in the system's viewer (Quick Look on iOS). */
 export interface FilePreview {
-  /** Resolves once the viewer is showing. */
-  show(uri: string, contentType: string): Promise<void>
+  /**
+   * Resolves once the viewer is showing. `file` gives the viewer its title and type, since the
+   * copy on the phone is named by attachment id.
+   */
+  show(uri: string, file: { name: string; contentType: string }): Promise<void>
 }
 
 /** Where the owner gets a file from. */

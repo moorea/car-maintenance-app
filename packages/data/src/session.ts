@@ -86,10 +86,15 @@ export const readOwner = async (
 export const powerSyncSessionDatabase = (
   db: CommonPowerSyncDatabase,
   connector: PowerSyncBackendConnector,
+  /** Runs after the local copy is deleted, such as removing files kept beside it. */
+  afterClear: () => Promise<void> = async () => {},
 ): SyncDatabase => ({
   connect: () => db.connect(connector),
   disconnect: () => db.disconnect(),
-  clear: () => db.disconnectAndClear(),
+  clear: async () => {
+    await db.disconnectAndClear()
+    await afterClear()
+  },
   pendingUploads: async () => (await db.getUploadQueueStats()).count,
   owner: () => readOwner(db),
   setOwner: async (userId) => {

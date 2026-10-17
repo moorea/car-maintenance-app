@@ -159,6 +159,22 @@ describe('applyCrud on attachments', () => {
     expect(calls.map((c) => c[0])).toEqual(['putFile', 'insert', 'removeFile'])
   })
 
+  it('keeps a receipt with the car when its service was deleted before it uploaded', async () => {
+    const receipt = { ...photo, service_record_id: 'gone' }
+    const { backend, calls } = fakeBackend([null, { code: '23503', status: 409, message: 'fk' }])
+    const dropped = await applyCrud(
+      backend,
+      entry(UpdateType.PUT, 'attachments', receipt),
+      context(),
+    )
+    expect(dropped).toBeNull()
+    const inserts = calls
+      .filter((c) => c[0] === 'insert')
+      .map((c) => (c[2] as typeof receipt).service_record_id)
+    expect(inserts).toEqual(['gone', null])
+    expect(calls.map((c) => c[0])).not.toContain('removeFile')
+  })
+
   it('deletes the row, then the file in the signed-in user’s folder', async () => {
     const { backend, calls } = fakeBackend()
     await applyCrud(backend, entry(UpdateType.DELETE, 'attachments'), context())

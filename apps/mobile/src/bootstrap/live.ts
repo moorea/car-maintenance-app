@@ -56,7 +56,15 @@ export const createLiveRepositories = (config: BackendConfig) => {
     storage,
     readFile: (id) => files.read(id),
   })
-  const session = createSyncSession(powerSyncSessionDatabase(db, connector))
+  const attachments = createAttachmentRepo({
+    db,
+    files,
+    downloadUrl: attachmentDownloadUrl({ ...storage, accessToken }),
+  })
+  // Signing out deletes the local copy; files beside it go with it.
+  const session = createSyncSession(
+    powerSyncSessionDatabase(db, connector, () => attachments.cleanUp()),
+  )
   const auth = supabaseAuth(supabase.auth, storedSession(AsyncStorage, AUTH_STORAGE_KEY))
   // Sync follows the same view of who is signed in as the screens, so the two never disagree.
   auth.watchUser((user) => void session.setUser(user?.id ?? null).catch(() => {}))
@@ -67,12 +75,6 @@ export const createLiveRepositories = (config: BackendConfig) => {
     url: `${config.supabaseUrl}/functions/v1/assistant`,
     accessToken,
     fetch: streamingFetch as unknown as typeof fetch,
-  })
-
-  const attachments = createAttachmentRepo({
-    db,
-    files,
-    downloadUrl: attachmentDownloadUrl({ ...storage, accessToken }),
   })
 
   return { auth, assistant, attachments, ...createPowerSyncRepositories(db) }

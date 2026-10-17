@@ -26,9 +26,17 @@ export const isPdf = (a: Pick<Attachment, 'contentType'>) => a.contentType === '
 export const checkPickedFile = (file: PickedFile): string | undefined => {
   if (!(ATTACHMENT_TYPES as readonly string[]).includes(file.contentType))
     return 'Choose a photo or a PDF.'
+  if (file.sizeBytes <= 0) return 'That file is empty.'
   if (file.sizeBytes > MAX_ATTACHMENT_BYTES) return 'That file is over 25 MB.'
   return undefined
 }
+
+/** The longest name the server keeps. */
+const MAX_NAME = 255
+
+/** A picked file's name as stored: trimmed, never empty, at most 255 characters. */
+export const attachmentName = (name: string): string =>
+  (name.trim() || 'Document').slice(0, MAX_NAME)
 
 /** "240 KB", "1.2 MB". */
 export const formatBytes = (bytes: number): string => {

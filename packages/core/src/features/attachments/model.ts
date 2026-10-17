@@ -16,6 +16,7 @@ import type {
   Unsubscribe,
 } from '../../ports'
 import {
+  attachmentName,
   checkPickedFile,
   describeAttachment,
   newestAttachmentsFirst,
@@ -97,7 +98,7 @@ export const saveAttachment = async (
     vehicleId: deps.vehicleId,
     ...(target.serviceRecordId !== undefined && { serviceRecordId: target.serviceRecordId }),
     kind: target.kind,
-    name: file.name,
+    name: attachmentName(file.name),
     contentType: file.contentType,
     sizeBytes: file.sizeBytes,
     addedOn: deps.clock.today(),
@@ -185,7 +186,7 @@ export const createAttachmentsModel = (deps: AttachmentsDeps): AttachmentsModel 
         try {
           const uri = await deps.attachments.open(attachment)
           if (mine !== opening) return
-          await deps.preview.show(uri, attachment.contentType)
+          await deps.preview.show(uri, attachment)
           if (mine === opening) set({ opening: undefined })
         } catch (e) {
           if (mine === opening) set({ opening: { id, error: messageFor(e) } })
