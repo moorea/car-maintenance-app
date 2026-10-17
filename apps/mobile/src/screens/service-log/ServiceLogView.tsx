@@ -50,7 +50,12 @@ export function ServiceLogView(props: Props) {
           <History {...props} />
         </Column>
       </ScrollView>
-      <BottomSheet isPresented={props.adding} onDismiss={props.closeForm} snapPoints={['full']}>
+      <BottomSheet
+        isPresented={props.adding}
+        onDismiss={props.closeForm}
+        snapPoints={['full']}
+        contentPadding={0}
+      >
         <LogForm {...props} />
       </BottomSheet>
     </Host>

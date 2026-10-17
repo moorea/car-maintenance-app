@@ -14,7 +14,14 @@ import { TabBar, type TabBarItem } from '../../ui/TabBar'
 type Props = SessionState &
   Pick<
     SessionActions,
-    'signOut' | 'openTab' | 'openCar' | 'logService' | 'addCar' | 'cancelAddCar' | 'carAdded'
+    | 'signOut'
+    | 'openTab'
+    | 'openCar'
+    | 'logService'
+    | 'logRequestHandled'
+    | 'addCar'
+    | 'cancelAddCar'
+    | 'carAdded'
   >
 
 const TABS: TabBarItem<AppTab>[] = [
@@ -87,7 +94,13 @@ function TabContent(props: Props & { vehicle: Vehicle }) {
         />
       )
     case 'log':
-      return <ServiceLogScreen vehicle={vehicle} request={props.logRequest} />
+      return (
+        <ServiceLogScreen
+          vehicle={vehicle}
+          request={props.logRequest}
+          onRequestHandled={props.logRequestHandled}
+        />
+      )
     case 'car':
       return <CarScreen vehicle={vehicle} />
     case 'ask':

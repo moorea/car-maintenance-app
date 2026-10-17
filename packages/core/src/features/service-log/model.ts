@@ -33,7 +33,10 @@ export interface ServiceLogActions {
   setField: (field: DraftField, value: string) => void
   /** Opens the form, optionally with a scheduled task already chosen. */
   openForm: (itemId?: string) => void
+  /** Closes the form. A save already under way finishes, and reopens the form if it fails. */
   closeForm: () => void
+  /** Loads the scheduled tasks for the car's configuration once it has synced or changed. */
+  setConfig: (configId: string | undefined) => void
   setQuery: (query: string) => void
   /** Validates and saves the draft. Resolves true on success. */
   save: () => Promise<boolean>
@@ -47,8 +50,6 @@ export interface ServiceLogDeps {
   vehicleId: VehicleId
   /** The car's configuration, whose schedule names the tasks. Absent before it has synced. */
   configId?: string | undefined
-  /** Open the form on start, for this scheduled task if one is given. */
-  startWith?: { itemId?: string | undefined } | undefined
   schedule: ScheduleRepo
   records: ServiceRecordRepo
   clock: Clock
@@ -82,6 +83,9 @@ const newestFirst = (a: ServiceRecord, b: ServiceRecord) =>
 export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => {
   let unsubscribe: Unsubscribe | undefined
   let taskNames = new Map<string, string>()
+  let configId = deps.configId
+  // Each schedule read supersedes the one before, and dispose drops any still in flight.
+  let scheduleRead = 0
   const today = () => deps.clock.today()
   const draftFor = (itemId?: string) => ({ ...emptyDraft(today()), itemId: itemId ?? '' })
 
@@ -94,12 +98,36 @@ export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => 
       summary: summarizeHistory(records, today()),
     })
 
+    /** Reads the names of the scheduled tasks, for the form and the history. */
+    const loadTasks = () => {
+      const mine = ++scheduleRead
+      if (configId === undefined) {
+        taskNames = new Map()
+        set((s) => ({ tasks: [], ...show(s.records, s.query) }))
+        return
+      }
+      void deps.schedule.itemsForConfig(configId).then(
+        (items) => {
+          if (mine !== scheduleRead) return
+          taskNames = new Map(items.map((i) => [i.id, i.task]))
+          set((s) => ({
+            tasks: items
+              .map((i) => ({ id: i.id, task: i.task }))
+              .sort((a, b) => a.task.localeCompare(b.task)),
+            ...show(s.records, s.query),
+          }))
+        },
+        // Without the schedule, entries fall back to their notes; nothing else is lost.
+        () => {},
+      )
+    }
+
     return {
       status: 'loading',
       records: [],
-      draft: draftFor(deps.startWith?.itemId),
+      draft: draftFor(),
       fieldErrors: {},
-      adding: deps.startWith !== undefined,
+      adding: false,
       tasks: [],
       query: '',
       groups: [],
@@ -114,8 +142,12 @@ export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => 
       openForm: (itemId) =>
         set({ adding: true, draft: draftFor(itemId), fieldErrors: {}, saveError: undefined }),
 
-      closeForm: () => {
-        if (get().status !== 'saving') set({ adding: false })
+      closeForm: () => set({ adding: false }),
+
+      setConfig: (next) => {
+        if (next === configId) return
+        configId = next
+        if (unsubscribe) loadTasks()
       },
 
       setQuery: (query) => set((s) => show(s.records, query)),
@@ -126,6 +158,11 @@ export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => 
         const parsed = serviceRecordDraftSchema.safeParse(get().draft)
         if (!parsed.success) {
           set({ fieldErrors: toFieldErrors(parsed.error) })
+          return false
+        }
+        // Without a scheduled task, the notes are the only record of what was done.
+        if (parsed.data.itemId === undefined && parsed.data.notes === undefined) {
+          set({ fieldErrors: { notes: 'Say what was done' } })
           return false
         }
         const d = parsed.data
@@ -145,7 +182,12 @@ export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => 
           set({ status: 'ready', adding: false, draft: draftFor(), fieldErrors: {} })
           return true
         } catch (e) {
-          set({ status: 'error', saveError: e instanceof Error ? e.message : 'Could not save' })
+          // Reopen the form if it was closed mid-save, so the error and the draft are not lost.
+          set({
+            status: 'error',
+            adding: true,
+            saveError: e instanceof Error ? e.message : 'Could not save',
+          })
           return false
         }
       },
@@ -158,27 +200,13 @@ export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => 
             status: s.status === 'loading' ? 'ready' : s.status,
           })),
         )
-        if (deps.configId === undefined) return
-        const watching = unsubscribe
-        void deps.schedule.itemsForConfig(deps.configId).then(
-          (items) => {
-            if (unsubscribe !== watching) return
-            taskNames = new Map(items.map((i) => [i.id, i.task]))
-            set((s) => ({
-              tasks: items
-                .map((i) => ({ id: i.id, task: i.task }))
-                .sort((a, b) => a.task.localeCompare(b.task)),
-              ...show(s.records, s.query),
-            }))
-          },
-          // Without the schedule, entries fall back to their notes; nothing else is lost.
-          () => {},
-        )
+        loadTasks()
       },
 
       dispose: () => {
         unsubscribe?.()
         unsubscribe = undefined
+        scheduleRead++
       },
     }
   })

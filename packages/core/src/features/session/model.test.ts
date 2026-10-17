@@ -321,4 +321,14 @@ describe('session model, adding a car', () => {
     model.getState().openTab('garage')
     expect(model.getState().logRequest).toBeUndefined()
   })
+
+  it('forgets a request to log a service once the form has opened for it', () => {
+    const { model } = setup(true, [civic])
+    model.getState().start()
+    model.getState().logService('oil')
+    model.getState().logRequestHandled()
+    expect(model.getState()).toMatchObject({ tab: 'log', logRequest: undefined })
+    model.getState().logService('tires')
+    expect(model.getState().logRequest).toEqual({ itemId: 'tires', seq: 2 })
+  })
 })
