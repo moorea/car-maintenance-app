@@ -8,22 +8,21 @@ import { schema } from './schema'
 const path = fileURLToPath(new URL('../../../powersync/sync-rules.yaml', import.meta.url))
 const source = readFileSync(path, 'utf8')
 
-interface Bucket {
-  parameters: string
-  data: string[]
+interface Stream {
+  query?: string
+  queries?: string[]
 }
-const buckets = Object.values(
-  (parse(source) as { bucket_definitions: Record<string, Bucket> }).bucket_definitions,
-)
+const streams = Object.values((parse(source) as { streams: Record<string, Stream> }).streams)
+const queries = streams.flatMap((s) => s.queries ?? (s.query ? [s.query] : []))
+const syncedTables = queries.map((q) => /^select\s.+?\sfrom\s+(\w+)/i.exec(q)?.[1])
 
-describe('sync rules', () => {
+describe('sync streams', () => {
   it('parse without errors', () => {
     expect(SqlSyncRules.validate(source, { defaultSchema: 'public' })).toEqual([])
   })
 
   it('sync exactly the tables in the device schema', () => {
-    const synced = buckets.flatMap((b) => b.data.map((q) => /\bfrom\s+(\w+)/i.exec(q)?.[1]))
-    expect(new Set(synced)).toEqual(
+    expect(new Set(syncedTables)).toEqual(
       new Set(schema.tables.filter((t) => !t.localOnly).map((t) => t.name)),
     )
   })
@@ -35,11 +34,10 @@ describe('sync rules', () => {
       .join('\n')
     const list = /create publication powersync for table([^;]*);/.exec(sql)?.[1] ?? ''
     const published = list.split(',').map((t) => t.trim().replace(/^public\./, ''))
-    const synced = buckets.flatMap((b) => b.data.map((q) => /\bfrom\s+(\w+)/i.exec(q)?.[1]))
-    expect(new Set(published)).toEqual(new Set(synced))
+    expect(new Set(published)).toEqual(new Set(syncedTables))
   })
 
-  it('scope every bucket to the signed-in user', () => {
-    for (const bucket of buckets) expect(bucket.parameters).toContain('request.user_id()')
+  it("scope every query to the signed-in user's vehicles", () => {
+    for (const query of queries) expect(query).toContain('owner_id = auth.user_id()')
   })
 })

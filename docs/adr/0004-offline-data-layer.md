@@ -7,8 +7,8 @@ Status: accepted, 2026-10-17
 The core ports are implemented over PowerSync's on-device SQLite database in `packages/data`.
 Screens read and write SQLite only; PowerSync syncs it with Supabase Postgres in the background.
 
-- **Reads** come down through the sync rules in `powersync/sync-rules.yaml`. Row-level security
-  does not apply to sync, so every bucket is scoped by `request.user_id()`; a test enforces it.
+- **Reads** come down through the Sync Streams in `powersync/sync-rules.yaml`. Row-level security
+  does not apply to sync, so every query is scoped by `auth.user_id()`; a test enforces it.
 - **Writes** go up through PostgREST as the signed-in user (`SupabaseConnector`), so the RLS
   policies in `supabase/migrations` are the write boundary.
 - **Rejected uploads**: a change that fails with bad data (SQLSTATE class 22), a constraint
