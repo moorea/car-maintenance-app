@@ -5,12 +5,9 @@ select plan(14);
 
 select ok(
   not exists (
-    select 1 from pg_tables
-    where schemaname = 'public'
-      and (has_table_privilege('anon', format('public.%I', tablename), 'select')
-        or has_table_privilege('anon', format('public.%I', tablename), 'insert')
-        or has_table_privilege('anon', format('public.%I', tablename), 'update')
-        or has_table_privilege('anon', format('public.%I', tablename), 'delete'))
+    select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public' and c.relkind in ('r', 'v', 'm', 'p')
+      and has_table_privilege('anon', c.oid, 'select, insert, update, delete')
   ),
   'anonymous users have no access to any table'
 );
