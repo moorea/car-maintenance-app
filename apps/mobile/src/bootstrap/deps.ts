@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { createReminderScheduler, type IdGenerator } from '@car/core'
 import { demoQuoteReader } from '@car/core/testing'
-import { nhtsaVinDecoder, storedReminderSettings } from '@car/data'
+import { nhtsaVinDecoder, storedDevicePreferences, storedReminderSettings } from '@car/data'
 import { randomUUID } from 'expo-crypto'
 import { pdfReportExporter } from './careReport'
 import { appDataFiles } from './dataFiles'
@@ -34,6 +34,8 @@ function demoRepositories() {
 // Reminders are planned and scheduled on the phone, so they work offline and need no push server.
 const notifier = expoNotifier()
 const reminderSettings = storedReminderSettings(AsyncStorage, 'car-maintenance-reminders')
+// Seen the introduction, and allowed Ask to share with Anthropic: both belong to this phone.
+const preferences = storedDevicePreferences(AsyncStorage, 'car-maintenance-preferences')
 
 export const deps = {
   clock,
@@ -43,6 +45,7 @@ export const deps = {
   ...repositories,
   notifier,
   reminderSettings,
+  preferences,
   exporter: pdfReportExporter(),
   dataFiles: appDataFiles(),
   picker: systemFilePicker(),

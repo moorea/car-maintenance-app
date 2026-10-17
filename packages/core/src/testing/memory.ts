@@ -20,6 +20,8 @@ import {
 import type {
   AttachmentRepo,
   DataFiles,
+  DevicePreferences,
+  DevicePreferencesRepo,
   AccountPort,
   AuthPort,
   CareReportExporter,
@@ -397,6 +399,33 @@ export const memoryReminderSettings = (
     set: async (next) => {
       settings = next
       for (const w of watchers) w(settings)
+    },
+  }
+}
+
+/** Device preferences held in memory; `failNextUpdate` makes the next save throw. */
+export const memoryPreferences = (
+  initial: Partial<DevicePreferences> = {},
+): DevicePreferencesRepo & { failNextUpdate: () => void } => {
+  let preferences: DevicePreferences = { onboarded: false, aiSharing: false, ...initial }
+  let fail = false
+  const watchers = new Set<(p: DevicePreferences) => void>()
+  return {
+    watch: (onChange) => {
+      watchers.add(onChange)
+      onChange(preferences)
+      return () => watchers.delete(onChange)
+    },
+    update: async (change) => {
+      if (fail) {
+        fail = false
+        throw new Error('storage full')
+      }
+      preferences = { ...preferences, ...change }
+      for (const w of watchers) w(preferences)
+    },
+    failNextUpdate: () => {
+      fail = true
     },
   }
 }

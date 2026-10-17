@@ -228,6 +228,25 @@ export interface ReminderSettingsRepo {
   set(settings: ReminderSettings): Promise<void>
 }
 
+/** Choices kept on this device that belong to the person holding it, not to an account. */
+export interface DevicePreferences {
+  /** The first-run introduction has been seen or skipped on this phone. */
+  onboarded: boolean
+  /**
+   * The owner allowed Ask and the quote checker to send their question, their car's records or a
+   * photo of a quote to Anthropic, which runs the model that answers (App Store guideline
+   * 5.1.2(i)). Off until they say yes, and they can turn it off again in Account.
+   */
+  aiSharing: boolean
+}
+
+export interface DevicePreferencesRepo {
+  /** Calls `onChange` with the preferences once they are read, and after every change. */
+  watch(onChange: (preferences: DevicePreferences) => void): Unsubscribe
+  /** Saves the given preferences, keeping the others. */
+  update(change: Partial<DevicePreferences>): Promise<void>
+}
+
 /** The part of the platform's AbortSignal that core relies on; core has no DOM types. */
 export interface CancelSignal {
   readonly aborted: boolean

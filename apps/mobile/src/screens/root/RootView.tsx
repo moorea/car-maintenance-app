@@ -3,9 +3,11 @@ import { Button, Row, Text } from '@expo/ui'
 import { ActivityIndicator, StyleSheet, View } from 'react-native'
 import { AccountScreen } from '../account/AccountScreen'
 import { AddCarScreen } from '../add-car/AddCarScreen'
+import { AiSharingGate } from '../ai-sharing/AiSharingScreen'
 import { AskScreen } from '../ask/AskScreen'
 import { CarScreen } from '../car/CarScreen'
 import { GarageScreen } from '../garage/GarageScreen'
+import { OnboardingGate } from '../onboarding/OnboardingScreen'
 import { QuoteCheckScreen } from '../quote-check/QuoteCheckScreen'
 import { RemindersScreen } from '../reminders/RemindersScreen'
 import { ServiceLogScreen } from '../service-log/ServiceLogScreen'
@@ -39,7 +41,12 @@ const TABS: TabBarItem<AppTab>[] = [
 export function RootView(props: Props) {
   const { status, user, vehicles, selectedVehicleId, addingCar } = props
   if (status === 'starting') return <ActivityIndicator style={styles.fill} />
-  if (status === 'signed-out' || !user) return <SignInScreen />
+  if (status === 'signed-out' || !user)
+    return (
+      <OnboardingGate>
+        <SignInScreen />
+      </OnboardingGate>
+    )
 
   const vehicle = vehicles.find((v) => v.id === selectedVehicleId)
   if (status === 'ready' && vehicle && !addingCar) {
@@ -135,20 +142,26 @@ function TabContent(props: Props & { vehicle: Vehicle }) {
     case 'warranty':
       return <WarrantyScreen vehicle={vehicle} onBack={() => props.openTab('car')} />
     case 'ask':
-      return <AskScreen vehicle={vehicle} onBack={props.back} />
+      return (
+        <AiSharingGate feature="ask" onBack={props.back}>
+          <AskScreen vehicle={vehicle} onBack={props.back} />
+        </AiSharingGate>
+      )
     case 'quote':
       return (
-        <QuoteCheckScreen
-          vehicle={vehicle}
-          onBack={props.back}
-          onAsk={(question) => {
-            props.openTab('ask')
-            const ask = askModelFor(vehicle).getState()
-            // While Ask is still answering, the question waits in the composer to send.
-            if (ask.status === 'ready') ask.ask(question)
-            else ask.setDraft(question)
-          }}
-        />
+        <AiSharingGate feature="quote" onBack={props.back}>
+          <QuoteCheckScreen
+            vehicle={vehicle}
+            onBack={props.back}
+            onAsk={(question) => {
+              props.openTab('ask')
+              const ask = askModelFor(vehicle).getState()
+              // While Ask is still answering, the question waits in the composer to send.
+              if (ask.status === 'ready') ask.ask(question)
+              else ask.setDraft(question)
+            }}
+          />
+        </AiSharingGate>
       )
     case 'reminders':
       return <RemindersScreen />

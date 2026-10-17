@@ -3,6 +3,7 @@ import {
   demoQuoteReader,
   memoryNotifier,
   memoryPhotoPicker,
+  memoryPreferences,
   memoryReminderSettings,
 } from '@car/core/testing'
 import { randomUUID } from 'expo-crypto'
@@ -26,6 +27,11 @@ const repositories = { ...createDemoRepositories(), attachments: demoAttachments
 // Browsers cannot schedule notifications for a future date, so the preview pretends.
 const notifier = memoryNotifier()
 const reminderSettings = memoryReminderSettings()
+// Starts fresh on every load, so the preview always opens on the introduction.
+const preferences = memoryPreferences()
+// `?new-owner` opens the preview signed out, as a first launch does, to show the introduction.
+if (typeof location !== 'undefined' && new URLSearchParams(location.search).has('new-owner'))
+  void repositories.auth.signOut()
 
 export const deps = {
   clock,
@@ -38,6 +44,7 @@ export const deps = {
   quoteReader: demoQuoteReader({ delayMs: 1_500 }),
   notifier,
   reminderSettings,
+  preferences,
   exporter: pdfReportExporter(),
   dataFiles: appDataFiles(),
   picker: systemFilePicker(),
