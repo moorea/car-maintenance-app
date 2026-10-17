@@ -10,10 +10,11 @@ export type SessionStatus = 'starting' | 'signed-out' | 'syncing' | 'no-vehicles
 
 /**
  * The app's main sections: one per tab (the garage, the service log, the car and the assistant),
- * plus the reminder settings and the owner's account, opened from the garage, and the car's
- * warranties, opened from its page.
+ * plus the reminder settings and the owner's account, opened from the garage, and the quote
+ * checker and the car's warranties, opened from the car.
  */
-export type AppTab = 'garage' | 'log' | 'car' | 'ask' | 'reminders' | 'account' | 'warranty'
+export type AppTab =
+  'garage' | 'log' | 'car' | 'ask' | 'reminders' | 'account' | 'quote' | 'warranty'
 
 export interface SessionState {
   status: SessionStatus
@@ -35,6 +36,11 @@ export interface SessionActions {
   start: () => void
   selectVehicle: (id: string) => void
   openTab: (tab: AppTab) => void
+  /**
+   * Leaves Ask or the quote checker for where the owner opened it from, such as the quote a
+   * question was about; the garage if there is nowhere to go back to.
+   */
+  back: () => void
   /** Opens the service log with its form, for a scheduled task if one is given. */
   logService: (itemId?: string) => void
   /** The log has opened its form for the request, so it is not opened again. */
@@ -77,6 +83,8 @@ export const createSessionModel = (deps: {
   let logRequests = 0
   // A car just added, to select once the vehicle list includes it.
   let justAdded: string | undefined
+  // The tabs Ask and the quote checker were opened from, newest last, for going back.
+  let openedFrom: AppTab[] = []
 
   return createStore<SessionState & SessionActions>()((set, get) => {
     const showVehicles = (vehicles: Vehicle[]) => {
@@ -86,7 +94,10 @@ export const createSessionModel = (deps: {
       // A tapped car not here once everything has synced is gone, or another account's.
       if (opened || synced) tapped = undefined
       // The tap is the newest thing the owner asked for, so a car added earlier gives way to it.
-      if (opened) justAdded = undefined
+      if (opened) {
+        justAdded = undefined
+        openedFrom = []
+      }
       const added = sorted.find((v) => v.id === justAdded)
       if (added) justAdded = undefined
       const kept = sorted.find((v) => v.id === get().selectedVehicleId)
@@ -107,6 +118,7 @@ export const createSessionModel = (deps: {
         return
       }
       currentUserId = id
+      openedFrom = []
       stopVehicles?.()
       stopSync?.()
       stopVehicles = undefined
@@ -167,15 +179,28 @@ export const createSessionModel = (deps: {
         set({ selectedVehicleId: id })
       },
 
-      openTab: (tab) => set({ tab, logRequest: undefined }),
+      openTab: (tab) => {
+        if (tab === 'ask' || tab === 'quote') {
+          if (tab !== get().tab) openedFrom.push(get().tab)
+        } else openedFrom = []
+        set({ tab, logRequest: undefined })
+      },
 
-      logService: (itemId) => set({ tab: 'log', logRequest: { itemId, seq: ++logRequests } }),
+      back: () => set({ tab: openedFrom.pop() ?? 'garage', logRequest: undefined }),
+
+      logService: (itemId) => {
+        openedFrom = []
+        set({ tab: 'log', logRequest: { itemId, seq: ++logRequests } })
+      },
 
       logRequestHandled: () => set({ logRequest: undefined }),
 
       openCar: (id) => {
         get().selectVehicle(id)
-        if (get().selectedVehicleId === id) set({ tab: 'car' })
+        if (get().selectedVehicleId === id) {
+          openedFrom = []
+          set({ tab: 'car' })
+        }
       },
 
       addCar: () => {

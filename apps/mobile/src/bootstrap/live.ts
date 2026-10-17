@@ -10,6 +10,7 @@ import {
   supabaseAuth,
   SupabaseConnector,
   remoteAssistant,
+  remoteQuoteReader,
 } from '@car/data'
 import { PowerSyncDatabase } from '@powersync/react-native'
 import { createClient } from '@supabase/supabase-js'
@@ -54,6 +55,13 @@ export const createLiveRepositories = (config: BackendConfig) => {
     fetch: streamingFetch,
   })
 
+  // Reading a quote photo runs in the same function; it answers with JSON, so no streaming.
+  const quoteReader = remoteQuoteReader({
+    url: `${config.supabaseUrl}/functions/v1/assistant/read-quote`,
+    accessToken: async () => (await supabase.auth.getSession()).data.session?.access_token,
+    fetch,
+  })
+
   // Deleting the account deletes everything on the server, then signs out and erases this phone's
   // copy, including changes not uploaded yet: there is no account left to upload them to.
   const account = supabaseAccount({
@@ -62,5 +70,5 @@ export const createLiveRepositories = (config: BackendConfig) => {
     eraseLocal: () => session.discard(),
   })
 
-  return { auth, account, assistant, ...createPowerSyncRepositories(db) }
+  return { auth, account, assistant, quoteReader, ...createPowerSyncRepositories(db) }
 }

@@ -5,7 +5,15 @@ import { useScreenModel } from '../../models/useScreenModel'
 import { CarView } from './CarView'
 
 /** Wires the car and safety models to the view. No state or logic lives here (ADR 0003). */
-export function CarScreen({ vehicle, onWarranty }: { vehicle: Vehicle; onWarranty: () => void }) {
+export function CarScreen({
+  vehicle,
+  onCheckQuote,
+  onWarranty,
+}: {
+  vehicle: Vehicle
+  onCheckQuote: () => void
+  onWarranty: () => void
+}) {
   // A new car gets its configuration once it has synced back, and severe driving changes the
   // intervals, so either starts fresh models.
   const key = `${vehicle.id}:${vehicle.configId ?? ''}:${vehicle.severeDuty}`
@@ -13,5 +21,5 @@ export function CarScreen({ vehicle, onWarranty }: { vehicle: Vehicle; onWarrant
   const safety = useStore(
     useScreenModel(key, () => createSafetyModel({ vehicle, safety: deps.safety })),
   )
-  return <CarView car={car} safety={safety} onWarranty={onWarranty} />
+  return <CarView car={car} safety={safety} onCheckQuote={onCheckQuote} onWarranty={onWarranty} />
 }
