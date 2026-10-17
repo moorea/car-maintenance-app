@@ -196,13 +196,12 @@ describe('supabaseStore', () => {
     ])
   })
 
-  it("counts the owner's questions with the database function", async () => {
+  it("claims the owner's question with the database function, which enforces the limit", async () => {
     const seen: unknown[] = []
-    const admin = fakeClient({}, (name, args) => (seen.push([name, args]), 7))
+    const admin = fakeClient({}, (name, args) => (seen.push([name, args]), seen.length === 1))
     const store = supabaseStore(fakeClient({}).client, admin.client, 'u1')
-    expect(await store.questionsSince('2026-10-16T12:00:00.000Z')).toBe(7)
-    expect(seen).toEqual([
-      ['assistant_questions_since', { p_owner: 'u1', p_since: '2026-10-16T12:00:00.000Z' }],
-    ])
+    expect(await store.claimQuestion(50)).toBe(true)
+    expect(await store.claimQuestion(50)).toBe(false)
+    expect(seen[0]).toEqual(['assistant_claim_question', { p_owner: 'u1', p_limit: 50 }])
   })
 })

@@ -70,7 +70,7 @@ const readServerEvents = async (
 }
 
 const isAnswerEvent = (e: ServerEvent): e is AnswerEvent =>
-  e.type === 'conversation' || e.type === 'text' || e.type === 'source'
+  e.type === 'conversation' || e.type === 'text' || e.type === 'source' || e.type === 'reset'
 
 /** The assistant edge function, streaming its answer over server-sent events. */
 export const remoteAssistant = (options: RemoteAssistantOptions): Assistant => ({

@@ -26,15 +26,17 @@ const facts: CarFacts = {
 
 const memoryStore = (options: { asked?: number; history?: ChatTurn[]; owns?: boolean } = {}) => {
   const saved: { conversationId: string; question: string; text: string }[] = []
-  const store: AssistantStore & { saved: typeof saved; since: string[] } = {
+  let asked = options.asked ?? 0
+  const store: AssistantStore & { saved: typeof saved; asked: () => number } = {
     saved,
-    since: [],
+    asked: () => asked,
     facts: async (id) => (options.owns !== false && id === VEHICLE ? facts : undefined),
     conversation: async (_vehicleId, id) => id ?? CONVERSATION,
     history: async () => options.history ?? [],
-    questionsSince: async (since) => {
-      store.since.push(since)
-      return options.asked ?? 0
+    claimQuestion: async (limit) => {
+      if (asked >= limit) return false
+      asked += 1
+      return true
     },
     saveTurn: async (conversationId, question, answer) =>
       void saved.push({ conversationId, question, text: answer.text }),
@@ -59,7 +61,6 @@ const setup = (
     model: options.noModel ? undefined : model,
     dailyLimit: options.dailyLimit ?? 50,
     today: () => '2026-10-17',
-    now: () => new Date('2026-10-17T12:00:00Z'),
     log: (message) => void logged.push(message),
   })
   return { handler, store, model, logged }
@@ -141,13 +142,46 @@ describe('assistant endpoint', () => {
     expect(await response.json()).toEqual({ error: 'unavailable' })
   })
 
-  it('stops an owner at the daily limit, counting the last 24 hours', async () => {
+  it('stops an owner at the daily limit before asking the model', async () => {
     const store = memoryStore({ asked: 5 })
     const { handler, model } = setup({ store, dailyLimit: 5 })
     const response = await handler(post(question))
     expect(response.status).toBe(429)
-    expect(store.since).toEqual(['2026-10-16T12:00:00.000Z'])
     expect(model.requests).toHaveLength(0)
+  })
+
+  it('counts a question against the limit even when its answer fails', async () => {
+    const store = memoryStore()
+    const { handler } = setup({ store, script: () => new AssistantError('unavailable') })
+    await events(await handler(post(question)))
+    expect(store.asked()).toBe(1)
+  })
+
+  it('does not count a question about a car it cannot find', async () => {
+    const store = memoryStore({ owns: false })
+    const { handler } = setup({ store })
+    await handler(post(question))
+    expect(store.asked()).toBe(0)
+  })
+
+  it('tells the phone to start over when a fallback model takes over, saving only its answer', async () => {
+    const { handler, store } = setup({
+      script: () => ({
+        events: [
+          { type: 'text', text: 'I won' },
+          { type: 'reset' },
+          { type: 'text', text: 'Sure' },
+        ],
+      }),
+    })
+    const sent = await events(await handler(post(question)))
+    expect(sent.slice(1)).toEqual([
+      { type: 'text', text: 'I won' },
+      { type: 'reset' },
+      { type: 'text', text: 'Sure' },
+      { type: 'done' },
+    ])
+    expect(store.saved.map((s) => s.text)).toEqual(['Sure'])
   })
 
   it("does not answer about a car that is not the owner's", async () => {
@@ -163,6 +197,19 @@ describe('assistant endpoint', () => {
     expect(sent.at(-1)).toEqual({ type: 'error', kind: 'unavailable' })
     expect(store.saved).toEqual([])
     expect(logged).toEqual(['Assistant answer failed'])
+  })
+
+  it('does not log an answer the owner stopped as a fault', async () => {
+    const leave = new AbortController()
+    const { handler, logged } = setup({
+      script: () => {
+        leave.abort()
+        return new Error('Request was aborted.')
+      },
+    })
+    const request = new Request(post(question), { signal: leave.signal })
+    await (await handler(request)).text().catch(() => '')
+    expect(logged).toEqual([])
   })
 
   it('reports a decline without logging it as a fault', async () => {

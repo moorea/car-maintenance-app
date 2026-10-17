@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { AssistantError, type AnswerSource } from '../domain/types'
 import { cancellation } from '../lib/cancel'
 import { scriptedModel } from '../testing'
-import { answerQuestion, MAX_HISTORY_TURNS } from './answer'
+import { answerQuestion, CUT_SHORT_NOTE, MAX_HISTORY_TURNS } from './answer'
 import { ASSISTANT_SYSTEM_PROMPT, type CarFacts } from './grounding'
 
 const facts: CarFacts = {
@@ -26,11 +26,14 @@ const facts: CarFacts = {
 const collect = () => {
   const text: string[] = []
   const sources: AnswerSource[] = []
+  const resets: number[] = []
   return {
     text,
     sources,
+    resets,
     onText: (t: string) => void text.push(t),
     onSource: (s: AnswerSource) => void sources.push(s),
+    onReset: () => void resets.push(text.length),
   }
 }
 
@@ -70,7 +73,7 @@ describe('answerQuestion', () => {
     const answer = await answerQuestion({ facts, history: [], question: 'Oil?', model, ...out })
     expect(out.text).toEqual(['Every ', '10,000 mi.'])
     expect(out.sources).toEqual([{ kind: 'schedule', id: 'oil', label: 'Schedule: Oil change' }])
-    expect(answer).toEqual({ text: 'Every 10,000 mi.', sources: out.sources, truncated: false })
+    expect(answer).toEqual({ text: 'Every 10,000 mi.', sources: out.sources })
   })
 
   it('ignores a citation of a document that was never sent', async () => {
@@ -100,13 +103,34 @@ describe('answerQuestion', () => {
     ).rejects.toEqual(new AssistantError('declined'))
   })
 
-  it('marks an answer cut off at the length limit', async () => {
+  it('says so at the end of an answer cut off at the length limit', async () => {
     const model = scriptedModel(() => ({
       events: [{ type: 'text', text: 'So' }],
       stop: 'max-tokens',
     }))
-    const answer = await answerQuestion({ facts, history: [], question: '?', model, ...collect() })
-    expect(answer.truncated).toBe(true)
+    const out = collect()
+    const answer = await answerQuestion({ facts, history: [], question: '?', model, ...out })
+    expect(answer.text).toBe(`So${CUT_SHORT_NOTE}`)
+    expect(out.text).toEqual(['So', CUT_SHORT_NOTE])
+  })
+
+  it('starts over when a fallback model takes over partway, dropping the first text and sources', async () => {
+    const model = scriptedModel(() => ({
+      events: [
+        { type: 'text', text: 'I won' },
+        { type: 'citation', documentIndex: 0 },
+        { type: 'reset' },
+        { type: 'text', text: 'Every 10,000 mi.' },
+        { type: 'citation', documentIndex: 1 },
+      ],
+    }))
+    const out = collect()
+    const answer = await answerQuestion({ facts, history: [], question: 'Oil?', model, ...out })
+    expect(out.resets).toEqual([1])
+    expect(answer).toEqual({
+      text: 'Every 10,000 mi.',
+      sources: [{ kind: 'schedule', id: 'oil', label: 'Schedule: Oil change' }],
+    })
   })
 
   it('stops passing on events once cancelled', async () => {

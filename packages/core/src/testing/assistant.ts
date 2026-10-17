@@ -132,6 +132,7 @@ export const localAssistant = (deps: {
         model: deps.model,
         onText: (text) => onEvent({ type: 'text', text }),
         onSource: (source) => onEvent({ type: 'source', source }),
+        onReset: () => onEvent({ type: 'reset' }),
         ...(signal && { signal }),
       })
       conversations.set(id, [

@@ -101,6 +101,53 @@ describe('anthropicModel', () => {
     })
   })
 
+  it('starts the answer over when a fallback model takes over partway', async () => {
+    const declined = sse([
+      {
+        type: 'message_start',
+        message: {
+          id: 'msg_1',
+          type: 'message',
+          role: 'assistant',
+          model: 'claude-opus-5-5',
+          content: [],
+          stop_reason: null,
+          stop_sequence: null,
+          usage: { input_tokens: 10, output_tokens: 0 },
+        },
+      },
+      { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } },
+      { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'I won' } },
+      { type: 'content_block_stop', index: 0 },
+      {
+        type: 'content_block_start',
+        index: 1,
+        content_block: {
+          type: 'fallback',
+          from: { model: 'claude-opus-5-5' },
+          to: { model: 'claude-fallback' },
+          trigger: { type: 'refusal' },
+        },
+      },
+      { type: 'content_block_stop', index: 1 },
+      { type: 'content_block_start', index: 2, content_block: { type: 'text', text: '' } },
+      { type: 'content_block_delta', index: 2, delta: { type: 'text_delta', text: 'Every' } },
+      { type: 'content_block_stop', index: 2 },
+      {
+        type: 'message_delta',
+        delta: { stop_reason: 'end_turn', stop_sequence: null },
+        usage: { output_tokens: 5 },
+      },
+      { type: 'message_stop' },
+    ])
+    const api = fakeApi(() => streaming(declined))
+    expect((await run(api)).events).toEqual([
+      { type: 'text', text: 'I won' },
+      { type: 'reset' },
+      { type: 'text', text: 'Every' },
+    ])
+  })
+
   it('sends each fact as a citable document ahead of the first question', async () => {
     const api = fakeApi(() => streaming(answerStream('end_turn')))
     await run(api)

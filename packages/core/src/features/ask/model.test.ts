@@ -77,6 +77,16 @@ describe('ask model', () => {
     expect(state().status).toBe('ready')
   })
 
+  it('clears the answer so far when the assistant starts it over', () => {
+    const { state, call } = setup()
+    state().ask('Any recalls?')
+    call(0).emit({ type: 'text', text: 'I won' })
+    call(0).emit({ type: 'source', source: recall })
+    call(0).emit({ type: 'reset' })
+    call(0).emit({ type: 'text', text: 'Yes.' })
+    expect(state().messages[1]).toMatchObject({ text: 'Yes.', sources: [] })
+  })
+
   it('continues the same conversation with the next question', async () => {
     const { state, assistant, call } = setup()
     state().ask('First?')

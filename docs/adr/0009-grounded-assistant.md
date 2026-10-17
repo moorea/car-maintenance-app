@@ -24,20 +24,27 @@ Claude from the facts stored for that car and streams the answer back with its s
 - **The server is a package.** `packages/server` holds the request handler, the Anthropic adapter
   and the Supabase store, tested on Node. esbuild bundles it, core included, into
   `supabase/functions/assistant/index.js` (not committed), turning npm imports into `npm:`
-  specifiers for Deno. CI builds the bundle and runs it under Deno; merging to main deploys it.
+  specifiers for Deno. CI builds the bundle and runs it under Deno; merging to main applies
+  pending migrations and then deploys it.
 - **Reads go through the owner's token.** The function reads the car with the owner's JWT, so
   row-level security decides what it can see, exactly as on the phone. Only raw complaints (not
   synced to phones), the conversation history and the daily count use the service role.
 - **Conversations are stored** in `conversations` and `messages` (written by the service role
   only), and the last 20 messages go with each question as history.
-- **Limits.** 50 questions per owner per rolling 24 hours (`ASSISTANT_DAILY_LIMIT`), counted by
-  `assistant_questions_since`, which only the service role can call. Questions are at most 1,000
-  characters. Answers are capped at 8,000 tokens.
-- **Model.** `claude-opus-5-5` at low effort, with server-side fallbacks so an overloaded model
-  degrades rather than fails. `ASSISTANT_MODEL` overrides it without a deploy.
+- **Limits.** 50 questions per owner per rolling 24 hours (`ASSISTANT_DAILY_LIMIT`). Each
+  question is recorded in `assistant_questions` before the model is called, by
+  `assistant_claim_question`, which only the service role can call. It locks per owner, so
+  parallel requests cannot all slip under the limit, and it counts stopped and failed answers
+  too, since they are paid for. Owners cannot delete that table, so deleting conversations does
+  not reset the count. Questions are at most 1,000 characters. Answers are capped at 8,000
+  tokens; one that hits the cap ends with "(This answer was cut short.)".
+- **Model.** `claude-opus-5-5` at low effort. Server-side fallbacks are on: if the model
+  declines partway, Anthropic's fallback model answers instead, and a `reset` event tells the
+  phone to drop the partial text. An overloaded API is not covered by fallbacks; it reads as
+  "not available right now". `ASSISTANT_MODEL` overrides the model without a deploy.
 - **Streaming.** The function streams server-sent events (`conversation`, `text`, `source`,
-  `done`, `error`). The phone reads them with `expo/fetch`, since React Native's fetch does not
-  stream. Errors before the stream starts are status codes the app maps to a message.
+  `reset`, `done`, `error`). The phone reads them with `expo/fetch`, since React Native's fetch
+  does not stream. Errors before the stream starts are status codes the app maps to a message.
 - **Keys.** `ANTHROPIC_API_KEY` is a Supabase secret. Without it the function answers 503 and the
   app says Ask is not available yet.
 

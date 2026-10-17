@@ -218,13 +218,13 @@ export const supabaseStore = (
     })
   },
 
-  questionsSince: async (since) => {
-    const { data, error } = await admin.rpc('assistant_questions_since', {
+  claimQuestion: async (limit) => {
+    const { data, error } = await admin.rpc('assistant_claim_question', {
       p_owner: userId,
-      p_since: since,
+      p_limit: limit,
     })
     if (error) throw error
-    return typeof data === 'number' ? data : 0
+    return data === true
   },
 
   saveTurn: async (conversationId, question, answer) => {

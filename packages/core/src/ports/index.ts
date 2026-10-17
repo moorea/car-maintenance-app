@@ -159,6 +159,11 @@ export type AnswerEvent =
   | { type: 'text'; text: string }
   /** A stored fact the answer has just cited. */
   | { type: 'source'; source: AnswerSource }
+  /**
+   * Forget the answer so far: the model declined partway and another model is answering from
+   * the start.
+   */
+  | { type: 'reset' }
 
 /** The AI assistant, answering from what is stored about the owner's car. Needs a connection. */
 export interface Assistant {
@@ -198,6 +203,8 @@ export type ModelEvent =
   | { type: 'text'; text: string }
   /** The text since the previous event is drawn from `documents[documentIndex]`. */
   | { type: 'citation'; documentIndex: number }
+  /** The model declined partway and a fallback model starts the answer again. */
+  | { type: 'reset' }
 
 /**
  * - `end`: the model finished its answer.

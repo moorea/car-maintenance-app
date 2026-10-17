@@ -51,7 +51,6 @@ Deno.serve(
     model,
     dailyLimit: Number(Deno.env.get('ASSISTANT_DAILY_LIMIT') ?? 50),
     today: () => new Date().toISOString().slice(0, 10),
-    now: () => new Date(),
     log: (message, error) => console.error(message, error),
   }),
 )

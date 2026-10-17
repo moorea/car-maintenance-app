@@ -15,15 +15,18 @@ export interface AnswerInput {
   onText: (text: string) => void
   /** Called once per stored fact, the first time the answer cites it. */
   onSource: (source: AnswerSource) => void
+  /** Called when the answer so far is replaced by a fallback model's, which starts over. */
+  onReset: () => void
   signal?: CancelSignal
 }
 
 export interface Answer {
   text: string
   sources: AnswerSource[]
-  /** True when the model hit its length limit, so the text ends mid-thought. */
-  truncated: boolean
 }
+
+/** Ends an answer that hit the length limit, so it does not read as complete. */
+export const CUT_SHORT_NOTE = '\n\n(This answer was cut short.)'
 
 /** Keeps the newest turns and makes sure the first one is the owner's, as the model requires. */
 const trimHistory = (history: ChatTurn[]): ChatTurn[] => {
@@ -50,6 +53,12 @@ export const answerQuestion = async (input: AnswerInput): Promise<Answer> => {
     },
     (event) => {
       if (input.signal?.aborted) return
+      if (event.type === 'reset') {
+        text = ''
+        sources.length = 0
+        input.onReset()
+        return
+      }
       if (event.type === 'text') {
         text += event.text
         input.onText(event.text)
@@ -64,5 +73,9 @@ export const answerQuestion = async (input: AnswerInput): Promise<Answer> => {
   )
 
   if (stop === 'declined') throw new AssistantError('declined')
-  return { text, sources, truncated: stop === 'max-tokens' }
+  if (stop === 'max-tokens' && !input.signal?.aborted) {
+    text += CUT_SHORT_NOTE
+    input.onText(CUT_SHORT_NOTE)
+  }
+  return { text, sources }
 }

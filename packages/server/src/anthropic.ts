@@ -55,6 +55,11 @@ export const anthropicModel = (
         { signal: controller.signal },
       )
       for await (const event of stream) {
+        // The requested model declined partway; the fallback model's answer starts over.
+        if (event.type === 'content_block_start' && event.content_block.type === 'fallback') {
+          onEvent({ type: 'reset' })
+          continue
+        }
         if (event.type !== 'content_block_delta') continue
         if (event.delta.type === 'text_delta') {
           onEvent({ type: 'text', text: event.delta.text })

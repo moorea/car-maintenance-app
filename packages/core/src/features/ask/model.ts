@@ -141,6 +141,8 @@ export const createAskModel = (deps: AskDeps): AskModel => {
           (event) => {
             if (signal.aborted) return
             if (event.type === 'conversation') conversationId = event.id
+            else if (event.type === 'reset')
+              updateAnswer(answerId, () => ({ text: '', sources: [] }))
             else if (event.type === 'text')
               updateAnswer(answerId, (m) => ({ text: m.text + event.text }))
             else

@@ -22,8 +22,12 @@ export interface AssistantStore {
   conversation(vehicleId: string, conversationId: string | undefined): Promise<string>
   /** The conversation's earlier turns, oldest first. */
   history(conversationId: string): Promise<ChatTurn[]>
-  /** How many questions the owner has had answered since `since` (an ISO timestamp). */
-  questionsSince(since: string): Promise<number>
+  /**
+   * Records a question against the owner's daily limit, unless they have already asked `limit`
+   * in the last 24 hours. Returns whether it was recorded. A question counts once recorded,
+   * whether or not its answer finishes, since the model is paid for either way.
+   */
+  claimQuestion(limit: number): Promise<boolean>
   saveTurn(
     conversationId: string,
     question: string,
@@ -41,15 +45,12 @@ export interface AssistantHandlerDeps {
   /** Questions each owner may ask in a rolling day, which caps what one account can cost. */
   dailyLimit: number
   today(): string
-  now(): Date
   log(message: string, error?: unknown): void
 }
 
 /** What the endpoint streams: the answer's events, then `done` or `error`. */
 export type ServerEvent =
   AnswerEvent | { type: 'done' } | { type: 'error'; kind: AssistantErrorKind }
-
-const DAY_MS = 86_400_000
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
@@ -80,11 +81,9 @@ export const createAssistantHandler = (deps: AssistantHandlerDeps) => {
     if (!model) return failure(503, 'unavailable')
 
     const store = deps.storeFor(token, userId)
-    const since = new Date(deps.now().getTime() - DAY_MS).toISOString()
-    if ((await store.questionsSince(since)) >= deps.dailyLimit) return failure(429, 'rate-limited')
-
     const facts = await store.facts(vehicleId)
     if (!facts) return failure(404, 'not-found')
+    if (!(await store.claimQuestion(deps.dailyLimit))) return failure(429, 'rate-limited')
     const conversationId = await store.conversation(vehicleId, requested)
     const history = await store.history(conversationId)
 
@@ -107,6 +106,7 @@ export const createAssistantHandler = (deps: AssistantHandlerDeps) => {
             model,
             onText: (text) => send({ type: 'text', text }),
             onSource: (source) => send({ type: 'source', source }),
+            onReset: () => send({ type: 'reset' }),
             signal,
           })
           // An answer the owner left before it finished is not kept as part of the conversation.
@@ -116,7 +116,8 @@ export const createAssistantHandler = (deps: AssistantHandlerDeps) => {
           }
         } catch (error) {
           const kind = error instanceof AssistantError ? error.kind : 'unknown'
-          if (!(error instanceof AssistantError) || kind === 'unavailable')
+          // Stopping or leaving aborts the model's request; that is not a fault.
+          if (!signal.aborted && (!(error instanceof AssistantError) || kind === 'unavailable'))
             deps.log('Assistant answer failed', error)
           send({ type: 'error', kind })
         } finally {
