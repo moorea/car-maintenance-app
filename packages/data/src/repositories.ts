@@ -251,6 +251,13 @@ export const createPowerSyncRepositories = (
         if (firstReading) await insertReading(tx, firstReading)
       })
     },
+    setSevereDuty: async (id, severeDuty) => {
+      await db.execute('update vehicles set severe_duty = ?, updated_at = ? where id = ?', [
+        severeDuty ? 1 : 0,
+        now(),
+        id,
+      ])
+    },
   },
 
   records: {
