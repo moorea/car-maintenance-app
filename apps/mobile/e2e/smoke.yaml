@@ -19,17 +19,25 @@ appId: com.moorea.carmaintenance
 - waitForAnimationToEnd
 - takeScreenshot: 3-car
 - tapOn: 'Garage'
+- extendedWaitUntil:
+    visible: 'Demo car'
+    timeout: 10000
+# The account button is the first round button at the top right. It has no text, so tap by
+# position until it carries an accessibility label to match on.
+- tapOn:
+    point: '59%,11%'
 - scrollUntilVisible:
     element: 'Sign out'
+- takeScreenshot: 4-account
 - tapOn: 'Sign out'
 - extendedWaitUntil:
     visible: 'Email me a code'
     timeout: 10000
-- takeScreenshot: 4-sign-in
+- takeScreenshot: 5-sign-in
 - tapOn: 'you@example.com'
 - inputText: 'demo@example.com'
 - tapOn: 'Email me a code'
 - extendedWaitUntil:
     visible: 'Enter the code we sent to demo@example.com.'
     timeout: 10000
-- takeScreenshot: 5-sign-in-code
+- takeScreenshot: 6-sign-in-code
