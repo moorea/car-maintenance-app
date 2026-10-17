@@ -47,6 +47,14 @@ export const SYMBOLS = {
     ios: 'checkmark.shield',
     paths: ['M12 3l8 3v6c0 4.5-3.4 8.2-8 9-4.6-.8-8-4.5-8-9V6z', 'M8.5 12l2.5 2.5 4.5-5'],
   },
+  fuel: {
+    ios: 'fuelpump',
+    paths: [
+      'M5 20V5a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v15',
+      'M4 20h11M7 8h5',
+      'M14 10h2l2 2v5a1.5 1.5 0 0 0 3 0V9l-3-3',
+    ],
+  },
   share: {
     ios: 'square.and.arrow.up',
     paths: ['M12 15V3M8 7l4-4 4 4', 'M6 11H5v10h14V11h-1'],

@@ -88,6 +88,8 @@ const READ_ERRORS: Record<AssistantErrorKind, string> = {
   'rate-limited': "You've used the assistant a lot today. Type the lines, or try tomorrow.",
   unavailable: "Reading photos isn't available right now. Type the lines instead.",
   declined: "That photo couldn't be read. Try another, or type the lines.",
+  'not-allowed':
+    'Reading photos is turned off in Account. Turn on sharing with Anthropic, or type the lines.',
   unknown: 'Something went wrong reading the photo. Try again, or type the lines.',
 }
 

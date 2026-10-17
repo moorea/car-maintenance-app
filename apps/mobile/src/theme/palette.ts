@@ -28,6 +28,9 @@ export const palette = {
   orange700: '#C2410C',
   orange950: '#3B1A0A',
 
+  indigo300: '#A5A6F6',
+  indigo600: '#5B5BD6',
+
   red200: '#F2B8B5',
   red700: '#B3261E',
 

@@ -21,6 +21,9 @@ export const formatLongDate = (date: IsoDate): string => {
   return `${d.month} ${d.day}, ${d.year}`
 }
 
+/** "Oct", the month of a "2026-10" month key. */
+export const formatMonth = (month: string): string => MONTHS[Number(month.slice(5, 7)) - 1] ?? ''
+
 /** "Saturday, Oct 17", for a heading about today. */
 export const formatWeekday = (date: IsoDate): string => {
   const d = parts(date)
