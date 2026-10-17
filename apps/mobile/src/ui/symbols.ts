@@ -73,6 +73,12 @@ export const SYMBOLS = {
     ios: 'paperclip',
     paths: ['M16 7l-7.5 7.5a2 2 0 0 0 3 3L19 10a4 4 0 0 0-6-6l-7.5 7.5a6 6 0 0 0 8.5 8.5L20 14'],
   },
+  download: {
+    ios: 'square.and.arrow.down',
+    paths: ['M12 3v12M8 11l4 4 4-4', 'M6 11H5v10h14V11h-1'],
+  },
+  archive: { ios: 'archivebox', paths: ['M3 4h18v4H3z', 'M5 8v12h14V8', 'M10 12h4'] },
+  checkmark: { ios: 'checkmark.circle', paths: ['M12 3a9 9 0 1 0 0.01 0', 'M8 12l3 3 5-6'] },
   ellipsis: { ios: 'ellipsis', paths: ['M6 12h.01M12 12h.01M18 12h.01'] },
 } satisfies Record<string, { ios: SFSymbol; paths: string[] }>
 

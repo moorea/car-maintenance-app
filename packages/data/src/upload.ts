@@ -126,8 +126,16 @@ export const applyCrud = async (
     return { message: `${entry.op} is not allowed on ${entry.table}` }
   }
   const data = entry.opData ?? {}
-  const row = { ...data, id: entry.id }
+  const row: Record<string, unknown> = { ...data, id: entry.id }
   if (entry.table === 'attachments') return applyAttachment(backend, entry, row, context)
+  if (entry.table === 'service_records' && entry.op === UpdateType.PUT) {
+    const error = await backend.insert(entry.table, row)
+    // A schedule item the server no longer has, or never had (an imported service): keep the
+    // service without the link rather than drop it.
+    if (error?.code === '23503' && row.item_id != null)
+      return settle(entry.table, await backend.insert(entry.table, { ...row, item_id: null }))
+    return settle(entry.table, error)
+  }
   const error =
     entry.op === UpdateType.PUT
       ? // A retried insert must not turn into an update, which append-only tables refuse.

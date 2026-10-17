@@ -17,4 +17,5 @@ and what would make us revisit it. Add a new record rather than editing an accep
 | [0010](0010-schedule-providers.md)      | Schedules come from providers, with a general baseline            |
 | [0011](0011-quote-checker.md)           | Shop quotes are checked on the phone; only photos use the server  |
 | [0012](0012-attachments.md)             | Attachments live in Storage; their details sync with PowerSync    |
-| [0013](0013-fill-ups.md)                | Fill-ups are editable; their mileage is read as odometer readings |
+| [0013](0013-data-export.md)             | Owners can export all their data as an open zip, and import it    |
+| [0014](0014-fill-ups.md)                | Fill-ups are editable; their mileage is read as odometer readings |

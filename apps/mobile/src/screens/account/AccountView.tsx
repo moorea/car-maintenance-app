@@ -14,6 +14,7 @@ type Props = AccountState &
   Pick<AccountActions, 'signOut' | 'askToDelete' | 'cancelDelete' | 'confirmDelete'> & {
     onReminders?: (() => void) | undefined
     onBack?: (() => void) | undefined
+    onYourData?: (() => void) | undefined
   }
 
 const OVERLINE = { fontSize: 13, fontWeight: '600', letterSpacing: 0.5 } as const
@@ -73,6 +74,14 @@ export function AccountView(props: Props) {
                   value={REMINDERS[props.reminders]}
                   chevron
                 />
+              </Card>
+            </Section>
+          ) : null}
+
+          {props.onYourData ? (
+            <Section title="YOUR DATA">
+              <Card padding={0} onPress={props.onYourData}>
+                <SettingRow symbol="archive" label="Export or import data" chevron />
               </Card>
             </Section>
           ) : null}

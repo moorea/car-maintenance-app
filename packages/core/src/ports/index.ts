@@ -161,6 +161,21 @@ export interface FilePicker {
   pick(source: FileSource): Promise<PickedFile | undefined>
 }
 
+/** Files moving between the app and the rest of the phone, for exporting and importing data. */
+export interface DataFiles {
+  /** The bytes of a file on this phone, by a URI such as AttachmentRepo.open resolves with. */
+  read(uri: string): Promise<Uint8Array>
+  /**
+   * Saves `bytes` as a file called `name` and offers it in the share sheet (Save to Files, AirDrop,
+   * Mail). Resolves once the sheet closes, whether or not the owner sent it anywhere.
+   */
+  share(bytes: Uint8Array, name: string): Promise<void>
+  /** Opens the file picker for a zip; resolves with its bytes, or undefined if cancelled. */
+  pickArchive(): Promise<Uint8Array | undefined>
+  /** Writes `bytes` to a temporary file that AttachmentRepo.add can keep a copy of. */
+  stage(bytes: Uint8Array, file: { name: string; contentType: string }): Promise<PickedFile>
+}
+
 export interface ScheduleRepo {
   itemsForConfig(configId: string): Promise<MaintenanceItem[]>
 }

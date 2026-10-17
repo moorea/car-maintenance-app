@@ -10,11 +10,21 @@ export type SessionStatus = 'starting' | 'signed-out' | 'syncing' | 'no-vehicles
 
 /**
  * The app's main sections: one per tab (the garage, the service log, the car and the assistant),
- * plus the reminder settings and the owner's account, opened from the garage, and the quote
- * checker, the car's warranties and its fuel and running costs, opened from the car.
+ * plus the reminder settings and the owner's account, opened from the garage, the owner's data
+ * (export and import), opened from the account, and the quote checker, the car's warranties and
+ * its fuel and running costs, opened from the car.
  */
 export type AppTab =
-  'garage' | 'log' | 'car' | 'ask' | 'reminders' | 'account' | 'quote' | 'warranty' | 'fuel'
+  | 'garage'
+  | 'log'
+  | 'car'
+  | 'ask'
+  | 'reminders'
+  | 'account'
+  | 'data'
+  | 'quote'
+  | 'warranty'
+  | 'fuel'
 
 export interface SessionState {
   status: SessionStatus

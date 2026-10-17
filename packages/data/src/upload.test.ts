@@ -51,6 +51,32 @@ describe('applyCrud', () => {
     ])
   })
 
+  it('keeps a service without its schedule item when the server does not know the item', async () => {
+    const { backend, calls } = fakeBackend([{ code: '23503', message: 'item_id fkey' }])
+    const dropped = await applyCrud(
+      backend,
+      entry(UpdateType.PUT, 'service_records', { vehicle_id: 'car', item_id: 'gone' }),
+      context(),
+    )
+    expect(dropped).toBeNull()
+    expect(calls).toEqual([
+      ['insert', 'service_records', { vehicle_id: 'car', item_id: 'gone', id: 'row1' }],
+      ['insert', 'service_records', { vehicle_id: 'car', item_id: null, id: 'row1' }],
+    ])
+  })
+
+  it('drops a service whose car is gone, after one try without its item', async () => {
+    const missing = { code: '23503', message: 'vehicle_id fkey' }
+    const { backend, calls } = fakeBackend([missing, missing])
+    const dropped = await applyCrud(
+      backend,
+      entry(UpdateType.PUT, 'service_records', { vehicle_id: 'gone', item_id: 'item' }),
+      context(),
+    )
+    expect(dropped).toEqual(missing)
+    expect(calls).toHaveLength(2)
+  })
+
   it('upserts vehicles with their id', async () => {
     const { backend, calls } = fakeBackend()
     await applyCrud(backend, entry(UpdateType.PUT, 'vehicles', { nickname: 'Civic' }), context())
