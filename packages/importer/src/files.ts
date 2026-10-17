@@ -45,9 +45,12 @@ export const httpFiles = (): Files => ({
       const response = await fetch(url, { headers: HEADERS })
       if (!response.ok || !response.body) throw fail(url, response)
       await pipeline(Readable.fromWeb(response.body), createWriteStream(zip))
-      // The tab-separated text is the .txt entry; anything else in the zip is left out.
+      // The tab-separated text is the .tsv entry, or in older zips the .txt one; anything else
+      // in the zip, such as the comma-separated summary file, is left out.
       const entries = (await output('unzip', ['-Z1', zip])).split('\n').filter(Boolean)
-      const text = entries.filter((e) => /\.txt$/i.test(e))
+      const tsv = entries.filter((e) => /\.tsv$/i.test(e))
+      const text = tsv.length > 0 ? tsv : entries.filter((e) => /\.txt$/i.test(e))
+      console.error(`${url} holds ${entries.join(', ')}; reading ${text.join(', ') || 'all'}`)
       const child = spawn('unzip', ['-p', zip, ...(text.length > 0 ? text : entries)], {
         stdio: ['ignore', 'pipe', 'inherit'],
       })
