@@ -51,11 +51,21 @@ export interface OdometerReading {
   miles: number
 }
 
-/** One OEM schedule line for a vehicle configuration. Either interval may be absent. */
+/**
+ * Where a configuration's schedule came from: `baseline` for the app's general intervals, or the
+ * name of the data provider that supplied the manufacturer's schedule.
+ */
+export type ScheduleSource = 'baseline' | (string & {})
+
+/** One schedule line for a vehicle configuration. Either interval may be absent. */
 export interface MaintenanceItem {
   id: MaintenanceItemId
   configId: string
   task: string
+  /** What the item is, the same across providers, such as "engine-oil". */
+  kind?: string
+  /** Absent for items stored before schedules had providers. */
+  source?: ScheduleSource
   intervalMiles?: number
   intervalMonths?: number
   severeMiles?: number

@@ -80,6 +80,8 @@ const tables: Record<string, Row[]> = {
       id: 'oil',
       config_id: 'c1',
       task: 'Oil change',
+      kind: 'engine-oil',
+      source: 'baseline',
       interval_miles: 10_000,
       interval_months: null,
       severe_miles: null,
@@ -140,7 +142,15 @@ describe('supabaseStore', () => {
     expect(facts).toMatchObject({
       vehicle: { id: 'v1', configId: 'c1', make: 'Toyota', severeDuty: true },
       readings: [{ vehicleId: 'v1', date: '2026-10-01', miles: 30_000 }],
-      schedule: [{ id: 'oil', task: 'Oil change', intervalMiles: 10_000 }],
+      schedule: [
+        {
+          id: 'oil',
+          task: 'Oil change',
+          kind: 'engine-oil',
+          source: 'baseline',
+          intervalMiles: 10_000,
+        },
+      ],
       records: [{ id: 'r1', itemId: 'oil', odometerMiles: 28_000 }],
       safety: {
         recallsCheckedAt: '2026-10-16T00:00:00+00:00',

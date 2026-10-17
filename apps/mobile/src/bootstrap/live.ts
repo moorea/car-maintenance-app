@@ -35,9 +35,9 @@ export const createLiveRepositories = (config: BackendConfig) => {
     },
   })
   // Supabase only refreshes tokens while the app is in the foreground.
-  AppState.addEventListener('change', (state) =>
-    state === 'active' ? supabase.auth.startAutoRefresh() : supabase.auth.stopAutoRefresh(),
-  )
+  AppState.addEventListener('change', (state) => {
+    void (state === 'active' ? supabase.auth.startAutoRefresh() : supabase.auth.stopAutoRefresh())
+  })
 
   const db = new PowerSyncDatabase({ schema, database: { dbFilename: 'car-maintenance.db' } })
   const connector = SupabaseConnector.forClient(supabase, config.powerSyncUrl)
@@ -51,7 +51,7 @@ export const createLiveRepositories = (config: BackendConfig) => {
   const assistant = remoteAssistant({
     url: `${config.supabaseUrl}/functions/v1/assistant`,
     accessToken: async () => (await supabase.auth.getSession()).data.session?.access_token,
-    fetch: streamingFetch as unknown as typeof fetch,
+    fetch: streamingFetch,
   })
 
   // Deleting the account deletes everything on the server, then signs out and erases this phone's

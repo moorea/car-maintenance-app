@@ -1,3 +1,12 @@
 packages:
   - packages/*
   - apps/*
+
+# `pnpm audit` runs in CI. These advisories are in Expo's command-line tooling (expo > @expo/cli,
+# @expo/config-plugins, @expo/metro), which runs on the build machine and never ships in the app,
+# and none has a patched release Expo can take yet. Drop each one when Expo moves past it.
+auditConfig:
+  ignoreGhsas:
+    - GHSA-w5hq-g745-h8pq # uuid, via xcode in @expo/config-plugins
+    - GHSA-86w9-cpqp-85rv # node-forge, via @expo/cli (dev-server certificates)
+    - GHSA-vfj7-8cjw-p6xm # braces, via micromatch in @expo/metro

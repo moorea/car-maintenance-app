@@ -61,7 +61,12 @@ const done = (itemId: string, performedOn: string, odometerMiles?: number): Serv
 })
 
 const setup = (
-  options: { vehicle?: Vehicle; odometer?: OdometerReading[]; records?: ServiceRecord[] } = {},
+  options: {
+    vehicle?: Vehicle
+    odometer?: OdometerReading[]
+    records?: ServiceRecord[]
+    schedule?: MaintenanceItem[]
+  } = {},
 ) => {
   const vehicle = options.vehicle ?? car
   const odometer = memoryOdometer([...(options.odometer ?? readings)])
@@ -75,7 +80,7 @@ const setup = (
   const model = createCarModel({
     vehicle,
     vehicles: memoryVehicles([vehicle]),
-    schedule: memorySchedule([oil, tires, brakeFluid]),
+    schedule: memorySchedule(options.schedule ?? [oil, tires, brakeFluid]),
     records,
     odometer,
     clock: fixedClock(TODAY),
@@ -95,6 +100,31 @@ describe('car model', () => {
     expect(s.subtitle).toBe('XLE · 2.5L 4-cyl · AWD · VIN ••••3456')
     expect(s.scheduleTitle).toBe('Toyota schedule · normal driving')
     expect(s.section).toBe('schedule')
+  })
+
+  it("titles a provider's schedule with the make and adds no note", async () => {
+    const { model } = setup({
+      schedule: [oil, tires, brakeFluid].map((i) => ({ ...i, source: 'motor' })),
+    })
+    model.getState().start()
+    await settle()
+    expect(model.getState()).toMatchObject({
+      scheduleTitle: 'Toyota schedule · normal driving',
+      scheduleNote: undefined,
+    })
+  })
+
+  it("says the baseline schedule is general guidance, not the manufacturer's", async () => {
+    const { model } = setup({
+      vehicle: { ...car, severeDuty: true },
+      schedule: [oil, tires, brakeFluid].map((i) => ({ ...i, source: 'baseline' })),
+    })
+    model.getState().start()
+    await settle()
+    expect(model.getState().scheduleTitle).toBe('General schedule · severe driving')
+    expect(model.getState().scheduleNote).toBe(
+      "General guidance for most cars, not Toyota's own schedule. Your owner's manual has the exact intervals for this car.",
+    )
   })
 
   it('lists the schedule soonest first with intervals and when each is next due', async () => {

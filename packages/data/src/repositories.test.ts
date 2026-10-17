@@ -207,7 +207,7 @@ describe('PowerSync repositories', () => {
       "insert into vehicles (id, config_id, year, make, model, nickname, severe_duty) values ('v1', 'c1', 2020, 'Honda', 'Civic', 'Civic', 1)",
     )
     await db.execute(
-      "insert into maintenance_items (id, config_id, task, interval_miles, interval_months) values ('oil', 'c1', 'Oil change', 5000, 6)",
+      "insert into maintenance_items (id, config_id, kind, source, task, interval_miles, interval_months) values ('oil', 'c1', 'engine-oil', 'baseline', 'Oil change', 5000, 6)",
     )
     const repos = createPowerSyncRepositories(db)
     await repos.odometer.add({ vehicleId: 'v1', date: '2026-09-01', miles: 42_000 })
@@ -226,7 +226,15 @@ describe('PowerSync repositories', () => {
       { vehicleId: 'v1', date: '2026-09-01', miles: 42_000 },
     ])
     expect(await repos.schedule.itemsForConfig('c1')).toEqual([
-      { id: 'oil', configId: 'c1', task: 'Oil change', intervalMiles: 5000, intervalMonths: 6 },
+      {
+        id: 'oil',
+        configId: 'c1',
+        task: 'Oil change',
+        kind: 'engine-oil',
+        source: 'baseline',
+        intervalMiles: 5000,
+        intervalMonths: 6,
+      },
     ])
   })
 
