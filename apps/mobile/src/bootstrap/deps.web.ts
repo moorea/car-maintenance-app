@@ -6,6 +6,7 @@ import {
   memoryReminderSettings,
 } from '@car/core/testing'
 import { randomUUID } from 'expo-crypto'
+import { pdfReportExporter } from './careReport'
 import { localClock } from './clock'
 import {
   createDemoAssistant,
@@ -36,6 +37,7 @@ export const deps = {
   quoteReader: demoQuoteReader({ delayMs: 1_500 }),
   notifier,
   reminderSettings,
+  exporter: pdfReportExporter(),
   picker: systemFilePicker(),
   preview: systemFilePreview(),
   reminders: createReminderScheduler({

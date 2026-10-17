@@ -3,6 +3,7 @@ import { createReminderScheduler, type IdGenerator } from '@car/core'
 import { demoQuoteReader } from '@car/core/testing'
 import { nhtsaVinDecoder, storedReminderSettings } from '@car/data'
 import { randomUUID } from 'expo-crypto'
+import { pdfReportExporter } from './careReport'
 import { localClock } from './clock'
 import { backendConfig } from './config'
 import { createDemoAssistant, createDemoRepositories } from './demo'
@@ -41,6 +42,7 @@ export const deps = {
   ...repositories,
   notifier,
   reminderSettings,
+  exporter: pdfReportExporter(),
   picker: systemFilePicker(),
   preview: systemFilePreview(),
   photos: expoPhotoPicker(),

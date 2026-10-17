@@ -57,6 +57,7 @@ const ALLOWED: Record<UploadableTable, readonly UpdateType[]> = {
   vehicles: [UpdateType.PUT, UpdateType.PATCH, UpdateType.DELETE],
   service_records: [UpdateType.PUT, UpdateType.DELETE],
   odometer_readings: [UpdateType.PUT],
+  warranties: [UpdateType.PUT, UpdateType.PATCH, UpdateType.DELETE],
   attachments: [UpdateType.PUT, UpdateType.DELETE],
 }
 const APPEND_ONLY = new Set<string>(['service_records', 'odometer_readings', 'attachments'])
