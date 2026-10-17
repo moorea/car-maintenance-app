@@ -3,8 +3,9 @@
 One short file per decision that would be expensive to reverse. Each says what we decided, why,
 and what would make us revisit it. Add a new record rather than editing an accepted one.
 
-| ADR                                    | Decision                                                    |
-| -------------------------------------- | ----------------------------------------------------------- |
-| [0001](0001-supabase-over-firebase.md) | Supabase (Postgres) over Firebase                           |
-| [0002](0002-headless-core.md)          | All behaviour lives in a headless core package behind ports |
-| [0003](0003-screen-state.md)           | Screen state lives in Zustand vanilla screen models         |
+| ADR                                    | Decision                                                       |
+| -------------------------------------- | -------------------------------------------------------------- |
+| [0001](0001-supabase-over-firebase.md) | Supabase (Postgres) over Firebase                              |
+| [0002](0002-headless-core.md)          | All behaviour lives in a headless core package behind ports    |
+| [0003](0003-screen-state.md)           | Screen state lives in Zustand vanilla screen models            |
+| [0004](0004-offline-data-layer.md)     | Offline-first data through PowerSync adapters in packages/data |

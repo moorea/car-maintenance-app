@@ -47,7 +47,30 @@ export default tseslint.config(
             { group: ['expo', 'expo-*', '@expo/*'], message: 'Core must not depend on Expo.' },
             {
               group: ['@supabase/*', '@powersync/*'],
-              message: 'Use a port; adapters live in the app.',
+              message: 'Use a port; adapters live in @car/data or the app.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // Data adapters run on the phone and in Node tests, so they take the database as a parameter
+    // instead of importing a platform driver.
+    files: ['packages/data/**/*.{ts,tsx,mts,cts}'],
+    ignores: ['packages/data/**/*.test.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['react', 'react/*', 'react-native*', 'expo', 'expo-*', '@expo/*'],
+              message: 'Data adapters are headless.',
+            },
+            {
+              group: ['@powersync/react-native', '@powersync/node', '@powersync/web'],
+              message: 'Import @powersync/common; the app picks the platform driver.',
             },
           ],
         },

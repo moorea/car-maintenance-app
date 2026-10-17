@@ -1,20 +1,21 @@
-import type { Clock } from '@car/core'
-import { memoryServiceRecords, sequentialIds } from '@car/core/testing'
+import type { Clock, IdGenerator } from '@car/core'
+import { randomUUID } from 'expo-crypto'
+import { backendConfig } from './config'
+import { createDemoRepositories } from './demo'
+import { createLiveRepositories } from './live'
 
-// Placeholder wiring until the PowerSync (SQLite) adapters land. Screens only ever see ports,
-// so swapping these out does not touch any screen or model.
+// The composition root: the only place that picks adapters. Screens only ever see ports.
 const clock: Clock = { today: () => new Date().toISOString().slice(0, 10) }
+// Ids are UUIDs so rows created offline never collide once uploaded to Postgres.
+const ids: IdGenerator = { next: () => randomUUID() }
+
+const config = backendConfig()
+
+/** 'live' when backend settings are present; otherwise the app runs on demo data. */
+export const mode = config ? 'live' : 'demo'
 
 export const deps = {
   clock,
-  ids: sequentialIds('local'),
-  records: memoryServiceRecords([
-    {
-      id: 'seed-1',
-      vehicleId: 'demo',
-      performedOn: '2026-07-01',
-      odometerMiles: 30_000,
-      shop: 'Demo Garage',
-    },
-  ]),
+  ids,
+  ...(config ? createLiveRepositories(config) : createDemoRepositories()),
 }
