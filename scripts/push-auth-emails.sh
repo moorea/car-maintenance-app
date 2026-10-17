@@ -13,13 +13,15 @@ for file in "$dir"/magic_link.html "$dir"/confirmation.html; do
   grep -qF '{{ .Token }}' "$file" || { echo "$file must show the code ({{ .Token }})"; exit 1; }
 done
 
-smtp_host="$(curl -fsS "${auth[@]}" "$api" | jq -r '.smtp_host // ""')"
+# --fail-with-body keeps the API's reason in the log when it refuses a request.
+config="$(curl -sS --fail-with-body "${auth[@]}" "$api")" || { echo "$config"; exit 1; }
+smtp_host="$(jq -r '.smtp_host // ""' <<<"$config")"
 if [ -z "$smtp_host" ]; then
   echo "::warning::Custom SMTP is not set up, so Supabase sends its default emails, which have no sign-in code. Templates not pushed."
   exit 0
 fi
 
-jq -n \
+body="$(jq -n \
   --arg subject "$subject" \
   --rawfile magic_link "$dir/magic_link.html" \
   --rawfile confirmation "$dir/confirmation.html" \
@@ -28,6 +30,7 @@ jq -n \
     mailer_templates_magic_link_content: $magic_link,
     mailer_subjects_confirmation: $subject,
     mailer_templates_confirmation_content: $confirmation
-  }' |
-  curl -fsS -X PATCH "${auth[@]}" -H "Content-Type: application/json" --data-binary @- "$api" -o /dev/null
+  }')"
+response="$(curl -sS --fail-with-body -X PATCH "${auth[@]}" -H "Content-Type: application/json" \
+  --data-binary @- "$api" <<<"$body")" || { echo "$response"; exit 1; }
 echo "Pushed the sign-in email templates (SMTP host $smtp_host)."
