@@ -2,10 +2,11 @@ import { z } from 'zod'
 import type { QuoteLine } from '../domain/types'
 
 /**
- * The largest photo the server accepts, as base64 characters. Claude takes images up to 5 MB, which
- * is about 6.7 million base64 characters; the phone sends a compressed JPEG well under that.
+ * The largest photo the server accepts, as base64 characters. Claude takes images up to 5 MB; this
+ * stays under that even if the limit counts the encoded text. A phone's compressed JPEG of a page
+ * is well under it.
  */
-export const MAX_QUOTE_PHOTO_BASE64 = 6_700_000
+export const MAX_QUOTE_PHOTO_BASE64 = 5_000_000
 
 /** Quotes longer than this are cut; a shop's list is rarely more than a page. */
 export const MAX_QUOTE_LINES = 40

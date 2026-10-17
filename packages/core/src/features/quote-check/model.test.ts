@@ -10,6 +10,7 @@ import {
   memoryServiceRecords,
   SAMPLE_PHOTO,
 } from '../../testing'
+import { MAX_QUOTE_PHOTO_BASE64 } from '../../schemas/quote'
 import { createQuoteCheckModel } from './model'
 
 const vehicle: Vehicle = {
@@ -228,5 +229,22 @@ describe('quote check model', () => {
     await settle()
     model.getState().dispose()
     expect(call(0).signal?.aborted).toBe(true)
+  })
+
+  it('opens one picker and reads one photo when the button is tapped twice', async () => {
+    const { state, photos, reader } = setup()
+    void state().takePhoto()
+    void state().takePhoto()
+    await settle()
+    expect(photos.picks).toEqual(['camera'])
+    expect(reader.calls).toHaveLength(1)
+  })
+
+  it('says a photo is too large to read rather than sending it', async () => {
+    const { state, photos, reader } = setup()
+    photos.next({ mediaType: 'image/jpeg', base64: 'A'.repeat(MAX_QUOTE_PHOTO_BASE64 + 4) })
+    await state().choosePhoto()
+    expect(state().error).toContain('too large')
+    expect(reader.calls).toHaveLength(0)
   })
 })

@@ -44,6 +44,15 @@ export const UNSCHEDULED_SERVICES: Record<string, { label: string; why: string }
 }
 
 /**
+ * Small jobs most shops do free or for little, such as checking tire pressure. Not worth
+ * questioning unless the price is out of line.
+ */
+export const QUICK_CHECKS: Record<string, string> = {
+  'tire-pressure': 'Tire pressure',
+  'battery-terminals': 'Battery terminals',
+}
+
+/**
  * Parts replaced when they wear out rather than on a schedule. A shop should be able to show the
  * measurement or the worn part.
  */
@@ -55,19 +64,20 @@ export const WEAR_ITEMS: Record<string, string> = {
   battery: '12-volt battery',
   'serpentine-belt': 'Drive belt',
   'wheel-alignment': 'Wheel alignment',
+  'wheel-balance': 'Wheel balance',
   shocks: 'Shocks and struts',
   bulbs: 'Bulbs',
 }
 
-// Checked in order, so specific fluids win over the generic "oil" and "fluid" patterns, and a
-// filter's kind is decided before "air" or "fuel" alone.
+// Checked in order, so specific fluids win over the generic "oil" and "fluid" patterns, a
+// filter's kind is decided before "air" or "fuel" alone, and a package only when no job is named
+// ("5,000 mile oil change" is an oil change).
 const PATTERNS: [ServiceKind, RegExp][] = [
   ['recall', /\brecall|\bcampaign\b|\b\d{2}V\d{3}(?:000)?\b|\bsafety notice/i],
   // A fix for something found wrong, not maintenance, even when it names a fluid ("oil leak").
-  ['repair', /\bleak|gasket|\bseals?\b|diagnos|\brepair|\bcheck engine|\bnoise/i],
   [
-    'service-package',
-    /\b\d{1,3}\s?k\b|\b\d{1,3},?000[\s-]*(?:mi|mile)|\bmile(?:age)?\s*service|\b(?:major|minor|scheduled|factory)\s*(?:service|maintenance)|maintenance\s*package/i,
+    'repair',
+    /\bleak|gasket|\bseals?\b|diagnos|\brepair|\bcheck engine|\bnoise|caliper|\bhoses?\b|brake\s*lines?\b|ignition\s*coil|\b(?:engine|motor|trans\w*)\s*mounts?\b/i,
   ],
   ['transfer-case-fluid', /transfer\s*case|\bt\/?case\b/i],
   [
@@ -87,19 +97,22 @@ const PATTERNS: [ServiceKind, RegExp][] = [
     /fuel\s*(?:system|injection|injector|induction)|induction\s*(?:service|clean)|throttle\s*body|intake\s*(?:clean|service)|carbon\s*clean|\bbg\b|fuel\s*additive|decarb/i,
   ],
   ['fuel-filter', /fuel\s*filter/i],
-  ['cabin-air-filter', /cabin|pollen|\ba\/?c\s*filter|hvac\s*filter/i],
+  ['cabin-air-filter', /cabin|pollen|\ba\/?c\s*filter|air\s*condition\w*\s*filter|hvac\s*filter/i],
   ['engine-air-filter', /air\s*filter|air\s*cleaner|engine\s*filter/i],
   ['engine-oil', /\boil\b|\blof\b|\blube\b|synthetic|\b\d+w-?\d+\b/i],
   ['tire-rotation', /rotat/i],
   ['wheel-alignment', /align/i],
   ['nitrogen-fill', /nitrogen/i],
+  ['wheel-balance', /balanc/i],
+  ['tire-pressure', /(?:tire|tyre|air)\s*pressure|\btpms\b/i],
   ['tires', /\btires?\b|\btyres?\b/i],
   ['brake-rotors', /rotors?\b|\bdiscs?\b/i],
   ['brake-pads', /\bpads?\b|\bshoes\b/i],
   ['brake-inspection', /brake/i],
-  ['spark-plugs', /spark\s*plugs?|\bplugs\b|tune[\s-]?up|ignition\s*coil/i],
+  ['spark-plugs', /spark\s*plugs?|\bplugs\b|tune[\s-]?up/i],
   ['timing-belt', /timing\s*belt/i],
   ['serpentine-belt', /serpentine|drive\s*belt|accessory\s*belt|\bbelts?\b/i],
+  ['battery-terminals', /terminal/i],
   ['battery-test', /battery\s*(?:test|check|inspect)|charging\s*system\s*(?:test|check)/i],
   ['battery', /battery/i],
   ['wiper-blades', /wiper/i],
@@ -107,8 +120,26 @@ const PATTERNS: [ServiceKind, RegExp][] = [
   ['ac-service', /\ba\/?c\b|air\s*condition|refrigerant|evac|recharge/i],
   ['shocks', /shocks?\b|struts?\b/i],
   ['bulbs', /\bbulbs?\b|\blamp\b/i],
+  [
+    'service-package',
+    /\b\d{1,3}\s?k\b|\b\d{1,3},?000[\s-]*(?:mi|mile)|\bmile(?:age)?\s*service|\b(?:major|minor|scheduled|factory)\s*(?:service|maintenance)|maintenance\s*package/i,
+  ],
 ]
 
-/** What kind of job a quote line describes, or undefined when it is not recognised. */
+/** What kind of job a piece of a quote line describes, or undefined when it is not recognised. */
 export const identifyService = (text: string): ServiceKind | undefined =>
   PATTERNS.find(([, pattern]) => pattern.test(text))?.[0]
+
+// Where one line lists several jobs: "Oil change + tire rotation", "Cabin & engine air filters".
+// Not "/", which is part of "A/C", and not a comma between digits, as in "30,000".
+const JOINS = /\s*(?:\+|&|;|,(?!\d)|\band\b|\bplus\b|\bw\/|\bwith\b)\s*/i
+
+/**
+ * Every job a quote line names, in order and without repeats; empty when none is recognised.
+ * "Cabin & engine air filters" names both filters; "Lube, oil & filter" is one oil change.
+ */
+export const identifyServices = (text: string): ServiceKind[] => {
+  const kinds = [...new Set(text.split(JOINS).flatMap((part) => identifyService(part) ?? []))]
+  // "30K service: oil change, rotate tires" is better judged by the jobs it lists.
+  return kinds.length > 1 ? kinds.filter((k) => k !== 'service-package') : kinds
+}

@@ -8,6 +8,7 @@ import {
 } from '../../domain/types'
 import { cancellation } from '../../lib/cancel'
 import { formatCents } from '../../lib/format'
+import { MAX_QUOTE_PHOTO_BASE64 } from '../../schemas/quote'
 import type {
   Clock,
   OdometerRepo,
@@ -103,6 +104,8 @@ export const createQuoteCheckModel = (deps: QuoteCheckDeps): QuoteCheckModel => 
   let recalls: Recall[] = []
   let stopSafety: Unsubscribe | undefined
   let reading: { cancel: () => void } | undefined
+  // True while the camera or photo picker is open, so a second tap does not open another.
+  let picking = false
   let disposed = false
 
   return createStore<QuoteCheckState & QuoteCheckActions>()((set, get) => {
@@ -144,8 +147,9 @@ export const createQuoteCheckModel = (deps: QuoteCheckDeps): QuoteCheckModel => 
     }
 
     const readPhoto = async (pick: () => Promise<QuotePhoto | undefined>) => {
-      if (get().status === 'reading' || get().status === 'checking' || unmatched) return
+      if (picking || get().status === 'reading' || get().status === 'checking' || unmatched) return
       let photo: QuotePhoto | undefined
+      picking = true
       try {
         photo = await pick()
       } catch {
@@ -153,8 +157,16 @@ export const createQuoteCheckModel = (deps: QuoteCheckDeps): QuoteCheckModel => 
           error: "Couldn't open the photo. Check that the app may use your camera and photos.",
         })
         return
+      } finally {
+        picking = false
       }
       if (!photo || disposed) return
+      if (photo.base64.length > MAX_QUOTE_PHOTO_BASE64) {
+        editing({
+          error: 'That photo is too large to read. Try a closer photo, or type the lines.',
+        })
+        return
+      }
       const { signal, cancel } = cancellation()
       reading = { cancel }
       set({ status: 'reading', canCheck: false, error: undefined, result: undefined })

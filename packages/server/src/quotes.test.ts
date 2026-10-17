@@ -86,6 +86,28 @@ describe('reading a quote photo with Claude', () => {
     ])
   })
 
+  it('drops a blank line or an impossible price instead of failing the whole read', async () => {
+    const api = fakeApi(() =>
+      ok(
+        message(
+          JSON.stringify({
+            lines: [
+              { text: ' ', price_cents: 100 },
+              { text: 'Wiper blades', price_cents: -500 },
+              { text: 'Cabin filter', price_cents: 49.5 },
+            ],
+          }),
+        ),
+      ),
+    )
+    expect(await read(api)).toEqual([{ text: 'Wiper blades' }, { text: 'Cabin filter' }])
+  })
+
+  it('reports a reply that was cut off as a failure to read', async () => {
+    const api = fakeApi(() => ok(message('{"lines":[{"text":"Oil', 'max_tokens')))
+    await expect(read(api)).rejects.toMatchObject({ kind: 'unknown' })
+  })
+
   it('reports a declined photo as declined', async () => {
     const api = fakeApi(() => ok(message('', 'refusal')))
     await expect(read(api)).rejects.toMatchObject({ kind: 'declined' })

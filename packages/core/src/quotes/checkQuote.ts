@@ -12,7 +12,8 @@ import { isGeneralGuidance } from '../lib/schedule'
 import { dueItemsFor } from '../reminders/getDueItems'
 import type { DueProjection } from '../reminders/projectDue'
 import {
-  identifyService,
+  identifyServices,
+  QUICK_CHECKS,
   UNSCHEDULED_SERVICES,
   WEAR_ITEMS,
   type ServiceKind,
@@ -119,6 +120,16 @@ const recallTitle = (recall: Recall) => {
   const summary = recall.summary.split('. ')[0] ?? recall.summary
   return summary.length > 60 ? `${summary.slice(0, 57)}…` : summary
 }
+
+/** "24V123" for "24V-123", "24V123000" or "24v 123": how recalls are written varies. */
+const recallKeys = (text: string) =>
+  new Set(
+    [...text.matchAll(/\b(\d{2})\s*-?\s*V\s*-?\s*(\d{3})(?:\s*-?\s*000)?\b/gi)].map(
+      (m) => `${m[1]}V${m[2]}`,
+    ),
+  )
+
+const recallKey = (recall: Recall) => [...recallKeys(recall.campaign)][0] ?? recall.campaign
 
 const WEAR_DETAIL =
   'Replaced when worn, not on a schedule. Ask to see the measurement or the worn part.'
@@ -230,13 +241,16 @@ export const checkQuote = (input: QuoteCheckInput): QuoteCheck => {
     }
   }
 
-  const judge = (
+  type Judgement = Pick<CheckedLine, 'verdict' | 'label' | 'detail' | 'questionable'>
+
+  const judgeKind = (
     kind: ServiceKind | undefined,
     text: string,
     priceCents: number | undefined,
-  ): Pick<CheckedLine, 'verdict' | 'label' | 'detail' | 'questionable'> => {
+  ): Judgement => {
     if (kind === 'recall') {
-      const recall = recalls.find((r) => text.toUpperCase().includes(r.campaign))
+      const keys = recallKeys(text)
+      const recall = recalls.find((r) => keys.has(recallKey(r)))
       return {
         verdict: 'recall',
         label: 'Recall',
@@ -268,7 +282,17 @@ export const checkQuote = (input: QuoteCheckInput): QuoteCheck => {
         detail:
           kind === 'wheel-alignment'
             ? 'Needed when the car pulls or tires wear unevenly, not on a schedule. Ask to see the readings.'
-            : WEAR_DETAIL,
+            : kind === 'wheel-balance'
+              ? 'Needed when new tires go on or the steering wheel shakes at speed, not on a schedule.'
+              : WEAR_DETAIL,
+        questionable: false,
+      }
+    if (kind && kind in QUICK_CHECKS)
+      return {
+        verdict: 'condition',
+        label: 'Quick job',
+        detail:
+          'Most shops do this free or for a few dollars. Fine to say yes if the price is small.',
         questionable: false,
       }
     const unscheduled = kind ? UNSCHEDULED_SERVICES[kind] : undefined
@@ -295,12 +319,41 @@ export const checkQuote = (input: QuoteCheckInput): QuoteCheck => {
     }
   }
 
-  const kinds = lines.map((l) => identifyService(l.text))
+  /** The name of one job on a line that lists several, such as "Tire rotation". */
+  const nameOf = (kind: ServiceKind) =>
+    byKind.get(kind)?.task ??
+    WEAR_ITEMS[kind] ??
+    QUICK_CHECKS[kind] ??
+    UNSCHEDULED_SERVICES[kind]?.label ??
+    sentence(kind.replace(/-/g, ' '))
+
+  /**
+   * A line naming several jobs is worth questioning only when every one of them is, so its price
+   * never counts as questionable while part of it is due. It shows the verdict of the first job
+   * that is needed, and each job's verdict in the detail.
+   */
+  const judge = (kinds: ServiceKind[], text: string, priceCents: number | undefined): Judgement => {
+    const parts = kinds.map((kind) => ({ kind, ...judgeKind(kind, text, priceCents) }))
+    const [first, second] = parts
+    if (!first || !second) return judgeKind(kinds[0], text, priceCents)
+    const needed = parts.find((p) => !p.questionable)
+    const shown = needed ?? first
+    return {
+      verdict: shown.verdict,
+      label: shown.label,
+      detail: parts
+        .map((p) => `${nameOf(p.kind)}: ${p.label.toLowerCase()}. ${p.detail}`)
+        .join(' '),
+      questionable: needed === undefined,
+    }
+  }
+
+  const kinds = lines.map((l) => identifyServices(l.text))
   const checked = lines.map((line, index): CheckedLine => ({
     index,
     text: line.text,
     priceCents: line.priceCents,
-    ...judge(kinds[index], line.text, line.priceCents),
+    ...judge(kinds[index] ?? [], line.text, line.priceCents),
   }))
 
   const questioned = checked.filter((l) => l.questionable)
@@ -313,7 +366,7 @@ export const checkQuote = (input: QuoteCheckInput): QuoteCheck => {
         ? 'Nothing here looks unneeded'
         : `${questioned.length} of ${checked.length} ${checked.length === 1 ? 'line isn’t' : 'lines aren’t'} needed now`
 
-  const quoted = new Set(kinds)
+  const quoted = new Set(kinds.flat())
   const { items: due, currentMiles } = dueItemsFor({ vehicle, items, records, readings, today })
   const byId = new Map(items.map((i) => [i.id, i]))
   const alsoDue = due
@@ -324,7 +377,7 @@ export const checkQuote = (input: QuoteCheckInput): QuoteCheck => {
     })
     .map((d) => d.task)
 
-  const mentioned = lines.map((l) => l.text.toUpperCase()).join('\n')
+  const mentioned = recallKeys(lines.map((l) => l.text).join('\n'))
   return {
     lines: checked,
     headline,
@@ -333,7 +386,7 @@ export const checkQuote = (input: QuoteCheckInput): QuoteCheck => {
         ? `${formatCents(questionedCents)} of ${formatCents(priced(checked))} is worth questioning`
         : undefined,
     recalls: recalls
-      .filter((r) => !mentioned.includes(r.campaign))
+      .filter((r) => !mentioned.has(recallKey(r)))
       .map((r) => ({ campaign: r.campaign, title: recallTitle(r) })),
     alsoDue,
     generalSchedule: isGeneralGuidance(items),

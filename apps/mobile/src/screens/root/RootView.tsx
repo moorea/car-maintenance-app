@@ -121,7 +121,10 @@ function TabContent(props: Props & { vehicle: Vehicle }) {
           onBack={props.back}
           onAsk={(question) => {
             props.openTab('ask')
-            askModelFor(vehicle).getState().ask(question)
+            const ask = askModelFor(vehicle).getState()
+            // While Ask is still answering, the question waits in the composer to send.
+            if (ask.status === 'ready') ask.ask(question)
+            else ask.setDraft(question)
           }}
         />
       )

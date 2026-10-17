@@ -81,13 +81,21 @@ export const anthropicQuoteReader = (
         { signal: controller.signal },
       )
       if (message.stop_reason === 'refusal') throw new AssistantError('declined')
+      // Cut off mid-reply, the JSON is incomplete. Unlikely, since a page of lines is short.
+      if (message.stop_reason === 'max_tokens')
+        throw new AssistantError('unknown', 'The quote reply was cut off')
       const text = message.content.flatMap((b) => (b.type === 'text' ? [b.text] : [])).join('')
       const raw = JSON.parse(text) as { lines: { text: string; price_cents: number | null }[] }
+      // One odd line (blank, or a price that is not whole cents) drops that line or its price
+      // rather than wasting the whole read.
       return quoteLinesSchema.parse(
-        raw.lines.map((l) => ({
-          text: l.text,
-          ...(l.price_cents !== null && { priceCents: l.price_cents }),
-        })),
+        raw.lines.flatMap((l) => {
+          const lineText = l.text.trim()
+          if (lineText === '') return []
+          const price = l.price_cents
+          const valid = price !== null && Number.isSafeInteger(price) && price >= 0
+          return [{ text: lineText, ...(valid && { priceCents: price }) }]
+        }),
       )
     } catch (error) {
       throw translate(error)

@@ -230,6 +230,49 @@ describe('checking a shop quote', () => {
     expect(check(['Recall 24V123000']).recalls).toEqual([])
   })
 
+  it('says a line with several jobs is needed when any of them is, giving each one’s verdict', () => {
+    const result = check(['Oil change + tire rotation $120'], {
+      records: [
+        record('engine-oil', '2026-10-01', 35_500),
+        record('tire-rotation', '2026-01-10', 20_000),
+      ],
+    })
+    expect(result.lines[0]).toMatchObject({
+      verdict: 'due',
+      label: 'Overdue',
+      questionable: false,
+    })
+    expect(result.lines[0]?.detail).toMatch(
+      /^Oil & filter change: (?!overdue).*Tire rotation: overdue\./,
+    )
+    expect(result.savings).toBeUndefined()
+    expect(result.alsoDue).toEqual([])
+  })
+
+  it('questions a line with several jobs when none of them is needed', () => {
+    expect(only('Cabin & engine air filters $140')).toMatchObject({
+      verdict: 'done',
+      questionable: true,
+    })
+  })
+
+  it('treats balancing and quick checks as needed only when shown, not as unscheduled', () => {
+    expect(only('Tire balance')).toMatchObject({ verdict: 'condition', questionable: false })
+    expect(only('Clean battery terminals')).toMatchObject({
+      verdict: 'condition',
+      label: 'Quick job',
+      questionable: false,
+    })
+  })
+
+  it('recognises a recall however its number is written', () => {
+    for (const text of ['Recall 24V-123', 'Recall 24v123', 'Safety recall 24V-123-000']) {
+      const result = check([text])
+      expect(result.lines[0]?.detail).toContain('Recall 24V123000')
+      expect(result.recalls).toEqual([])
+    }
+  })
+
   it('lists scheduled work that is due but missing from the quote', () => {
     const result = check(['Oil change'], {
       records: [...base.records, record('tire-rotation', '2026-01-10', 20_000)],

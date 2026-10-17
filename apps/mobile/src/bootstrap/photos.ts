@@ -1,4 +1,4 @@
-import { MAX_QUOTE_PHOTO_BASE64, type PhotoPicker, type QuotePhoto } from '@car/core'
+import type { PhotoPicker, QuotePhoto } from '@car/core'
 import {
   launchCameraAsync,
   launchImageLibraryAsync,
@@ -22,7 +22,6 @@ const OPTIONS: ImagePickerOptions = {
 const toPhoto = (result: ImagePickerResult): QuotePhoto | undefined => {
   const asset = result.canceled ? undefined : result.assets[0]
   if (!asset?.base64) return undefined
-  if (asset.base64.length > MAX_QUOTE_PHOTO_BASE64) throw new Error('The photo is too large')
   const mediaType =
     asset.mimeType === 'image/png' || asset.mimeType === 'image/webp'
       ? asset.mimeType
