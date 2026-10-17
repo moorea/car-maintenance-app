@@ -45,7 +45,8 @@ describe('supabaseAccount', () => {
 
   it.each([
     ['a dropped connection', { error: { message: 'FetchError' }, status: 0 }, 'network'],
-    ['a server error', { error: { message: 'bad gateway' }, status: 502 }, 'network'],
+    ['an unreachable gateway', { error: { message: 'bad gateway' }, status: 502 }, 'network'],
+    ['a database error', { error: { message: 'foreign key' }, status: 500 }, 'unknown'],
     ['a refusal', { error: { message: 'not signed in' }, status: 401 }, 'unknown'],
   ] as const)('reports %s and keeps the owner signed in', async (_, result, kind) => {
     const { account, calls } = setup(result)

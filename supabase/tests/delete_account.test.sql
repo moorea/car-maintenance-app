@@ -2,7 +2,7 @@
 -- nobody else's.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(10);
+select plan(13);
 
 insert into auth.users (id) values
   ('00000000-0000-0000-0000-00000000000a'),
@@ -28,6 +28,19 @@ insert into public.assistant_questions (owner_id)
 select ok(
   not has_function_privilege('anon', 'public.delete_account()', 'execute'),
   'signed-out visitors cannot call it'
+);
+select ok(
+  not has_function_privilege('service_role', 'public.delete_account()', 'execute'),
+  'the server cannot call it on an owner''s behalf'
+);
+select ok(
+  (select prosecdef from pg_proc where oid = 'public.delete_account()'::regprocedure),
+  'runs as its owner, since owners cannot touch auth.users'
+);
+select is(
+  (select proconfig from pg_proc where oid = 'public.delete_account()'::regprocedure),
+  array['search_path=""'],
+  'pins an empty search path, so a caller cannot shadow auth.users'
 );
 
 set local role authenticated;

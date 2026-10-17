@@ -6,13 +6,14 @@ import { useColors, type ColorRole } from '../../theme'
 import { Host } from '../../ui/Host'
 import { ErrorText, Note } from '../../ui/Note'
 import { TAB_BAR_CLEARANCE } from '../../ui/TabBar'
-import { Card, FillColumn, PillButton } from '../../ui/surfaces'
+import { Card, FillColumn, GlassIconButton, PillButton } from '../../ui/surfaces'
 import { Symbol } from '../../ui/Symbol'
 import type { SymbolName } from '../../ui/symbols'
 
 type Props = AccountState &
   Pick<AccountActions, 'signOut' | 'askToDelete' | 'cancelDelete' | 'confirmDelete'> & {
-    onReminders: () => void
+    onReminders?: (() => void) | undefined
+    onBack?: (() => void) | undefined
   }
 
 const OVERLINE = { fontSize: 13, fontWeight: '600', letterSpacing: 0.5 } as const
@@ -37,6 +38,11 @@ export function AccountView(props: Props) {
           spacing={16}
           style={{ padding: 16, paddingTop: 60, paddingBottom: TAB_BAR_CLEARANCE }}
         >
+          {props.onBack ? (
+            <Row>
+              <GlassIconButton symbol="back" onPress={props.onBack} />
+            </Row>
+          ) : null}
           <Text textStyle={{ fontSize: 34, fontWeight: '700' }}>Account</Text>
 
           <Card padding={14}>
@@ -58,16 +64,18 @@ export function AccountView(props: Props) {
             </Row>
           </Card>
 
-          <Section title="NOTIFICATIONS">
-            <Card padding={0} onPress={props.onReminders}>
-              <SettingRow
-                symbol="bell"
-                label="Service reminders"
-                value={REMINDERS[props.reminders]}
-                chevron
-              />
-            </Card>
-          </Section>
+          {props.onReminders ? (
+            <Section title="NOTIFICATIONS">
+              <Card padding={0} onPress={props.onReminders}>
+                <SettingRow
+                  symbol="bell"
+                  label="Service reminders"
+                  value={REMINDERS[props.reminders]}
+                  chevron
+                />
+              </Card>
+            </Section>
+          ) : null}
 
           <Column spacing={8}>
             <Card padding={0} {...(idle && { onPress: () => void props.signOut() })}>
@@ -152,12 +160,15 @@ function ConfirmDelete(props: Props) {
       </Text>
       {props.error ? <ErrorText>{props.error}</ErrorText> : null}
       <Row spacing={10}>
-        <PillButton
-          label="Cancel"
-          onPress={props.cancelDelete}
-          fill="neutralSubtle"
-          text="textPrimary"
-        />
+        {/* Gone while deleting: the deletion cannot be called back once sent. */}
+        {deleting ? null : (
+          <PillButton
+            label="Cancel"
+            onPress={props.cancelDelete}
+            fill="neutralSubtle"
+            text="textPrimary"
+          />
+        )}
         <PillButton
           label={deleting ? 'Deleting…' : 'Delete'}
           onPress={() => void props.confirmDelete()}

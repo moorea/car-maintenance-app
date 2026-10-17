@@ -31,8 +31,15 @@ export const supabaseAccount = (deps: {
         throw new AuthError('network', String(e))
       }
       const { error, status } = result
+      // Only an unreachable server or gateway is a connection problem; a 500 is the database
+      // refusing, which trying again will not fix.
       if (error)
-        throw new AuthError(status === 0 || status >= 500 ? 'network' : 'unknown', error.message)
+        throw new AuthError(
+          status === 0 || status === 502 || status === 503 || status === 504
+            ? 'network'
+            : 'unknown',
+          error.message,
+        )
       try {
         // The server has already ended the session, so this only signs out locally.
         await deps.auth.signOut()

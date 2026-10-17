@@ -53,8 +53,9 @@ export interface AccountDeps {
 }
 
 const DELETE_FAILED: Record<'network' | 'other', string> = {
-  network:
-    "Couldn't reach the server, so your account was not deleted. Check your connection and try again.",
+  // The answer may have been lost after the server deleted it, so this cannot say it was not.
+  // Trying again is safe either way.
+  network: "Couldn't confirm your account was deleted. Check your connection and try again.",
   other: 'Something went wrong, so your account was not deleted. Please try again.',
 }
 

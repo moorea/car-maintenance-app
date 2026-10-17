@@ -118,7 +118,7 @@ describe('account model', () => {
       expect(account.deletions).toBe(1)
     })
 
-    it('says the account was not deleted when offline, and lets the owner try again', async () => {
+    it('asks the owner to try again when the connection drops', async () => {
       const { model, account, auth } = setup()
       account.failNext('network')
       model.getState().askToDelete()
