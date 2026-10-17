@@ -1,4 +1,5 @@
 import { addDays, type IsoDate } from '../lib/date'
+import { formatLongDate } from '../lib/format'
 import type { Vehicle } from '../domain/types'
 import type { LocalNotification } from '../ports'
 import { DUE_SOON_DAYS, type DueProjection } from './projectDue'
@@ -16,9 +17,27 @@ export const MAX_SCHEDULED_REMINDERS = 60
 /** A heads-up two weeks ahead, when an item turns "due soon", and a nudge on the due date. */
 type Stage = 'soon' | 'due'
 
+/**
+ * Warranty heads-ups a month and a week before a coverage ends: a month leaves time to book the
+ * dealer for anything that might be a claim, and a week catches an owner who let it slide.
+ */
+export const WARRANTY_NOTICE_DAYS = [30, 7] as const
+
+/** A coverage still running, with when it is expected to end. */
+export interface WarrantyEnding {
+  id: string
+  /** "Powertrain". */
+  coverage: string
+  endsOn: IsoDate
+  /** Whether the end is the time limit or the projected date the car reaches its mileage. */
+  endsBy: 'time' | 'miles'
+  endMiles?: number | undefined
+}
+
 export interface VehicleDue {
   vehicle: Vehicle
   due: DueProjection[]
+  warranties?: WarrantyEnding[]
 }
 
 const formatMiles = (miles: number) => `${Math.round(miles).toLocaleString('en-US')} mi`
@@ -48,12 +67,44 @@ const bodyFor = (stage: Stage, items: DueProjection[]): string => {
 const titleFor = (stage: Stage, vehicle: Vehicle) =>
   stage === 'soon' ? `${vehicle.nickname}: service coming up` : `${vehicle.nickname}: service due`
 
+const warrantyBody = (w: WarrantyEnding, days: number): string => {
+  const when = days >= 30 ? 'about a month' : 'about a week'
+  const end =
+    w.endsBy === 'miles' && w.endMiles !== undefined
+      ? `at ${formatMiles(w.endMiles)}, ${when} away at your usual driving`
+      : `in ${when}, on ${formatLongDate(w.endsOn)}`
+  return `${w.coverage} coverage ends ${end}. Have anything it covers looked at before then.`
+}
+
+const warrantyNotices = (cars: VehicleDue[], today: IsoDate): LocalNotification[] =>
+  cars.flatMap(({ vehicle, warranties = [] }) =>
+    warranties.flatMap((w) =>
+      WARRANTY_NOTICE_DAYS.flatMap((days): LocalNotification[] => {
+        const date = addDays(w.endsOn, -days)
+        if (date <= today) return []
+        return [
+          {
+            // No date in the id: a projected mileage end moves as readings arrive, and the
+            // scheduler then moves the notification rather than adding another.
+            id: `warranty:${vehicle.id}:${w.id}:${days}`,
+            date,
+            hour: REMINDER_HOUR,
+            title: `${vehicle.nickname}: warranty ending`,
+            body: warrantyBody(w, days),
+            vehicleId: vehicle.id,
+          },
+        ]
+      }),
+    ),
+  )
+
 /**
  * The notifications to have scheduled today: for every item with a projected due date, one two
  * weeks before it and one on the day, at REMINDER_HOUR. Items falling on the same day for the same
  * car share one notification. Only dates after today are scheduled, so planning again never
  * repeats a reminder that was due to fire already, and items that are already due are left to
- * the app's own screens. Soonest first, capped at MAX_SCHEDULED_REMINDERS.
+ * the app's own screens. Each warranty still running gets a heads-up WARRANTY_NOTICE_DAYS before
+ * it ends. Soonest first, capped at MAX_SCHEDULED_REMINDERS.
  */
 export const planNotifications = (cars: VehicleDue[], today: IsoDate): LocalNotification[] => {
   const groups = new Map<
@@ -78,15 +129,15 @@ export const planNotifications = (cars: VehicleDue[], today: IsoDate): LocalNoti
     }
   }
 
-  return [...groups.entries()]
-    .map(([id, g]): LocalNotification => ({
-      id,
-      date: g.date,
-      hour: REMINDER_HOUR,
-      title: titleFor(g.stage, g.vehicle),
-      body: bodyFor(g.stage, g.items),
-      vehicleId: g.vehicle.id,
-    }))
+  const service = [...groups.entries()].map(([id, g]): LocalNotification => ({
+    id,
+    date: g.date,
+    hour: REMINDER_HOUR,
+    title: titleFor(g.stage, g.vehicle),
+    body: bodyFor(g.stage, g.items),
+    vehicleId: g.vehicle.id,
+  }))
+  return [...service, ...warrantyNotices(cars, today)]
     .sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
     .slice(0, MAX_SCHEDULED_REMINDERS)
 }

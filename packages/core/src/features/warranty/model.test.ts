@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Vehicle, Warranty } from '../../domain/types'
 import {
   fixedClock,
+  memoryAttachments,
   memoryOdometer,
   memoryReportExporter,
   memorySchedule,
@@ -55,6 +56,18 @@ const setup = (initial: Warranty[] = [], today = '2026-10-17') => {
     odometer,
     schedule: memorySchedule([
       { id: 'oil', configId: 'c1', task: 'Oil change', intervalMiles: 5_000, intervalMonths: 6 },
+    ]),
+    attachments: memoryAttachments([
+      {
+        id: 'a1',
+        vehicleId: 'v1',
+        serviceRecordId: 'r1',
+        kind: 'receipt',
+        name: 'IMG_2041.jpg',
+        contentType: 'image/jpeg',
+        sizeBytes: 240_000,
+        addedOn: '2026-07-01',
+      },
     ]),
     exporter,
     clock: fixedClock(today),
@@ -198,7 +211,36 @@ describe('warranty screen', () => {
     const [report] = exporter.shared
     expect(report?.title).toBe('2024 Toyota RAV4')
     expect(report?.warranties.map((w) => w.coverage)).toEqual(['Bumper-to-bumper'])
-    expect(report?.history.map((h) => h.what)).toEqual(['Oil change'])
+    expect(report?.history.map((h) => [h.what, h.documents])).toEqual([
+      ['Oil change', ['Receipt (photo)']],
+    ])
+  })
+
+  it('reads the receipts once, from a watch that reports after it returns', async () => {
+    const exporter = memoryReportExporter()
+    let open = 0
+    const later = memoryAttachments()
+    const model = createWarrantyModel({
+      vehicle: car,
+      warranties: memoryWarranties(),
+      records: memoryServiceRecords(),
+      odometer: memoryOdometer(),
+      schedule: memorySchedule(),
+      attachments: {
+        ...later,
+        watchForVehicle: (_id, onChange) => {
+          open++
+          void Promise.resolve().then(() => onChange([]))
+          return () => open--
+        },
+      },
+      exporter,
+      clock: fixedClock('2026-10-17'),
+      ids: sequentialIds(),
+    })
+    await model.getState().shareReport()
+    expect(exporter.shared).toHaveLength(1)
+    expect(open).toBe(0)
   })
 
   it('says when the report could not be made', async () => {
@@ -275,6 +317,7 @@ describe('warranty screen', () => {
       },
       odometer: memoryOdometer(),
       schedule: memorySchedule(),
+      attachments: memoryAttachments(),
       exporter: failing.exporter,
       clock: fixedClock('2026-10-17'),
       ids: sequentialIds(),
@@ -293,6 +336,7 @@ describe('warranty screen', () => {
       records: memoryServiceRecords(),
       odometer: memoryOdometer(),
       schedule: memorySchedule(),
+      attachments: memoryAttachments(),
       exporter,
       clock: fixedClock('2026-10-17'),
       ids: sequentialIds(),

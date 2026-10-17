@@ -1,7 +1,14 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
 import { z } from 'zod'
-import type { MaintenanceItem, Vehicle, Warranty, WarrantyKind } from '../../domain/types'
 import type {
+  Attachment,
+  MaintenanceItem,
+  Vehicle,
+  Warranty,
+  WarrantyKind,
+} from '../../domain/types'
+import type {
+  AttachmentRepo,
   CareReportExporter,
   Clock,
   IdGenerator,
@@ -84,6 +91,8 @@ export interface WarrantyDeps {
   records: ServiceRecordRepo
   odometer: OdometerRepo
   schedule: ScheduleRepo
+  /** Receipts on the car's services, which the report lists as on file. */
+  attachments: AttachmentRepo
   exporter: CareReportExporter
   clock: Clock
   ids: IdGenerator
@@ -108,6 +117,21 @@ const draftFrom = (w: Warranty): WarrantyDraft => ({
   policyNumber: w.policyNumber ?? '',
   notes: w.notes ?? '',
 })
+
+/** The first value a watch reports, for a one-off read from a repository that only watches. */
+const firstValue = <T>(watch: (onChange: (value: T) => void) => Unsubscribe): Promise<T> =>
+  new Promise((resolve) => {
+    const watching: { stop?: Unsubscribe } = {}
+    let seen = false
+    watching.stop = watch((value) => {
+      if (seen) return
+      seen = true
+      resolve(value)
+      watching.stop?.()
+    })
+    // A watch that reports synchronously has not returned its unsubscribe yet when it reports.
+    if (seen) watching.stop()
+  })
 
 const message = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback)
 
@@ -286,12 +310,13 @@ export const createWarrantyModel = (deps: WarrantyDeps): WarrantyModel => {
         if (get().report.status === 'preparing') return
         set({ report: { status: 'preparing' } })
         try {
-          const [records, readings, items] = await Promise.all([
+          const [records, readings, items, attachments] = await Promise.all([
             deps.records.listForVehicle(vehicle.id),
             deps.odometer.listForVehicle(vehicle.id),
             vehicle.configId === undefined
               ? Promise.resolve([] as MaintenanceItem[])
               : deps.schedule.itemsForConfig(vehicle.configId),
+            firstValue<Attachment[]>((on) => deps.attachments.watchForVehicle(vehicle.id, on)),
           ])
           const report = buildCareReport({
             vehicle,
@@ -299,6 +324,7 @@ export const createWarrantyModel = (deps: WarrantyDeps): WarrantyModel => {
             records,
             readings,
             warranties: await deps.warranties.listForVehicle(vehicle.id),
+            attachments,
             today: deps.clock.today(),
           })
           await deps.exporter.share(report)

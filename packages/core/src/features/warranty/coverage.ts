@@ -3,6 +3,7 @@ import { formatLongDate, formatMiles } from '../../lib/format'
 import type { Warranty, WarrantyKind } from '../../domain/types'
 import type { MileageEstimate } from '../../reminders/mileage'
 import { estimateMilesOn } from '../../reminders/mileage'
+import type { WarrantyEnding } from '../../reminders/planNotifications'
 
 /**
  * A coverage turns "ending soon" this many days before it is expected to end: time to have a
@@ -148,3 +149,25 @@ export const describeCoverage = (
   }
   return `Covered until ${describeLimits(warranty)}`
 }
+
+/**
+ * The coverages still running and when each is expected to end, for reminders. A coverage whose
+ * end can't be projected (a mileage limit on a car with no readings) is left out.
+ */
+export const upcomingWarrantyEnds = (
+  warranties: readonly Warranty[],
+  car: Omit<CoverageInput, 'warranty'>,
+): WarrantyEnding[] =>
+  warranties.flatMap((warranty) => {
+    const c = coverageOf({ warranty, ...car })
+    if (c.state === 'ended' || c.expectedEnd === undefined || c.expectedEnd <= car.today) return []
+    return [
+      {
+        id: warranty.id,
+        coverage: warrantyKindLabel(warranty.kind),
+        endsOn: c.expectedEnd,
+        endsBy: c.endsBy,
+        endMiles: warranty.endMiles,
+      },
+    ]
+  })
