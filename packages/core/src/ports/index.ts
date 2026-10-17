@@ -9,7 +9,9 @@ import type {
   ServiceRecord,
   Vehicle,
   VehicleId,
+  Warranty,
 } from '../domain/types'
+import type { CareReport } from '../features/care-report/report'
 
 /**
  * Ports are the only way core reaches storage, the network or the clock. The app supplies
@@ -81,6 +83,22 @@ export interface OdometerRepo {
     onChange: (readings: OdometerReading[]) => void,
   ): Unsubscribe
   add(reading: OdometerReading): Promise<void>
+}
+
+/** The warranties the owner has entered for their cars. Editable, unlike the service history. */
+export interface WarrantyRepo {
+  listForVehicle(vehicleId: VehicleId): Promise<Warranty[]>
+  /** Calls `onChange` with the car's warranties now and after every change, like a live query. */
+  watchForVehicle(vehicleId: VehicleId, onChange: (warranties: Warranty[]) => void): Unsubscribe
+  /** Adds the warranty, or replaces the one with the same id. */
+  save(warranty: Warranty): Promise<void>
+  remove(id: string): Promise<void>
+}
+
+/** Turns a care report into a file the owner can send, such as a PDF in the share sheet. */
+export interface CareReportExporter {
+  /** Resolves once the owner has been offered the file, whether or not they sent it. */
+  share(report: CareReport): Promise<void>
 }
 
 export interface ScheduleRepo {

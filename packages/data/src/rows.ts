@@ -6,6 +6,8 @@ import type {
   SafetyReport,
   ServiceRecord,
   Vehicle,
+  Warranty,
+  WarrantyKind,
 } from '@car/core'
 
 /** SQLite returns NULL for missing values; the domain uses absent properties. */
@@ -80,6 +82,44 @@ export const fromServiceRecord = (s: ServiceRecord) => ({
   cost_cents: s.costCents ?? null,
   shop: s.shop ?? null,
   notes: s.notes ?? null,
+})
+
+const WARRANTY_KINDS = new Set<string>([
+  'basic',
+  'powertrain',
+  'corrosion',
+  'emissions',
+  'hybrid-battery',
+  'extended',
+  'other',
+] satisfies WarrantyKind[])
+
+export const toWarranty = (r: Row): Warranty => {
+  const kind = text(r.kind)
+  return defined({
+    id: required(text(r.id), 'id'),
+    vehicleId: required(text(r.vehicle_id), 'vehicle_id'),
+    // A kind added by a newer app version reads as "other" rather than hiding the warranty.
+    kind: kind !== undefined && WARRANTY_KINDS.has(kind) ? (kind as WarrantyKind) : 'other',
+    provider: text(r.provider),
+    startsOn: required(text(r.starts_on), 'starts_on'),
+    months: num(r.months),
+    endMiles: num(r.end_miles),
+    policyNumber: text(r.policy_number),
+    notes: text(r.notes),
+  })
+}
+
+export const fromWarranty = (w: Warranty) => ({
+  id: w.id,
+  vehicle_id: w.vehicleId,
+  kind: w.kind,
+  provider: w.provider ?? null,
+  starts_on: w.startsOn,
+  months: w.months ?? null,
+  end_miles: w.endMiles ?? null,
+  policy_number: w.policyNumber ?? null,
+  notes: w.notes ?? null,
 })
 
 export const toOdometerReading = (r: Row): OdometerReading => ({

@@ -83,6 +83,31 @@ export interface ServiceRecord {
   notes?: string
 }
 
+/** What a warranty covers. Factory warranties usually come as several of these at once. */
+export type WarrantyKind =
+  'basic' | 'powertrain' | 'corrosion' | 'emissions' | 'hybrid-battery' | 'extended' | 'other'
+
+/**
+ * One warranty coverage on a car, as the owner typed it from the paperwork. It ends at its time
+ * limit or its mileage limit, whichever comes first; it has at least one of the two.
+ */
+export interface Warranty {
+  id: string
+  vehicleId: VehicleId
+  kind: WarrantyKind
+  /** Who honours it: the manufacturer, or an extended-warranty company. */
+  provider?: string
+  /** When coverage started: the in-service date for a factory warranty. */
+  startsOn: IsoDate
+  /** Length from `startsOn`, in months. */
+  months?: number
+  /** The odometer reading at which coverage ends, such as 36,000. */
+  endMiles?: number
+  /** Contract or policy number, for a claim. */
+  policyNumber?: string
+  notes?: string
+}
+
 /**
  * An NHTSA safety recall for a configuration's model year. It may not cover every car of that
  * year, and says nothing about whether this car has been fixed; NHTSA's VIN lookup says that.

@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { createReminderScheduler, type IdGenerator } from '@car/core'
 import { nhtsaVinDecoder, storedReminderSettings } from '@car/data'
 import { randomUUID } from 'expo-crypto'
+import { pdfReportExporter } from './careReport'
 import { localClock } from './clock'
 import { backendConfig } from './config'
 import { createDemoAssistant, createDemoRepositories } from './demo'
@@ -34,6 +35,7 @@ export const deps = {
   ...repositories,
   notifier,
   reminderSettings,
+  exporter: pdfReportExporter(),
   reminders: createReminderScheduler({
     ...repositories,
     clock,

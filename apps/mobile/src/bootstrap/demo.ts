@@ -8,6 +8,7 @@ import {
   memorySync,
   memoryVehicles,
   memoryVinDecoder,
+  memoryWarranties,
   OWNER,
 } from '@car/core/testing'
 import { demoModel, localAssistant } from '@car/core/testing'
@@ -243,6 +244,45 @@ export const createDemoRepositories = () => {
     ]),
     schedule: memorySchedule(DEMO_SCHEDULE),
     safety: memorySafety({ demo: DEMO_SAFETY }),
+    // Factory coverage as Toyota states it for a RAV4, from a sale in April 2022, plus a dealer's
+    // add-on, so the demo shows coverage that has ended, is ending soon and has years left.
+    warranties: memoryWarranties([
+      {
+        id: 'demo-w-basic',
+        vehicleId: 'demo',
+        kind: 'basic',
+        provider: 'Toyota',
+        startsOn: '2022-04-02',
+        months: 36,
+        endMiles: 36_000,
+      },
+      {
+        id: 'demo-w-powertrain',
+        vehicleId: 'demo',
+        kind: 'powertrain',
+        provider: 'Toyota',
+        startsOn: '2022-04-02',
+        months: 60,
+        endMiles: 60_000,
+      },
+      {
+        id: 'demo-w-corrosion',
+        vehicleId: 'demo',
+        kind: 'corrosion',
+        provider: 'Toyota',
+        startsOn: '2022-04-02',
+        months: 60,
+      },
+      {
+        id: 'demo-w-tires',
+        vehicleId: 'demo',
+        kind: 'other',
+        provider: 'Demo Garage tire and wheel plan',
+        startsOn: '2024-01-10',
+        months: 36,
+        policyNumber: 'TW-20431',
+      },
+    ]),
     records: memoryServiceRecords([
       {
         id: 'seed-1',

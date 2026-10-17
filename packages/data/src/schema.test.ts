@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { fromServiceRecord, fromVehicle } from './rows'
+import { fromServiceRecord, fromVehicle, fromWarranty } from './rows'
 import { schema } from './schema'
 
 const migrations = fileURLToPath(new URL('../../../supabase/migrations/', import.meta.url))
@@ -50,6 +50,14 @@ describe('device schema', () => {
   it('stores every field the app writes for a service record', () => {
     const columns = synced.find((t) => t.name === 'service_records')?.columns.map((c) => c.name)
     const written = Object.keys(fromServiceRecord({ id: 'r', vehicleId: 'v', performedOn: 'd' }))
+    expect(['id', ...(columns ?? [])]).toEqual(expect.arrayContaining(written))
+  })
+
+  it('stores every field the app writes for a warranty', () => {
+    const columns = synced.find((t) => t.name === 'warranties')?.columns.map((c) => c.name)
+    const written = Object.keys(
+      fromWarranty({ id: 'w', vehicleId: 'v', kind: 'basic', startsOn: 'd', months: 36 }),
+    )
     expect(['id', ...(columns ?? [])]).toEqual(expect.arrayContaining(written))
   })
 })

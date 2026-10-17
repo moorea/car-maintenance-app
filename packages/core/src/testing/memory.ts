@@ -11,10 +11,12 @@ import {
   type ServiceRecord,
   type Vehicle,
   type VehicleId,
+  type Warranty,
 } from '../domain/types'
 import type {
   AccountPort,
   AuthPort,
+  CareReportExporter,
   Clock,
   IdGenerator,
   LocalNotification,
@@ -29,8 +31,10 @@ import type {
   ScheduleRepo,
   ServiceRecordRepo,
   VehicleRepo,
+  WarrantyRepo,
 } from '../ports'
 import type { IsoDate } from '../lib/date'
+import type { CareReport } from '../features/care-report/report'
 
 /** In-memory adapters for tests and headless runs. They behave like the real ones, minus I/O. */
 /** The owner `memoryVehicles` assumes when not told otherwise. */
@@ -386,4 +390,67 @@ export const memoryReminderSettings = (
       for (const w of watchers) w(settings)
     },
   }
+}
+
+/** Warranties kept in memory. `failNext` makes the next save or removal throw. */
+export const memoryWarranties = (initial: Warranty[] = []) => {
+  let warranties = [...initial]
+  const watchers = new Set<{ vehicleId: VehicleId; onChange: (w: Warranty[]) => void }>()
+  let nextFailure: string | undefined
+  const forVehicle = (vehicleId: VehicleId) => warranties.filter((w) => w.vehicleId === vehicleId)
+  const notify = () => {
+    for (const w of watchers) w.onChange(forVehicle(w.vehicleId))
+  }
+  const failIfScheduled = () => {
+    if (nextFailure === undefined) return
+    const message = nextFailure
+    nextFailure = undefined
+    throw new Error(message)
+  }
+  const repo: WarrantyRepo & { failNext: (message: string) => void } = {
+    listForVehicle: async (vehicleId) => forVehicle(vehicleId),
+    watchForVehicle: (vehicleId, onChange) => {
+      const watcher = { vehicleId, onChange }
+      watchers.add(watcher)
+      onChange(forVehicle(vehicleId))
+      return () => watchers.delete(watcher)
+    },
+    save: async (warranty) => {
+      failIfScheduled()
+      warranties = [...warranties.filter((w) => w.id !== warranty.id), warranty]
+      notify()
+    },
+    remove: async (id) => {
+      failIfScheduled()
+      warranties = warranties.filter((w) => w.id !== id)
+      notify()
+    },
+    failNext: (message) => {
+      nextFailure = message
+    },
+  }
+  return repo
+}
+
+/** Keeps every report it is asked to share in `shared`. `failNext` makes the next one throw. */
+export const memoryReportExporter = () => {
+  let nextFailure: string | undefined
+  const exporter: CareReportExporter & {
+    shared: CareReport[]
+    failNext: (message: string) => void
+  } = {
+    shared: [],
+    failNext: (message) => {
+      nextFailure = message
+    },
+    share: async (report) => {
+      if (nextFailure !== undefined) {
+        const message = nextFailure
+        nextFailure = undefined
+        throw new Error(message)
+      }
+      exporter.shared.push(report)
+    },
+  }
+  return exporter
 }

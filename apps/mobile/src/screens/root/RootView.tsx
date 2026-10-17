@@ -9,6 +9,7 @@ import { GarageScreen } from '../garage/GarageScreen'
 import { RemindersScreen } from '../reminders/RemindersScreen'
 import { ServiceLogScreen } from '../service-log/ServiceLogScreen'
 import { SignInScreen } from '../sign-in/SignInScreen'
+import { WarrantyScreen } from '../warranty/WarrantyScreen'
 import { Host } from '../../ui/Host'
 import { TabBar, type TabBarItem } from '../../ui/TabBar'
 
@@ -45,7 +46,8 @@ export function RootView(props: Props) {
         {props.tab === 'ask' ? null : (
           <TabBar
             tabs={TABS}
-            selected={props.tab}
+            // The warranty page belongs to the car, so the car's tab stays selected there.
+            selected={props.tab === 'warranty' ? 'car' : props.tab}
             onSelect={props.openTab}
             action={{ symbol: 'ask', onPress: () => props.openTab('ask'), selected: false }}
           />
@@ -108,7 +110,9 @@ function TabContent(props: Props & { vehicle: Vehicle }) {
         />
       )
     case 'car':
-      return <CarScreen vehicle={vehicle} />
+      return <CarScreen vehicle={vehicle} onWarranty={() => props.openTab('warranty')} />
+    case 'warranty':
+      return <WarrantyScreen vehicle={vehicle} onBack={() => props.openTab('car')} />
     case 'ask':
       return <AskScreen vehicle={vehicle} onBack={() => props.openTab('garage')} />
     case 'reminders':

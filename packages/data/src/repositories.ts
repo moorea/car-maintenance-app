@@ -8,12 +8,14 @@ import type {
   SyncStatus,
   Unsubscribe,
   VehicleRepo,
+  WarrantyRepo,
 } from '@car/core'
 import type { CommonPowerSyncDatabase } from '@powersync/common'
 import { readOwner } from './session'
 import {
   fromServiceRecord,
   fromVehicle,
+  fromWarranty,
   toComplaintSummary,
   toMaintenanceItem,
   toOdometerReading,
@@ -21,6 +23,7 @@ import {
   toSafetyReport,
   toServiceRecord,
   toVehicle,
+  toWarranty,
 } from './rows'
 
 export interface PowerSyncRepositories {
@@ -29,11 +32,15 @@ export interface PowerSyncRepositories {
   odometer: OdometerRepo
   schedule: ScheduleRepo
   safety: SafetyRepo
+  warranties: WarrantyRepo
   sync: SyncStatus
 }
 
 const RECORDS_FOR_VEHICLE =
   'select * from service_records where vehicle_id = ? order by performed_on desc, created_at desc'
+
+const WARRANTIES_FOR_VEHICLE =
+  'select * from warranties where vehicle_id = ? order by starts_on, kind, id'
 
 const READINGS_FOR_VEHICLE = 'select * from odometer_readings where vehicle_id = ? order by read_on'
 
@@ -240,6 +247,53 @@ export const createPowerSyncRepositories = (
       ),
 
     add: (reading) => insertReading(db, reading),
+  },
+
+  warranties: {
+    listForVehicle: async (vehicleId) =>
+      (await db.getAll<Record<string, unknown>>(WARRANTIES_FOR_VEHICLE, [vehicleId])).map(
+        toWarranty,
+      ),
+
+    watchForVehicle: (vehicleId, onChange) =>
+      watchRows(db, WARRANTIES_FOR_VEHICLE, [vehicleId], 'warranties', (rows) =>
+        onChange(rows.map(toWarranty)),
+      ),
+
+    // An insert for a new warranty and an update of only the changed columns for an edit, so
+    // the upload is a PUT or a PATCH as it would be for a car.
+    save: async (warranty) => {
+      const row = fromWarranty(warranty)
+      await db.writeTransaction(async (tx) => {
+        const existing = await tx.getOptional<Record<string, unknown>>(
+          'select * from warranties where id = ?',
+          [warranty.id],
+        )
+        if (!existing) {
+          const inserted = { ...row, updated_at: now() }
+          const columns = Object.keys(inserted)
+          await tx.execute(
+            `insert into warranties (${columns.join(', ')}) values (${columns.map(() => '?').join(', ')})`,
+            Object.values(inserted),
+          )
+          return
+        }
+        const { id: _id, ...fields } = row
+        const changed = Object.entries(fields).filter(
+          ([column, value]) => existing[column] !== value,
+        )
+        if (changed.length === 0) return
+        changed.push(['updated_at', now()])
+        await tx.execute(
+          `update warranties set ${changed.map(([column]) => `${column} = ?`).join(', ')} where id = ?`,
+          [...changed.map(([, value]) => value), warranty.id],
+        )
+      })
+    },
+
+    remove: async (id) => {
+      await db.execute('delete from warranties where id = ?', [id])
+    },
   },
 
   safety: {

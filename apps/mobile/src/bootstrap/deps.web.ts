@@ -1,6 +1,7 @@
 import { createReminderScheduler, type IdGenerator } from '@car/core'
 import { memoryNotifier, memoryReminderSettings } from '@car/core/testing'
 import { randomUUID } from 'expo-crypto'
+import { pdfReportExporter } from './careReport'
 import { localClock } from './clock'
 import { createDemoAssistant, createDemoRepositories, demoVinDecoder } from './demo'
 
@@ -21,6 +22,7 @@ export const deps = {
   assistant: createDemoAssistant(repositories, clock),
   notifier,
   reminderSettings,
+  exporter: pdfReportExporter(),
   reminders: createReminderScheduler({
     ...repositories,
     clock,
