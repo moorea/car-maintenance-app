@@ -1,0 +1,19 @@
+{
+  "name": "@car/site",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:ci": "vitest run",
+    "build": "node build.mjs",
+    "preview": "node build.mjs && python3 -m http.server -d dist 4321"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "esbuild": "^0.28.1",
+    "marked": "^18.1.1",
+    "vitest": "^5.0.5"
+  }
+}

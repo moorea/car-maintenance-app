@@ -65,6 +65,10 @@ export const SYMBOLS = {
     paths: ['M3 8h4l2-3h6l2 3h4v11H3z', 'M12 10a3.5 3.5 0 1 0 0.01 0'],
   },
   photo: { ios: 'photo', paths: ['M3 5h18v14H3z', 'M3 16l5-5 4 4 3-3 6 6', 'M15 9h.01'] },
+  engine: {
+    ios: 'engine.combustion',
+    paths: ['M6 9h9l2 2h2v6h-2l-2 2H8l-2-2H4v-6h2z', 'M9 9V6h4v3', 'M2 12v4M22 12v4'],
+  },
   quote: { ios: 'list.bullet.clipboard', paths: ['M7 4h10v17H7z', 'M10 9h5M10 13h5M10 17h3'] },
   receipt: { ios: 'receipt', paths: ['M6 3h12v18l-3-2-3 2-3-2-3 2z', 'M9 8h6M9 12h6'] },
   document: { ios: 'doc', paths: ['M6 3h8l4 4v14H6z', 'M14 3v4h4'] },

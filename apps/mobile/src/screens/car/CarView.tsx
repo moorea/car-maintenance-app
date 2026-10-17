@@ -28,6 +28,7 @@ interface Props {
   safety: SafetyState & Pick<SafetyActions, 'toggle'>
   documents: AttachmentsProps
   onCheckQuote: () => void
+  onTroubleCodes: () => void
   onWarranty: () => void
   onFuel: () => void
 }
@@ -35,7 +36,15 @@ interface Props {
 const OVERLINE = { fontSize: 13, fontWeight: '600', letterSpacing: 0.5 } as const
 
 /** Pure rendering of a car's page: odometer, documents, then schedule, recalls or known issues. */
-export function CarView({ car, safety, documents, onCheckQuote, onWarranty, onFuel }: Props) {
+export function CarView({
+  car,
+  safety,
+  documents,
+  onCheckQuote,
+  onTroubleCodes,
+  onWarranty,
+  onFuel,
+}: Props) {
   const colors = useColors()
   if (car.status === 'loading') return <ActivityIndicator style={styles.fill} />
 
@@ -60,6 +69,7 @@ export function CarView({ car, safety, documents, onCheckQuote, onWarranty, onFu
           </Column>
           <OdometerCard {...car} />
           <QuoteCard onPress={onCheckQuote} />
+          <TroubleCodesCard onPress={onTroubleCodes} />
           <FuelCard onPress={onFuel} />
           <WarrantyCard onPress={onWarranty} />
           <DocumentsSection {...documents} />
@@ -136,6 +146,25 @@ function QuoteCard({ onPress }: { onPress: () => void }) {
           <Text textStyle={{ fontSize: 16, fontWeight: '600' }}>Check a shop’s quote</Text>
           <Text textStyle={{ fontSize: 13, color: colors.textSecondary }}>
             See which recommendations are actually due
+          </Text>
+        </FillColumn>
+        <Symbol name="chevron" size={16} color={colors.textSecondary} />
+      </Row>
+    </Card>
+  )
+}
+
+/** Opens the code lookup, for when the check-engine light comes on. */
+function TroubleCodesCard({ onPress }: { onPress: () => void }) {
+  const colors = useColors()
+  return (
+    <Card padding={14} onPress={onPress}>
+      <Row alignment="center" spacing={12}>
+        <Symbol name="engine" size={22} color={colors.accent} />
+        <FillColumn spacing={1}>
+          <Text textStyle={{ fontSize: 16, fontWeight: '600' }}>Check-engine light on?</Text>
+          <Text textStyle={{ fontSize: 13, color: colors.textSecondary }}>
+            Look up a code and see how urgent it is
           </Text>
         </FillColumn>
         <Symbol name="chevron" size={16} color={colors.textSecondary} />

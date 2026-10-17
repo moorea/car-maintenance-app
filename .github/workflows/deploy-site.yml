@@ -1,0 +1,68 @@
+name: Deploy site
+
+# Publishes apps/site (landing page, privacy policy, support page) to GitHub Pages after changes
+# merge. The pages are also built and tested by CI on every pull request. Pages must be turned on
+# once, with Settings → Pages → Source set to "GitHub Actions"; until then this skips with a
+# warning. The site is served at https://<owner>.github.io/<repo>/ unless the SITE_URL repository
+# variable names another address, such as a custom domain.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/site/**'
+      - 'docs/app-store/privacy-policy.md'
+      - 'apps/mobile/src/theme/**'
+      - 'apps/mobile/app.json'
+      - 'apps/mobile/assets/icon.png'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/deploy-site.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-site
+  cancel-in-progress: false
+
+jobs:
+  build:
+    # A manual run from another branch must not deploy that branch.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      SITE_URL: ${{ vars.SITE_URL || format('https://{0}.github.io/{1}', github.repository_owner, github.event.repository.name) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @car/site test
+      - run: pnpm --filter @car/site build
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/site/dist
+
+  deploy:
+    needs: build
+    if: github.event.repository.has_pages
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+  pages-off:
+    needs: build
+    if: ${{ !github.event.repository.has_pages }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "::warning title=GitHub Pages is off::Turn it on in Settings → Pages with Source set to GitHub Actions, then re-run this workflow."
