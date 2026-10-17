@@ -196,6 +196,16 @@ describe('PowerSync attachments', () => {
     await expect(attachments.open(receipt)).rejects.toMatchObject({ kind: 'offline' })
   })
 
+  it('reports an unexpected failure to get the download link as unknown', async () => {
+    const attachments = makeRepo(async () => {
+      throw new TypeError('bad response')
+    })
+    await db.execute(
+      "insert into attachments (id, owner_id, vehicle_id, kind, name, content_type, size_bytes, added_on) values ('a1', 'owner-a', 'v1', 'receipt', 'x.jpg', 'image/jpeg', 12, '2026-09-01')",
+    )
+    await expect(attachments.open(receipt)).rejects.toMatchObject({ kind: 'unknown' })
+  })
+
   it('says the file is offline when the download breaks off, keeping no partial file', async () => {
     const attachments = makeRepo(async () => 'http://127.0.0.1:1/unreachable')
     await db.execute(
