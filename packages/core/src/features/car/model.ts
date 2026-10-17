@@ -150,6 +150,7 @@ export const createCarModel = (deps: CarDeps): CarModel => {
         if (mine !== generation) return
         set({
           status: 'ready',
+          schedule: [],
           error: e instanceof Error ? e.message : 'Could not read the schedule',
         })
       }
