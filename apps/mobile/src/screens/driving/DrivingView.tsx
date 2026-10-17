@@ -47,7 +47,7 @@ export function DrivingView(props: Props) {
             <Text textStyle={{ fontSize: 34, fontWeight: '700' }}>How you drive</Text>
           </Column>
           <Text textStyle={{ color: colors.textSecondary }}>
-            {`Owner’s manuals have a stricter schedule for hard driving, and most people’s everyday driving counts. You’re on the ${scheduleName(props.severeNow)} schedule. Turn on anything that sounds like your driving.`}
+            {`Owner’s manuals have a stricter schedule for hard driving, and a lot of everyday driving counts. You’re on the ${scheduleName(props.severeNow)} schedule. Turn on anything that sounds like your driving.`}
           </Text>
 
           <Card padding={0}>
@@ -120,8 +120,33 @@ function QuestionRow(props: {
 function Recommendation(props: Props) {
   const colors = useColors()
   const { severe, reasons } = props.assessment
-  const matches = severe === props.severeNow
   const saving = props.status === 'saving'
+  const other = !props.severeNow
+  // A text button for the schedule the questions don't point to: the owner's manual may list a
+  // condition the questions leave out.
+  const switchAnyway = (
+    <Button
+      variant="text"
+      label={`Use the ${scheduleName(other)} schedule ${props.answered ? 'anyway' : 'instead'}`}
+      disabled={saving}
+      onPress={() => props.onChoose(other)}
+    />
+  )
+  if (!props.answered) {
+    return (
+      <Card spacing={10}>
+        <Text textStyle={{ fontSize: 18, fontWeight: '700' }}>
+          {`You’re on the ${scheduleName(props.severeNow)} schedule`}
+        </Text>
+        <Text textStyle={{ fontSize: 15, color: colors.textSecondary }}>
+          Turn on anything above that sounds like your driving to check it.
+        </Text>
+        {props.error ? <ErrorText>{props.error}</ErrorText> : null}
+        {switchAnyway}
+      </Card>
+    )
+  }
+  const matches = severe === props.severeNow
   return (
     <Card fill={severe ? 'warningSubtle' : 'accentSubtle'} spacing={10}>
       <Row alignment="center" spacing={10}>
@@ -142,14 +167,17 @@ function Recommendation(props: Props) {
         ))
       ) : (
         <Text textStyle={{ fontSize: 15 }}>
-          Mostly longer trips in mild weather, with no towing or rough roads.
+          None of these sound like your driving, so the normal intervals are enough.
         </Text>
       )}
       {props.error ? <ErrorText>{props.error}</ErrorText> : null}
       {matches ? (
-        <Text textStyle={{ fontSize: 15, fontWeight: '600' }}>
-          {`Your car is already on the ${scheduleName(severe)} schedule.`}
-        </Text>
+        <>
+          <Text textStyle={{ fontSize: 15, fontWeight: '600' }}>
+            {`Your car is already on the ${scheduleName(severe)} schedule.`}
+          </Text>
+          {switchAnyway}
+        </>
       ) : (
         <Button
           label={saving ? 'Saving…' : `Use the ${scheduleName(severe)} schedule`}

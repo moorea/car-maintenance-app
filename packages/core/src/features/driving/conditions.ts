@@ -45,7 +45,7 @@ export const DRIVING_QUESTIONS: DrivingQuestion[] = [
   {
     id: 'climate',
     question: 'Very hot or very cold weather, or mountains',
-    hint: 'Summers over 90°F, winters below freezing, or steep climbs.',
+    hint: 'Summers over 90°F, winters around 0°F, or long steep climbs.',
     why: 'Extreme temperatures and long climbs run fluids hotter or thicker than usual.',
   },
 ]

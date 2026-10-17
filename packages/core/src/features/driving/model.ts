@@ -19,6 +19,11 @@ export interface DrivingState {
   /** True when the car is on the severe schedule now. */
   severeNow: boolean
   answers: DrivingAnswers
+  /**
+   * False until the owner answers a question. The answers aren't kept, so until then there is
+   * nothing to recommend and the screen only says which schedule the car is on.
+   */
+  answered: boolean
   /** Which schedule the answers point to, and why. */
   assessment: DrivingAssessment
   /** What changes on the severe schedule. Empty before the car has synced its schedule. */
@@ -57,6 +62,7 @@ export const createDrivingModel = (deps: DrivingDeps): DrivingModel => {
     carTitle: `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
     severeNow: vehicle.severeDuty,
     answers: {},
+    answered: false,
     assessment: assessDriving({}),
     differences: [],
     generalSchedule: false,
@@ -85,7 +91,7 @@ export const createDrivingModel = (deps: DrivingDeps): DrivingModel => {
 
     answer: (id, yes) => {
       const answers = { ...get().answers, [id]: yes }
-      set({ answers, assessment: assessDriving(answers) })
+      set({ answers, answered: true, assessment: assessDriving(answers) })
     },
 
     choose: async (severe) => {

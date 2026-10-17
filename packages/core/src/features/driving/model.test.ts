@@ -94,6 +94,13 @@ describe('driving model', () => {
     expect(state().differences).toHaveLength(1)
   })
 
+  it('recommends nothing until the owner answers a question', async () => {
+    const { state } = await setup({ ...vehicle, severeDuty: true })
+    expect(state()).toMatchObject({ answered: false, severeNow: true })
+    state().answer('towing', false)
+    expect(state()).toMatchObject({ answered: true, assessment: { severe: false } })
+  })
+
   it('recommends the severe schedule as soon as a condition applies, and back again', async () => {
     const { state } = await setup()
     state().answer('stop-and-go', true)

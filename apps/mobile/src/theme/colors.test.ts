@@ -25,6 +25,8 @@ const pairs: [text: ColorRole, fill: ColorRole][] = [
   ['accent', 'background'],
   ['accent', 'surface'],
   ['accent', 'accentSubtle'],
+  ['textPrimary', 'accentSubtle'],
+  ['danger', 'accentSubtle'],
   ['onAccent', 'accent'],
   ['warning', 'surface'],
   ['warning', 'warningSubtle'],
