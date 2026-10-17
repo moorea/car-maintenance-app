@@ -63,6 +63,7 @@ const tables: Record<string, Row[]> = {
     },
   ],
   odometer_readings: [{ vehicle_id: 'v1', read_on: '2026-10-01', miles: 30_000 }],
+  fill_ups: [{ vehicle_id: 'v1', filled_on: '2026-10-12', odometer_miles: 30_400 }],
   service_records: [
     {
       id: 'r1',
@@ -141,7 +142,10 @@ describe('supabaseStore', () => {
     const facts = await supabaseStore(user.client, admin.client, 'u1').facts('v1')
     expect(facts).toMatchObject({
       vehicle: { id: 'v1', configId: 'c1', make: 'Toyota', severeDuty: true },
-      readings: [{ vehicleId: 'v1', date: '2026-10-01', miles: 30_000 }],
+      readings: [
+        { vehicleId: 'v1', date: '2026-10-01', miles: 30_000 },
+        { vehicleId: 'v1', date: '2026-10-12', miles: 30_400 },
+      ],
       schedule: [
         {
           id: 'oil',

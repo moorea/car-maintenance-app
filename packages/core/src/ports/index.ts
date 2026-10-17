@@ -4,6 +4,7 @@ import type {
   Attachment,
   AuthUser,
   DecodedVin,
+  FillUp,
   MaintenanceItem,
   OdometerReading,
   PickedFile,
@@ -96,6 +97,17 @@ export interface WarrantyRepo {
   watchForVehicle(vehicleId: VehicleId, onChange: (warranties: Warranty[]) => void): Unsubscribe
   /** Adds the warranty, or replaces the one with the same id. */
   save(warranty: Warranty): Promise<void>
+  remove(id: string): Promise<void>
+}
+
+/** The car's fill-ups and charging sessions. Editable, unlike the service history. */
+export interface FillUpRepo {
+  /** The car's fill-ups, newest first. */
+  listForVehicle(vehicleId: VehicleId): Promise<FillUp[]>
+  /** Calls `onChange` with the car's fill-ups, newest first, now and after every change. */
+  watchForVehicle(vehicleId: VehicleId, onChange: (fillUps: FillUp[]) => void): Unsubscribe
+  /** Adds the fill-up, or replaces the one with the same id. */
+  save(fillUp: FillUp): Promise<void>
   remove(id: string): Promise<void>
 }
 

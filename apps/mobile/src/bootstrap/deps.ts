@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { createReminderScheduler, type IdGenerator } from '@car/core'
+import { createReminderScheduler, withFillUpReadings, type IdGenerator } from '@car/core'
 import { demoQuoteReader } from '@car/core/testing'
 import { nhtsaVinDecoder, storedReminderSettings } from '@car/data'
 import { randomUUID } from 'expo-crypto'
@@ -19,7 +19,9 @@ const ids: IdGenerator = { next: () => randomUUID() }
 
 // Live when backend settings are present; otherwise the app runs on demo data.
 const config = backendConfig()
-const repositories = config ? createLiveRepositories(config) : demoRepositories()
+const chosen = config ? createLiveRepositories(config) : demoRepositories()
+// Every fill-up's mileage is an odometer reading, for every screen and for reminders.
+const repositories = { ...chosen, odometer: withFillUpReadings(chosen.odometer, chosen.fillUps) }
 
 function demoRepositories() {
   const demo = createDemoRepositories()

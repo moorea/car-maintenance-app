@@ -1,7 +1,7 @@
 -- Run with `supabase test db`. Proves one owner can never read or write another owner's car data.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(15);
+select plan(20);
 
 insert into auth.users (id) values
   ('00000000-0000-0000-0000-00000000000a'),
@@ -16,6 +16,9 @@ insert into public.service_records (vehicle_id, performed_on)
 insert into public.warranties (id, vehicle_id, kind, starts_on, months) values
   ('40000000-0000-0000-0000-00000000000a', '20000000-0000-0000-0000-00000000000a', 'basic', '2024-01-01', 36),
   ('40000000-0000-0000-0000-00000000000b', '20000000-0000-0000-0000-00000000000b', 'basic', '2024-01-01', 36);
+insert into public.fill_ups (id, vehicle_id, filled_on, odometer_miles, energy, quantity) values
+  ('50000000-0000-0000-0000-00000000000a', '20000000-0000-0000-0000-00000000000a', '2026-01-01', 1000, 'fuel', 12.4),
+  ('50000000-0000-0000-0000-00000000000b', '20000000-0000-0000-0000-00000000000b', '2026-01-01', 1000, 'fuel', 12.4);
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', true);
@@ -80,6 +83,30 @@ select throws_ok(
   $$ insert into public.warranties (vehicle_id, kind, starts_on, months)
      values ('20000000-0000-0000-0000-00000000000b', 'extended', '2026-01-01', 48) $$,
   '42501', null, 'owner cannot add a warranty to someone else''s car'
+);
+
+select is((select count(*) from public.fill_ups)::int, 1,
+  'owner sees only the fill-ups of their own car');
+select lives_ok(
+  $$ update public.fill_ups set odometer_miles = 1100
+     where id = '50000000-0000-0000-0000-00000000000a' $$,
+  'owner can correct a fill-up on their own car'
+);
+select throws_ok(
+  $$ update public.fill_ups set vehicle_id = '20000000-0000-0000-0000-00000000000b'
+     where id = '50000000-0000-0000-0000-00000000000a' $$,
+  '42501', null, 'owner cannot move a fill-up onto someone else''s car'
+);
+select throws_ok(
+  $$ insert into public.fill_ups (vehicle_id, filled_on, odometer_miles, energy, quantity)
+     values ('20000000-0000-0000-0000-00000000000b', '2026-02-01', 1300, 'fuel', 10) $$,
+  '42501', null, 'owner cannot add a fill-up to someone else''s car'
+);
+-- The phone's SQLite stores the switches as 1 and 0, and uploads them as JSON numbers.
+select is(
+  (json_populate_record(null::public.fill_ups, '{"full_tank": 0, "missed_previous": 1}'))
+    .missed_previous,
+  true, 'a fill-up uploaded with 0 and 1 for its switches reads as booleans'
 );
 
 select * from finish();
