@@ -26,6 +26,7 @@ export function SignInView(props: Props) {
                 value={email}
                 onChangeText={props.setEmail}
                 error={fieldError}
+                placeholder="you@example.com"
                 keyboardType="email-address"
                 autoComplete="email"
                 autoCapitalize="none"

@@ -24,3 +24,10 @@ appId: com.moorea.carmaintenance
     visible: 'Email me a code'
     timeout: 10000
 - takeScreenshot: 4-sign-in
+- tapOn: 'you@example.com'
+- inputText: 'demo@example.com'
+- tapOn: 'Email me a code'
+- extendedWaitUntil:
+    visible: 'Enter the code we sent to demo@example.com.'
+    timeout: 10000
+- takeScreenshot: 5-sign-in-code

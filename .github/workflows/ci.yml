@@ -109,7 +109,7 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/screenshots"
           # takeScreenshot writes to the working directory; failure screenshots go to the output dir.
-          find . "$RUNNER_TEMP/maestro" -name '*.png' -newer package.json -not -path '*/node_modules/*' \
+          find . "$RUNNER_TEMP/maestro" -name '*.png' -newer package.json -not -path '*/node_modules/*' -not -path '*/ios/*' \
             -exec cp {} "$RUNNER_TEMP/screenshots/" \; || true
           xcrun simctl io booted screenshot "$RUNNER_TEMP/screenshots/last.png" || true
       # Also keep the screenshots on the ios-screenshots branch, one folder per commit, so a PR can

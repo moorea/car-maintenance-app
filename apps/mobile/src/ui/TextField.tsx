@@ -40,7 +40,16 @@ export function TextField({ label, value, onChangeText, error, ...input }: Props
         autoComplete={input.autoComplete ?? 'off'}
         autoCapitalize={input.autoCapitalize ?? 'sentences'}
         autoCorrect={false}
-        style={{ width: '100%', ...(error ? { borderColor: colors.danger } : {}) }}
+        // Filled like an iOS search field. Without a fill the native field draws nothing, so an
+        // empty field with no placeholder is invisible on iOS.
+        style={{
+          width: '100%',
+          height: 44,
+          borderRadius: 12,
+          paddingHorizontal: 14,
+          backgroundColor: colors.neutralSubtle,
+          ...(error ? { borderWidth: 1, borderColor: colors.danger } : { borderWidth: 0 }),
+        }}
       />
       {error ? <Text textStyle={{ fontSize: 12, color: colors.danger }}>{error}</Text> : null}
     </Column>
