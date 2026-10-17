@@ -31,19 +31,20 @@ export const createSyncSession = (
   db: SyncDatabase,
   log: (message: string) => void = console.warn,
 ): SyncSession => {
-  let connectedAs: string | null = null
+  // The last auth state fully applied: a user id, null once signed out, undefined at launch.
+  let applied: string | null | undefined
   let queue = Promise.resolve()
 
   const apply = async (userId: string | null) => {
-    if (userId === connectedAs) return
+    if (userId === applied) return
     if (userId === null) {
-      connectedAs = null
       const pending = await db.pendingUploads()
       if (pending === 0) await db.clear()
       else {
         await db.disconnect()
         log(`Signed out with ${pending} changes not uploaded; keeping them for the next sign-in`)
       }
+      applied = null
       return
     }
     const owner = await db.owner()
@@ -51,12 +52,12 @@ export const createSyncSession = (
       const pending = await db.pendingUploads()
       if (pending > 0) log(`Discarding ${pending} changes another user made offline on this phone`)
       await db.clear()
-    } else if (connectedAs !== null) {
+    } else if (typeof applied === 'string') {
       await db.disconnect()
     }
     await db.setOwner(userId)
     await db.connect()
-    connectedAs = userId
+    applied = userId
   }
 
   return {

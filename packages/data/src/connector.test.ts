@@ -8,7 +8,7 @@ const signedIn = { access_token: 'jwt', expires_at: 1_800_000_000 }
 const auth = (session: object | null, error: Error | null = null) =>
   ({ getSession: async () => ({ data: { session }, error }) }) as unknown as SupabaseAuth
 
-const unusedBackend = {} as CrudBackend
+const unusedBackend = () => ({}) as CrudBackend
 
 describe('SupabaseConnector', () => {
   it('authenticates sync with the signed-in user’s token', async () => {
@@ -45,5 +45,26 @@ describe('SupabaseConnector', () => {
     const connector = new SupabaseConnector(auth(null), unusedBackend, 'https://ps.example')
     await expect(connector.uploadData(db)).rejects.toThrow(/Not signed in/)
     expect(read).toBe(false)
+  })
+
+  it('uploads with the token it started with, even if the session changes midway', async () => {
+    let session: object | null = signedIn
+    const tokens: string[] = []
+    const db = {
+      getNextCrudTransaction: async () => {
+        session = null // signed out while the upload runs
+        return null
+      },
+    } as unknown as CommonPowerSyncDatabase
+    const connector = new SupabaseConnector(
+      { getSession: async () => ({ data: { session }, error: null }) } as unknown as SupabaseAuth,
+      (token) => {
+        tokens.push(token)
+        return {} as CrudBackend
+      },
+      'https://ps.example',
+    )
+    await connector.uploadData(db)
+    expect(tokens).toEqual(['jwt'])
   })
 })

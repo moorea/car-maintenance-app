@@ -24,6 +24,22 @@ const fakeDatabase = (state: { pending?: number; owner?: string } = {}) => {
 }
 
 describe('sync session', () => {
+  it('cleans up on sign-out even if connecting had failed', async () => {
+    const { db, calls } = fakeDatabase()
+    const session = createSyncSession(
+      {
+        ...db,
+        connect: async () => {
+          throw new Error('offline')
+        },
+      },
+      () => {},
+    )
+    await expect(session.setUser('a')).rejects.toThrow('offline')
+    await session.setUser(null)
+    expect(calls).toEqual(['clear'])
+  })
+
   it('connects once however many sign-in events arrive', async () => {
     const { db, calls } = fakeDatabase()
     const session = createSyncSession(db)
