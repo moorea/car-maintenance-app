@@ -121,6 +121,51 @@ jobs:
             ${{ runner.temp }}/screenshots
             ${{ runner.temp }}/maestro
 
+  # Keeps the latest emulator screenshots on the android-screenshots branch, one folder per commit,
+  # so a PR can show them inline and they can be fetched with plain git. A separate job so the
+  # write token never shares a runner with install scripts or app code. Skipped for forks.
+  android-screenshots:
+    needs: android
+    if: ${{ !cancelled() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      KEEP: 40
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: android-emulator
+          path: ${{ runner.temp }}/artifact
+      - name: Publish to the android-screenshots branch
+        env:
+          TOKEN: ${{ github.token }}
+        run: |
+          shots="$RUNNER_TEMP/artifact/screenshots"
+          compgen -G "$shots/*.png" > /dev/null || { echo "No screenshots to publish"; exit 0; }
+          remote="https://x-access-token:$TOKEN@github.com/$GITHUB_REPOSITORY.git"
+          git init -q branch && cd branch
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Each publish replaces the branch with one commit holding the newest $KEEP folders, so
+          # clones never carry the screenshot history.
+          for attempt in 1 2 3; do
+            git rm -rqf --ignore-unmatch . && rm -rf -- * && lease=""
+            if git fetch -q --depth 1 "$remote" android-screenshots; then
+              git checkout -q --detach FETCH_HEAD
+              lease="$(git rev-parse HEAD)"
+            fi
+            rm -rf "$SHA" && mkdir "$SHA" && cp "$shots"/*.png "$SHA/"
+            grep -vx "$SHA" order.txt 2> /dev/null > order.new || true
+            echo "$SHA" >> order.new && tail -n "$KEEP" order.new > order.txt && rm order.new
+            for dir in */; do grep -qx "${dir%/}" order.txt || rm -rf "$dir"; done
+            git checkout -q --orphan "publish-$attempt"
+            git add -A && git commit -qm "Android emulator screenshots, latest $SHA"
+            git push -q --force-with-lease="android-screenshots:$lease" "$remote" HEAD:refs/heads/android-screenshots && exit 0
+          done
+          exit 1
+
   database:
     runs-on: ubuntu-latest
     steps:
