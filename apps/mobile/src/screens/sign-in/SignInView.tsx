@@ -1,11 +1,12 @@
 import type { SignInActions, SignInState } from '@car/core'
-import { Button, Column, ScrollView, type UniversalStyle } from '@expo/ui'
+import { Column, ScrollView, type UniversalStyle } from '@expo/ui'
 import { useColors } from '../../theme'
 import { Host } from '../../ui/Host'
 import { ErrorText, Note } from '../../ui/Note'
 import { Symbol } from '../../ui/Symbol'
 import { TextField } from '../../ui/TextField'
 import { Text } from '../../ui/Text'
+import { Button } from '../../ui/Button'
 
 type Props = SignInState &
   Pick<

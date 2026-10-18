@@ -1,4 +1,4 @@
-import { Button, Column, Row } from '@expo/ui'
+import { Column, Row } from '@expo/ui'
 import { Divider, ProgressView } from '@expo/ui/swift-ui'
 import {
   accessibilityAddTraits,
@@ -22,6 +22,7 @@ import { useColors, type ColorRole } from '../theme'
 import { Symbol } from './Symbol'
 import type { SymbolName } from './symbols'
 import { Text } from './Text'
+import { Button } from './Button'
 
 // Liquid Glass arrived in iOS 26. Before that, glass modifiers do nothing, so fall back to the
 // system material and a bordered button.

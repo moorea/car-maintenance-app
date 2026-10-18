@@ -1,10 +1,11 @@
 import type { ScheduleItemActions, ScheduleItemState } from '@car/core'
-import { BottomSheet, Button, Column, Row, ScrollView, Spacer } from '@expo/ui'
+import { BottomSheet, Column, Row, ScrollView, Spacer } from '@expo/ui'
 import { useColors } from '../../theme'
 import { ErrorText, Note } from '../../ui/Note'
 import { Text } from '../../ui/Text'
 import { TextField } from '../../ui/TextField'
 import { PillButton } from '../../ui/surfaces'
+import { Button } from '../../ui/Button'
 
 type Props = ScheduleItemState &
   Pick<ScheduleItemActions, 'setField' | 'close' | 'save' | 'reset' | 'remove'>

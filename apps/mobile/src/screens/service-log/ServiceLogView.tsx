@@ -1,5 +1,5 @@
 import type { LogEntry, LogGroup, ServiceLogActions, ServiceLogState } from '@car/core'
-import { BottomSheet, Button, Column, Row, ScrollView, Spacer } from '@expo/ui'
+import { BottomSheet, Column, Row, ScrollView, Spacer } from '@expo/ui'
 import { Fragment } from 'react'
 import { ActivityIndicator, StyleSheet } from 'react-native'
 import { useColors } from '../../theme'
@@ -21,6 +21,7 @@ import {
 } from '../attachments/AttachmentList'
 import { Reflow } from '../../ui/Reflow'
 import { Text } from '../../ui/Text'
+import { Button } from '../../ui/Button'
 
 type Props = ServiceLogState &
   Pick<

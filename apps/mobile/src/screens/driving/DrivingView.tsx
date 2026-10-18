@@ -4,7 +4,7 @@ import {
   type DrivingQuestion,
   type DrivingState,
 } from '@car/core'
-import { Button, Column, Row, ScrollView, Spacer, Switch } from '@expo/ui'
+import { Column, Row, ScrollView, Spacer, Switch } from '@expo/ui'
 import { Fragment } from 'react'
 import { ActivityIndicator, StyleSheet } from 'react-native'
 import { useColors } from '../../theme'
@@ -14,6 +14,7 @@ import { Symbol } from '../../ui/Symbol'
 import { TAB_BAR_CLEARANCE } from '../../ui/TabBar'
 import { Card, GlassIconButton, Separator } from '../../ui/surfaces'
 import { Text } from '../../ui/Text'
+import { Button } from '../../ui/Button'
 
 type Props = DrivingState &
   Pick<DrivingActions, 'answer'> & {

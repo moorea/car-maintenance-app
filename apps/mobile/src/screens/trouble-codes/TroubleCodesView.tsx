@@ -6,7 +6,7 @@ import {
   type TroubleCodesActions,
   type TroubleCodesState,
 } from '@car/core'
-import { Button, Column, Row, ScrollView, Spacer, Switch } from '@expo/ui'
+import { Column, Row, ScrollView, Spacer, Switch } from '@expo/ui'
 import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native'
 import { useColors, type ColorRole } from '../../theme'
 import { Host } from '../../ui/Host'
@@ -16,6 +16,7 @@ import type { SymbolName } from '../../ui/symbols'
 import { TextField } from '../../ui/TextField'
 import { Card, FillColumn, GlassIconButton, PillButton } from '../../ui/surfaces'
 import { Text } from '../../ui/Text'
+import { Button } from '../../ui/Button'
 
 type Props = TroubleCodesState &
   Pick<TroubleCodesActions, 'setDraft' | 'setFlashing' | 'check' | 'edit' | 'startOver'> & {

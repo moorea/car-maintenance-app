@@ -1,5 +1,5 @@
 import type { AiSharingState } from '@car/core'
-import { Button, Column, Row, ScrollView } from '@expo/ui'
+import { Column, Row, ScrollView } from '@expo/ui'
 import { StyleSheet } from 'react-native'
 import { useColors } from '../../theme'
 import { Host } from '../../ui/Host'
@@ -8,6 +8,7 @@ import { Card, FillColumn, GlassIconButton, PillButton } from '../../ui/surfaces
 import { Symbol } from '../../ui/Symbol'
 import type { SymbolName } from '../../ui/symbols'
 import { Text } from '../../ui/Text'
+import { Button } from '../../ui/Button'
 
 type Props = AiSharingState & {
   /** Which screen asked, so the copy names what it sends. */

@@ -1,5 +1,5 @@
 import type { CoverageState, WarrantyActions, WarrantyRow, WarrantyState } from '@car/core'
-import { BottomSheet, Button, Column, Row, ScrollView, Spacer } from '@expo/ui'
+import { BottomSheet, Column, Row, ScrollView, Spacer } from '@expo/ui'
 import type { ReactNode } from 'react'
 import { ActivityIndicator, StyleSheet } from 'react-native'
 import { useColors, type ColorRole } from '../../theme'
@@ -11,6 +11,7 @@ import { ChoiceField } from '../../ui/ChoiceField'
 import { Symbol } from '../../ui/Symbol'
 import { Card, FillColumn, GlassIconButton, PillButton, ProgressBar } from '../../ui/surfaces'
 import { Text } from '../../ui/Text'
+import { Button } from '../../ui/Button'
 
 type Props = WarrantyState &
   Pick<
