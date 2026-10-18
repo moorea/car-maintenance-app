@@ -29,6 +29,10 @@ Screens read and write SQLite only; PowerSync syncs it with Supabase Postgres in
 - **Ids** are UUIDs generated on the device, so rows created offline never collide.
 - `packages/data` takes the database as a parameter and imports only `@powersync/common`. The app
   passes the React Native database; tests pass `@powersync/node` with a temporary file.
+- **End-to-end sync tests** (`packages/data/e2e`) run the same adapters as several phones against
+  a local Supabase and a self-hosted PowerSync in Docker (`scripts/start-local-sync.sh`), serving
+  this repo's migrations and sync rules. They cover two phones of one owner, offline queues, other
+  owners' data and deletes of a car or account. Every table the phone uploads needs a case there.
 
 ## Why
 

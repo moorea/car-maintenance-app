@@ -128,7 +128,7 @@ export default tseslint.config(
     // Data adapters run on the phone and in Node tests, so they take the database as a parameter
     // instead of importing a platform driver.
     files: ['packages/data/**/*.{ts,tsx,mts,cts}'],
-    ignores: ['packages/data/**/*.test.ts'],
+    ignores: ['packages/data/**/*.test.ts', 'packages/data/e2e/**'],
     rules: {
       'no-restricted-imports': [
         'error',
