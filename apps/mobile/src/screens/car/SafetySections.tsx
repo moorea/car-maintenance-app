@@ -6,13 +6,13 @@ import {
   type SafetyState,
 } from '@car/core'
 import { Button, Column, Row } from '@expo/ui'
-import { Collapsible } from '../../ui/Collapsible'
 import { Fragment } from 'react'
 import { Linking } from 'react-native'
 import { useColors } from '../../theme'
 import { Note } from '../../ui/Note'
 import { Card, Separator } from '../../ui/surfaces'
 import { Symbol } from '../../ui/Symbol'
+import { Collapsible } from '../../ui/Collapsible'
 import { Text } from '../../ui/Text'
 
 type Props = SafetyState & Pick<SafetyActions, 'toggle'>
