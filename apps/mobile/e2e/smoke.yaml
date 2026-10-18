@@ -52,6 +52,11 @@ appId: com.moorea.carmaintenance
     visible: 'Delete your account?'
     timeout: 5000
 - takeScreenshot: 4-account-delete-confirm
+# The confirmation's buttons can sit below the fold, under the tab bar.
+- scrollUntilVisible:
+    element: 'Cancel'
+    centerElement: true
+    timeout: 30000
 - tapOn: 'Cancel'
 - scrollUntilVisible:
     element: 'Sign out'
