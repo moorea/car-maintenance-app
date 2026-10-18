@@ -857,6 +857,7 @@ describe('owner isolation', () => {
       service_records: 0,
       warranties: 0,
       fill_ups: 0,
+      tire_sets: 0,
       renewals: 0,
       custom_items: 0,
       attachments: 0,
@@ -883,7 +884,7 @@ describe('owner isolation', () => {
     )
     await b.uploaded()
 
-    expect(b.dropped).toHaveLength(7)
+    expect(b.dropped).toHaveLength(8)
     for (const table of [
       'service_records',
       'warranties',
