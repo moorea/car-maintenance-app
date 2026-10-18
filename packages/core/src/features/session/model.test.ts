@@ -130,6 +130,15 @@ describe('session model', () => {
     expect(model.getState()).toMatchObject({ selectedVehicleId: 'v-accord', tab: 'car' })
   })
 
+  it('leaves a page that is not about one car open when the selected car is removed', () => {
+    const { vehicles, model } = setup(true, [civic, accord])
+    model.getState().start()
+    model.getState().selectVehicle('v-accord')
+    model.getState().openTab('account')
+    vehicles.set([civic])
+    expect(model.getState()).toMatchObject({ selectedVehicleId: 'v-civic', tab: 'account' })
+  })
+
   it('asks for a car once the last one is removed', () => {
     const { vehicles, model } = setup(true, [civic])
     model.getState().start()

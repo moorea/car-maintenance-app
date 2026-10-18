@@ -894,7 +894,7 @@ describe('attachments', () => {
 })
 
 describe('deletes', () => {
-  it('removes a deleted car and everything logged for it from both phones and the server', async () => {
+  it('removes a car and everything logged for it from both phones, the server and Storage', async () => {
     const owner = await createUser()
     const [a, b] = [await open(owner), await open(owner)]
     const { id: vehicleId } = await addCar(a)
@@ -913,8 +913,7 @@ describe('deletes', () => {
       'everything on the second phone',
     )
 
-    // The app has no screen for this yet; the uploader already sends a deleted car.
-    await a.db.execute('delete from vehicles where id = ?', [vehicleId])
+    await a.vehicles.remove(vehicleId)
     await a.uploaded()
 
     // With no car left, the shared schedule and recalls for its configuration go too.
@@ -929,6 +928,12 @@ describe('deletes', () => {
     expect(await serverRows('vehicles', 'id', vehicleId)).toEqual([])
     for (const table of UPLOADABLE_TABLES.filter((t) => t !== 'vehicles'))
       expect(await serverRows(table, 'vehicle_id', vehicleId)).toEqual([])
+    // Its documents' files leave Storage with it, not only at the next orphan sweep.
+    const { data, error } = await admin.storage.from('attachments').list(owner.id)
+    expect(error).toBeNull()
+    expect(data?.map((f) => f.name)).not.toContain(receipt.id)
+    for (const phone of [a, b])
+      await until(async () => (await phone.files.read(receipt.id)) === undefined, 'the local file')
   })
 
   it("removes a deleted account's data from the server and from every phone", async () => {

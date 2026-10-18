@@ -25,7 +25,7 @@ export interface EditCarActions {
   start: () => void
   open: () => void
   setNickname: (value: string) => void
-  /** Closes the sheet, unless a save or removal is running. */
+  /** Closes the sheet. A save or removal already running still finishes. */
   close: () => void
   /** Saves the name. Resolves true when saved. */
   save: () => Promise<boolean>
@@ -50,6 +50,7 @@ export const createEditCarModel = (deps: EditCarDeps): EditCarModel => {
       if (form) set({ form: { ...form, ...patch } })
     }
     const busy = (form: EditCarForm) => form.saving || form.removing
+    let writing = false
 
     return {
       title: `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
@@ -58,7 +59,9 @@ export const createEditCarModel = (deps: EditCarDeps): EditCarModel => {
       start: () => {},
       dispose: () => {},
 
-      open: () =>
+      open: () => {
+        // Reopened while a write is still running: it would close the new sheet when it ends.
+        if (writing) return
         set({
           form: {
             nickname: vehicle.nickname,
@@ -66,7 +69,8 @@ export const createEditCarModel = (deps: EditCarDeps): EditCarModel => {
             confirmingRemove: false,
             removing: false,
           },
-        }),
+        })
+      },
 
       setNickname: (nickname) => {
         const form = get().form
@@ -74,10 +78,9 @@ export const createEditCarModel = (deps: EditCarDeps): EditCarModel => {
         update({ nickname, nicknameError: undefined, confirmingRemove: false, error: undefined })
       },
 
-      close: () => {
-        const form = get().form
-        if (form && !busy(form)) set({ form: undefined })
-      },
+      // A swipe closes the sheet whatever the model says, so the form always goes with it; a save
+      // or removal still running finishes on its own.
+      close: () => set({ form: undefined }),
 
       save: async () => {
         const form = get().form
@@ -92,11 +95,14 @@ export const createEditCarModel = (deps: EditCarDeps): EditCarModel => {
           return true
         }
         update({ saving: true, confirmingRemove: false, error: undefined })
+        writing = true
         try {
           await deps.vehicles.rename(vehicle.id, parsed.data)
         } catch {
           update({ saving: false, error: "Couldn't save the name. Try again." })
           return false
+        } finally {
+          writing = false
         }
         set({ form: undefined })
         return true
@@ -110,6 +116,7 @@ export const createEditCarModel = (deps: EditCarDeps): EditCarModel => {
           return false
         }
         update({ removing: true, error: undefined })
+        writing = true
         try {
           await deps.vehicles.remove(vehicle.id)
         } catch {
@@ -119,6 +126,8 @@ export const createEditCarModel = (deps: EditCarDeps): EditCarModel => {
             error: "Couldn't remove the car. Try again.",
           })
           return false
+        } finally {
+          writing = false
         }
         set({ form: undefined })
         return true

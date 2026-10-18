@@ -96,6 +96,19 @@ const PARENT: Partial<Record<AppTab, AppTab>> = {
   data: 'account',
 }
 
+/** The pages about the selected car, which would show another car's data once it is removed. */
+const CAR_PAGES = new Set<AppTab>([
+  'car',
+  'log',
+  'ask',
+  'quote',
+  'codes',
+  'warranty',
+  'fuel',
+  'driving',
+  'renewals',
+])
+
 /** Root model: follows sign-in and the owner's vehicles, and keeps one vehicle selected. */
 export const createSessionModel = (deps: {
   auth: AuthPort
@@ -142,8 +155,9 @@ export const createSessionModel = (deps: {
       const kept = sorted.find((v) => v.id === previous)
       const selected = opened ?? added ?? kept ?? sorted[0]
       // The selected car was removed (here or on another phone): its pages would show the next
-      // car instead, so the owner lands on the garage.
-      const gone = previous !== undefined && !kept && selected?.id !== previous
+      // car instead, so the owner lands on the garage. Pages not about one car stay open.
+      const gone =
+        previous !== undefined && !kept && selected?.id !== previous && CAR_PAGES.has(get().tab)
       set({
         vehicles: sorted,
         selectedVehicleId: selected?.id,

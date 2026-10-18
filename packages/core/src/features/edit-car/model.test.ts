@@ -112,7 +112,31 @@ describe('edit car', () => {
     expect(garage()).toEqual(['RAV4', 'Civic'])
   })
 
-  it('cannot be closed or changed while a removal is running', async () => {
+  it('closes when swiped away mid-removal, stays closed after it, and opens again only once it ends', async () => {
+    const vehicles = memoryVehicles([car])
+    let finish = () => {}
+    const slow = {
+      rename: vehicles.rename,
+      remove: (id: string) =>
+        new Promise<void>((resolve) => {
+          finish = () => void vehicles.remove(id).then(resolve)
+        }),
+    }
+    const model = createEditCarModel({ vehicle: car, vehicles: slow })
+    model.getState().open()
+    await model.getState().remove()
+    const removing = model.getState().remove()
+    model.getState().close()
+    expect(model.getState().form).toBeUndefined()
+    model.getState().open()
+    expect(model.getState().form).toBeUndefined()
+    finish()
+    expect(await removing).toBe(true)
+    model.getState().open()
+    expect(model.getState().form).toBeDefined()
+  })
+
+  it('cannot be changed while a removal is running', async () => {
     const vehicles = memoryVehicles([car])
     let finish = () => {}
     const slow = {
@@ -127,7 +151,6 @@ describe('edit car', () => {
     await model.getState().remove()
     const removing = model.getState().remove()
     expect(model.getState().form?.removing).toBe(true)
-    model.getState().close()
     model.getState().setNickname('Other')
     expect(await model.getState().save()).toBe(false)
     expect(model.getState().form).toMatchObject({ nickname: 'RAV4', removing: true })
