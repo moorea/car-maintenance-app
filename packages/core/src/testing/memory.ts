@@ -488,6 +488,7 @@ export const memoryPreferences = (
     aiSharingOwner: null,
     remindersOffered: false,
     historyDismissed: [],
+    zip: null,
     ...initial,
   }
   let fail = false

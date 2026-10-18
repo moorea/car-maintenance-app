@@ -16,8 +16,10 @@ import { currentBulletins } from '../../lib/knownIssues'
 import { MAX_QUOTE_PHOTO_BASE64 } from '../../schemas/quote'
 import type {
   Clock,
+  DevicePreferencesRepo,
   OdometerRepo,
   PhotoPicker,
+  PriceEstimator,
   QuoteReader,
   SafetyRepo,
   ScheduleRepo,
@@ -26,9 +28,11 @@ import type {
   VehicleRepo,
 } from '../../ports'
 import { checkQuote, type QuoteCheck } from '../../quotes/checkQuote'
+import { comparePrices, estimateRequestFor, type FairPrices } from '../../quotes/fairPrice'
 import { formatQuoteText, parseQuoteText } from '../../quotes/parseQuote'
 import { weighRepair, worthWeighing, type RepairWeighing } from '../../quotes/repairOrReplace'
 import { formatCarValue, parseCarValue } from '../../schemas/carValue'
+import { ZIP_PATTERN } from '../../schemas/priceEstimate'
 
 /**
  * - `editing`: the owner is typing the quote's lines, or correcting what a photo read.
@@ -37,6 +41,17 @@ import { formatCarValue, parseCarValue } from '../../schemas/carValue'
  * - `checked`: the result is showing.
  */
 export type QuoteStatus = 'editing' | 'reading' | 'checking' | 'checked'
+
+/**
+ * Fair prices for a checked quote, which the model estimates from labor times and local rates:
+ * - `estimating`: the estimate is being made on the server.
+ * - `ready`: each line's usual range, set against the shop's prices.
+ * - `failed`: why it could not be made, in words.
+ */
+export type FairPricesState =
+  | { status: 'estimating' }
+  | { status: 'ready'; fair: FairPrices }
+  | { status: 'failed'; error: string }
 
 export interface QuoteCheckState {
   status: QuoteStatus
@@ -61,6 +76,12 @@ export interface QuoteCheckState {
   valueDraft: string
   /** Why the value could not be saved. */
   valueError?: string | undefined
+  /** What the owner typed for the ZIP code fair prices are estimated around. Starts as the saved one. */
+  zipDraft: string
+  /** True when a checked quote has a line worth pricing, the ZIP is valid and nothing is running. */
+  canEstimate: boolean
+  /** Absent until the owner asks for fair prices, and again once the quote is edited. */
+  prices?: FairPricesState | undefined
   /** Why the last photo or check failed. Cleared by the next one. */
   error?: string | undefined
 }
@@ -82,6 +103,10 @@ export interface QuoteCheckActions {
   startOver: () => void
   /** A question for Ask about one checked line, by its index. */
   questionFor: (index: number) => string | undefined
+  /** Keeps up to five digits of what was typed, and drops prices estimated around another ZIP. */
+  setZip: (text: string) => void
+  /** Estimates the checked quote's fair prices around the ZIP, and saves the ZIP for next time. */
+  estimatePrices: () => Promise<void>
   setValueDraft: (text: string) => void
   /** Saves the car's value as typed, or forgets it when the field is empty, and weighs again. */
   saveValue: () => Promise<void>
@@ -93,7 +118,16 @@ export type QuoteCheckModel = StoreApi<QuoteCheckState & QuoteCheckActions>
 export interface QuoteCheckDeps {
   vehicle: Pick<
     Vehicle,
-    'id' | 'year' | 'make' | 'model' | 'severeDuty' | 'configId' | 'valueCents' | 'valuedOn'
+    | 'id'
+    | 'year'
+    | 'make'
+    | 'model'
+    | 'trim'
+    | 'engine'
+    | 'severeDuty'
+    | 'configId'
+    | 'valueCents'
+    | 'valuedOn'
   >
   vehicles: Pick<VehicleRepo, 'setValue'>
   schedule: ScheduleRepo
@@ -103,6 +137,8 @@ export interface QuoteCheckDeps {
   clock: Clock
   photos: PhotoPicker
   reader: QuoteReader
+  estimator: PriceEstimator
+  preferences: DevicePreferencesRepo
 }
 
 const READ_ERRORS: Record<AssistantErrorKind, string> = {
@@ -115,6 +151,18 @@ const READ_ERRORS: Record<AssistantErrorKind, string> = {
   'not-allowed':
     'Reading photos is turned off in Account. Turn on sharing with Anthropic, or type the lines.',
   unknown: 'Something went wrong reading the photo. Try again, or type the lines.',
+}
+
+const ESTIMATE_ERRORS: Record<AssistantErrorKind, string> = {
+  offline: "You're offline. Estimating fair prices needs a connection.",
+  'signed-out': 'Sign in again to estimate fair prices.',
+  'not-found': 'Something went wrong. Try again.',
+  'rate-limited': "You've used the assistant a lot today. Try again tomorrow.",
+  unavailable: "Estimating fair prices isn't available right now.",
+  declined: "These lines couldn't be priced. Try rewording them.",
+  'not-allowed':
+    'Fair prices are turned off in Account. Turn on sharing with Anthropic to use them.',
+  unknown: 'Something went wrong estimating fair prices. Try again.',
 }
 
 const canCheck = (status: QuoteStatus, unmatched: boolean, draft: string) =>
@@ -131,6 +179,10 @@ export const createQuoteCheckModel = (deps: QuoteCheckDeps): QuoteCheckModel => 
   let bulletins: Bulletin[] = []
   let stopSafety: Unsubscribe | undefined
   let reading: { cancel: () => void } | undefined
+  let estimating: { cancel: () => void } | undefined
+  let stopPreferences: Unsubscribe | undefined
+  // The ZIP saved on this phone, offered until the owner types another.
+  let zipTouched = false
   // True while the camera or photo picker is open, so a second tap does not open another.
   let picking = false
   let disposed = false
@@ -140,15 +192,61 @@ export const createQuoteCheckModel = (deps: QuoteCheckDeps): QuoteCheckModel => 
     { items: MaintenanceItem[]; records: ServiceRecord[]; readings: OdometerReading[] } | undefined
 
   return createStore<QuoteCheckState & QuoteCheckActions>()((set, get) => {
+    const stopEstimating = () => {
+      estimating?.cancel()
+      estimating = undefined
+    }
+
     const editing = (patch: Partial<QuoteCheckState> = {}) => {
       const draft = patch.draft ?? get().draft
+      stopEstimating()
       set({
         status: 'editing',
         result: undefined,
         weighing: undefined,
+        prices: undefined,
+        canEstimate: false,
         ...patch,
         canCheck: canCheck('editing', unmatched, draft),
       })
+    }
+
+    const canEstimate = (
+      result: QuoteCheck | undefined,
+      zip: string,
+      prices: FairPricesState | undefined,
+    ) =>
+      result !== undefined &&
+      prices?.status !== 'estimating' &&
+      ZIP_PATTERN.test(zip) &&
+      estimateRequestFor(vehicle, zip, result) !== undefined
+
+    const estimatePrices = async () => {
+      const { status, result, zipDraft: zip, prices } = get()
+      if (status !== 'checked' || !result || !canEstimate(result, zip, prices)) return
+      const request = estimateRequestFor(vehicle, zip, result)
+      if (!request) return
+      const { signal, cancel } = cancellation()
+      estimating = { cancel }
+      set({ prices: { status: 'estimating' }, canEstimate: false })
+      try {
+        const estimate = await deps.estimator.estimate(request, signal)
+        if (signal.aborted) return
+        estimating = undefined
+        const ready: FairPricesState = {
+          status: 'ready',
+          fair: comparePrices(result, estimate, zip),
+        }
+        set({ prices: ready, canEstimate: canEstimate(result, zip, ready) })
+        // Only a convenience for next time, so a failed save changes nothing on screen.
+        deps.preferences.update({ zip }).catch(() => {})
+      } catch (e) {
+        if (signal.aborted) return
+        estimating = undefined
+        const kind = e instanceof AssistantError ? e.kind : 'unknown'
+        const failed: FairPricesState = { status: 'failed', error: ESTIMATE_ERRORS[kind] }
+        set({ prices: failed, canEstimate: canEstimate(result, zip, failed) })
+      }
     }
 
     // `keep` weighs a quote already being weighed even if a new value makes it small, so the card
@@ -188,7 +286,13 @@ export const createQuoteCheckModel = (deps: QuoteCheckDeps): QuoteCheckModel => 
           today: deps.clock.today(),
         })
         checkedWith = { items, records, readings }
-        set({ status: 'checked', result, weighing: weigh(result), valueError: undefined })
+        set({
+          status: 'checked',
+          result,
+          weighing: weigh(result),
+          valueError: undefined,
+          canEstimate: canEstimate(result, get().zipDraft, undefined),
+        })
       } catch (e) {
         if (disposed) return
         editing({ error: e instanceof Error ? e.message : 'Could not check the quote' })
@@ -247,10 +351,16 @@ export const createQuoteCheckModel = (deps: QuoteCheckDeps): QuoteCheckModel => 
       draft: '',
       canCheck: false,
       valueDraft: vehicle.valueCents === undefined ? '' : formatCarValue(vehicle.valueCents),
+      zipDraft: '',
+      canEstimate: false,
 
       start: () => {
         if (stopSafety || !vehicle.configId) return
         disposed = false
+        stopPreferences = deps.preferences.watch(({ zip }) => {
+          if (zipTouched || zip === null || zip === get().zipDraft) return
+          set({ zipDraft: zip, canEstimate: canEstimate(get().result, zip, get().prices) })
+        })
         stopSafety = deps.safety.watchForConfig(vehicle.configId, (report) => {
           recalls = report.recalls
           bulletins = currentBulletins(report.bulletins ?? [])
@@ -291,6 +401,20 @@ export const createQuoteCheckModel = (deps: QuoteCheckDeps): QuoteCheckModel => 
         return `A shop recommended "${line.text}"${price}. Does my car need it now?`
       },
 
+      setZip: (text) => {
+        const zipDraft = text.replace(/\D/g, '').slice(0, 5)
+        zipTouched = true
+        if (zipDraft === get().zipDraft) return
+        stopEstimating()
+        set({
+          zipDraft,
+          prices: undefined,
+          canEstimate: canEstimate(get().result, zipDraft, undefined),
+        })
+      },
+
+      estimatePrices,
+
       setValueDraft: (valueDraft) => set({ valueDraft, valueError: undefined }),
 
       saveValue: async () => {
@@ -327,8 +451,11 @@ export const createQuoteCheckModel = (deps: QuoteCheckDeps): QuoteCheckModel => 
         disposed = true
         reading?.cancel()
         reading = undefined
+        stopEstimating()
         stopSafety?.()
         stopSafety = undefined
+        stopPreferences?.()
+        stopPreferences = undefined
       },
     }
   })

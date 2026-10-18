@@ -78,6 +78,11 @@ describe('AI sharing model', () => {
 
 describe('guardAiSharing', () => {
   const photo = { mediaType: 'image/jpeg' as const, base64: '' }
+  const request = {
+    car: { year: 2021, make: 'Toyota', model: 'RAV4' },
+    zip: '94110',
+    lines: [{ index: 0, text: 'Oil change' }],
+  }
   const services = () => {
     const sent: string[] = []
     return {
@@ -87,10 +92,16 @@ describe('guardAiSharing', () => {
       },
       quoteReader: { read: async () => (sent.push('photo'), []) },
       odometerReader: { read: async () => (sent.push('odometer'), undefined) },
+      priceEstimator: {
+        estimate: async () => (
+          sent.push('prices'),
+          { laborRateCents: { low: 1, high: 1 }, lines: [] }
+        ),
+      },
     }
   }
 
-  it('sends nothing to Anthropic until the signed-in owner allows it', async () => {
+  it('sends nothing to Anthropic, not even a quote to price, until the signed-in owner allows it', async () => {
     const { preferences, auth } = setup()
     const s = services()
     const guarded = guardAiSharing({ preferences, auth }, s)
@@ -98,6 +109,7 @@ describe('guardAiSharing', () => {
     await expect(ask).rejects.toEqual(new AssistantError('not-allowed'))
     await expect(guarded.quoteReader.read(photo)).rejects.toBeInstanceOf(AssistantError)
     await expect(guarded.odometerReader.read(photo)).rejects.toBeInstanceOf(AssistantError)
+    await expect(guarded.priceEstimator.estimate(request)).rejects.toBeInstanceOf(AssistantError)
     expect(s.sent).toEqual([])
   })
 
@@ -108,9 +120,11 @@ describe('guardAiSharing', () => {
     await guarded.assistant.ask({ vehicleId: 'v1', question: 'Due?' }, () => {})
     await guarded.quoteReader.read(photo)
     await guarded.odometerReader.read(photo)
+    await guarded.priceEstimator.estimate(request)
     await preferences.update({ aiSharingOwner: null })
     await expect(guarded.quoteReader.read(photo)).rejects.toBeInstanceOf(AssistantError)
     await expect(guarded.odometerReader.read(photo)).rejects.toBeInstanceOf(AssistantError)
-    expect(s.sent).toEqual(['Due?', 'photo', 'odometer'])
+    await expect(guarded.priceEstimator.estimate(request)).rejects.toBeInstanceOf(AssistantError)
+    expect(s.sent).toEqual(['Due?', 'photo', 'odometer', 'prices'])
   })
 })

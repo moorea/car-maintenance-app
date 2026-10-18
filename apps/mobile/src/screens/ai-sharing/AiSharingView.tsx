@@ -20,7 +20,7 @@ type Props = AiSharingState & {
 const SENT: Record<Props['feature'], string> = {
   ask: "Your question, and this car's details (including its VIN, nickname and the value you gave it), schedule, odometer readings and service log (with costs, shops and your notes), and the recalls and owner complaints for its model.",
   quote:
-    "The photo of the quote, to read its lines. Then, only if you ask about a line, your question and this car's records, as in Ask.",
+    "The photo of the quote, to read its lines. If you ask for fair prices, its lines, the car's model and your ZIP code. If you ask about a line, your question and this car's records, as in Ask.",
 }
 
 /**

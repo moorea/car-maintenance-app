@@ -229,7 +229,7 @@ describe('the read-quote endpoint', () => {
     const { handler, logged } = setup({ storeDown: true })
     const res = await handler(post({ photo: SAMPLE_PHOTO }))
     expect(res.status).toBe(500)
-    expect(logged).toEqual(['Request to read a quote failed'])
+    expect(logged).toEqual(['Request for reading a quote failed'])
   })
 
   it('only takes POST', async () => {

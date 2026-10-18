@@ -5,7 +5,7 @@ import {
   withFillUpReadings,
   type IdGenerator,
 } from '@car/core'
-import { demoOdometerReader, demoQuoteReader } from '@car/core/testing'
+import { demoOdometerReader, demoPriceEstimator, demoQuoteReader } from '@car/core/testing'
 import { nhtsaVinDecoder, storedDevicePreferences, storedReminderSettings } from '@car/data'
 import { randomUUID } from 'expo-crypto'
 import { pdfReportExporter } from './careReport'
@@ -41,6 +41,7 @@ function demoRepositories() {
     quoteReader: demoQuoteReader({ delayMs: 1_500 }),
     // A little past the demo car's last reading, as a photo taken today would show.
     odometerReader: demoOdometerReader({ miles: DEMO_ODOMETER_PHOTO_MILES, delayMs: 1_500 }),
+    priceEstimator: demoPriceEstimator({ delayMs: 1_500 }),
   }
 }
 

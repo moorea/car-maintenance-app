@@ -411,6 +411,40 @@ export interface QuoteLine {
   priceCents?: number
 }
 
+/** A low and high bound, low first. */
+export interface Span {
+  low: number
+  high: number
+}
+
+/**
+ * What a price estimate is asked about: the car, where it is serviced, and the quote's jobs. The
+ * shop's prices are left out so they cannot sway the estimate.
+ */
+export interface PriceEstimateRequest {
+  car: {
+    year: number
+    make: string
+    model: string
+    trim?: string | undefined
+    engine?: string | undefined
+  }
+  /** A five-digit US ZIP code, for local labor rates. */
+  zip: string
+  /** Each job by its index on the quote. */
+  lines: { index: number; text: string }[]
+}
+
+/**
+ * A model's estimate of what the jobs usually cost: the local hourly labor rate from independent
+ * shops to dealers, and for each job it recognises, the labor-guide hours and the parts from
+ * aftermarket to original. A job it cannot price is left out.
+ */
+export interface PriceEstimate {
+  laborRateCents: Span
+  lines: { index: number; laborHours: Span; partsCents: Span }[]
+}
+
 /** A photo of a shop's quote, as the phone's camera or photo library returned it. */
 export interface QuotePhoto {
   mediaType: 'image/jpeg' | 'image/png' | 'image/webp'

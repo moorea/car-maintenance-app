@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { AssistantError, type ServiceRecord, type Vehicle } from '../../domain/types'
 import {
+  controlledPriceEstimator,
   controlledQuoteReader,
   fixedClock,
   memoryOdometer,
   memoryPhotoPicker,
+  memoryPreferences,
   memorySafety,
   memorySchedule,
   memoryServiceRecords,
@@ -24,8 +26,13 @@ const vehicle: Vehicle = {
   severeDuty: false,
 }
 
-const setup = (v: Vehicle = vehicle, repairs: ServiceRecord[] = []) => {
+const setup = (
+  v: Vehicle = vehicle,
+  repairs: ServiceRecord[] = [],
+  preferences = memoryPreferences(),
+) => {
   const reader = controlledQuoteReader()
+  const estimator = controlledPriceEstimator()
   const vehicles = memoryVehicles([v])
   const photos = memoryPhotoPicker()
   const schedule = memorySchedule([
@@ -65,6 +72,8 @@ const setup = (v: Vehicle = vehicle, repairs: ServiceRecord[] = []) => {
     clock: fixedClock('2026-10-17'),
     photos,
     reader,
+    estimator,
+    preferences,
   })
   model.getState().start()
   const call = (n: number) => {
@@ -72,7 +81,23 @@ const setup = (v: Vehicle = vehicle, repairs: ServiceRecord[] = []) => {
     if (!c) throw new Error(`No call ${n}`)
     return c
   }
-  return { model, reader, photos, schedule, vehicles, call, state: () => model.getState() }
+  const estimateCall = (n: number) => {
+    const c = estimator.calls[n]
+    if (!c) throw new Error(`No estimate ${n}`)
+    return c
+  }
+  return {
+    model,
+    reader,
+    estimator,
+    preferences,
+    photos,
+    schedule,
+    vehicles,
+    call,
+    estimateCall,
+    state: () => model.getState(),
+  }
 }
 
 const settle = async () => {
@@ -362,4 +387,102 @@ describe('quote check model', () => {
       expect(state().weighing).toBeUndefined()
     })
   })
+
+  describe('fair prices', () => {
+    const estimate = {
+      laborRateCents: { low: 12_000, high: 18_000 },
+      lines: [
+        { index: 0, laborHours: { low: 0.4, high: 0.4 }, partsCents: { low: 3_500, high: 6_000 } },
+      ],
+    }
+
+    const checked = async (preferences = memoryPreferences()) => {
+      const s = setup(vehicle, [], preferences)
+      s.state().setDraft('Oil change $89.95\nEngine flush $129')
+      await s.state().check()
+      return s
+    }
+
+    it('asks for the car, ZIP and lines, without the shop’s prices, and compares them', async () => {
+      const { state, estimateCall, preferences } = await checked()
+      expect(state().canEstimate).toBe(false)
+      state().setZip('94110')
+      expect(state().canEstimate).toBe(true)
+      void state().estimatePrices()
+      expect(state()).toMatchObject({ prices: { status: 'estimating' }, canEstimate: false })
+      expect(estimateCall(0).request).toEqual({
+        car: { year: 2021, make: 'Toyota', model: 'RAV4' },
+        zip: '94110',
+        lines: [
+          { index: 0, text: 'Oil change' },
+          { index: 1, text: 'Engine flush' },
+        ],
+      })
+      estimateCall(0).resolve(estimate)
+      await settle()
+      const prices = state().prices
+      expect(prices?.status === 'ready' && prices.fair.lines).toEqual([
+        expect.objectContaining({ index: 0, range: 'Usually $80–$135', fit: 'within' }),
+      ])
+      expect(watchZip(preferences)).toBe('94110')
+    })
+
+    it('offers the ZIP saved last time', async () => {
+      const { state } = await checked(memoryPreferences({ zip: '10001' }))
+      expect(state()).toMatchObject({ zipDraft: '10001', canEstimate: true })
+    })
+
+    it('keeps only five digits of what is typed and needs all five', async () => {
+      const { state } = await checked()
+      state().setZip('9 4-1')
+      expect(state()).toMatchObject({ zipDraft: '941', canEstimate: false })
+      state().setZip('941101234')
+      expect(state().zipDraft).toBe('94110')
+    })
+
+    it('explains a failed estimate in words and lets the owner try again', async () => {
+      const { state, estimateCall } = await checked()
+      state().setZip('94110')
+      void state().estimatePrices()
+      estimateCall(0).reject(new AssistantError('rate-limited'))
+      await settle()
+      expect(state().prices).toEqual({
+        status: 'failed',
+        error: "You've used the assistant a lot today. Try again tomorrow.",
+      })
+      expect(state().canEstimate).toBe(true)
+    })
+
+    it('drops the estimate when the quote is edited or the ZIP changes, ignoring a late answer', async () => {
+      const { state, estimateCall } = await checked()
+      state().setZip('94110')
+      void state().estimatePrices()
+      state().setZip('10001')
+      expect(estimateCall(0).signal?.aborted).toBe(true)
+      estimateCall(0).resolve(estimate)
+      await settle()
+      expect(state().prices).toBeUndefined()
+
+      void state().estimatePrices()
+      estimateCall(1).resolve(estimate)
+      await settle()
+      expect(state().prices?.status).toBe('ready')
+      state().edit()
+      expect(state()).toMatchObject({ prices: undefined, canEstimate: false })
+    })
+
+    it('stops estimating when the screen goes away', async () => {
+      const { state, estimateCall, model } = await checked()
+      state().setZip('94110')
+      void state().estimatePrices()
+      model.getState().dispose()
+      expect(estimateCall(0).signal?.aborted).toBe(true)
+    })
+  })
 })
+
+const watchZip = (preferences: ReturnType<typeof memoryPreferences>) => {
+  let zip: string | null = null
+  preferences.watch((p) => (zip = p.zip))()
+  return zip
+}

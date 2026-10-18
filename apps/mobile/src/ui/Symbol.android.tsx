@@ -37,6 +37,7 @@ import ellipsisIcon from '@expo/material-symbols/more_horiz.xml'
 import calendarIcon from '@expo/material-symbols/calendar_month.xml'
 import bulletinIcon from '@expo/material-symbols/build.xml'
 import gaugeIcon from '@expo/material-symbols/speed.xml'
+import priceIcon from '@expo/material-symbols/attach_money.xml'
 
 interface Props {
   name: SymbolName
@@ -83,6 +84,7 @@ const MATERIAL: Record<SymbolName, ImageSourcePropType> = {
   calendar: calendarIcon,
   bulletin: bulletinIcon,
   gauge: gaugeIcon,
+  price: priceIcon,
 }
 
 /**

@@ -1,7 +1,7 @@
 import { cancellation } from '@car/core'
 import { SAMPLE_PHOTO } from '@car/core/testing'
 import { describe, expect, it } from 'vitest'
-import { remoteOdometerReader, remoteQuoteReader } from './quoteReader'
+import { remoteOdometerReader, remotePriceEstimator, remoteQuoteReader } from './quoteReader'
 
 const URL = 'https://project.supabase.co/functions/v1/assistant/read-quote'
 
@@ -115,5 +115,49 @@ describe('remoteOdometerReader', () => {
     await expect(
       odometer(() => json(429, { error: 'rate-limited' })).read(SAMPLE_PHOTO),
     ).rejects.toMatchObject({ kind: 'rate-limited' })
+  })
+})
+
+describe('remotePriceEstimator', () => {
+  const request = {
+    car: { year: 2019, make: 'Honda', model: 'CR-V' },
+    zip: '94110',
+    lines: [{ index: 0, text: 'Oil change' }],
+  }
+  const estimator = (respond: () => Response) => {
+    const sent: unknown[] = []
+    return {
+      sent,
+      estimator: remotePriceEstimator({
+        url: 'https://project.supabase.co/functions/v1/assistant/estimate-prices',
+        accessToken: async () => 'tok',
+        fetch: async (_url, init) => {
+          sent.push(JSON.parse(String(init?.body)))
+          return respond()
+        },
+      }),
+    }
+  }
+
+  it('posts the request and returns the estimate', async () => {
+    const answer = {
+      laborRateCents: { low: 12_000, high: 18_000 },
+      lines: [
+        { index: 0, laborHours: { low: 0.4, high: 0.5 }, partsCents: { low: 3_500, high: 6_500 } },
+      ],
+    }
+    const { estimator: e, sent } = estimator(() => json(200, answer))
+    await expect(e.estimate(request)).resolves.toEqual(answer)
+    expect(sent).toEqual([request])
+  })
+
+  it('rejects an answer that is not an estimate', async () => {
+    const { estimator: e } = estimator(() => json(200, { laborRateCents: 'cheap' }))
+    await expect(e.estimate(request)).rejects.toMatchObject({ kind: 'unknown' })
+  })
+
+  it('passes on why the server could not estimate', async () => {
+    const { estimator: e } = estimator(() => json(503, { error: 'unavailable' }))
+    await expect(e.estimate(request)).rejects.toMatchObject({ kind: 'unavailable' })
   })
 })
