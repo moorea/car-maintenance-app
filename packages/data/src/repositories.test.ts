@@ -466,6 +466,38 @@ describe('PowerSync repositories', () => {
     ])
   })
 
+  it('lists cars as the owner arranged them, then the rest by name, and uploads only the positions', async () => {
+    const repos = createPowerSyncRepositories(db)
+    const car = (id: string, nickname: string): Vehicle => ({
+      id,
+      year: 2020,
+      make: 'Honda',
+      model: 'Civic',
+      nickname,
+      severeDuty: false,
+    })
+    for (const v of [car('v-a', 'Accord'), car('v-c', 'Commuter'), car('v-f', 'Fit')])
+      await repos.vehicles.add('u1', v)
+    while (true) {
+      const pending = await db.getNextCrudTransaction()
+      if (!pending) break
+      await pending.complete()
+    }
+    const seen: string[][] = []
+    const stop = repos.vehicles.watchOwned('u1', (vs) => seen.push(vs.map((v) => v.id)))
+
+    await repos.vehicles.reorder(['v-f', 'v-a'])
+    await vi.waitFor(() => expect(seen.at(-1)).toEqual(['v-f', 'v-a', 'v-c']))
+    stop()
+    expect(await repos.vehicles.get('v-f')).toMatchObject({ garagePosition: 0 })
+    expect((await repos.vehicles.get('v-c'))?.garagePosition).toBeUndefined()
+    const transaction = await db.getNextCrudTransaction()
+    expect(transaction?.crud.map((c) => [c.id, c.op, Object.keys(c.opData ?? {}).sort()])).toEqual([
+      ['v-f', 'PATCH', ['garage_position', 'updated_at']],
+      ['v-a', 'PATCH', ['garage_position', 'updated_at']],
+    ])
+  })
+
   it("removes a car with its documents first, so their files leave Storage, and leaves the rest to the server's cascade", async () => {
     const repos = createPowerSyncRepositories(db)
     const car: Vehicle = {

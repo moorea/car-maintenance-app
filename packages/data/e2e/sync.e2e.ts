@@ -243,6 +243,7 @@ describe('two phones signed in as one owner', () => {
     await b.warranties.save(extended)
     await b.vehicles.setSevereDuty(vehicleId, true)
     await b.vehicles.setValue(vehicleId, { cents: 1_150_000, valuedOn: '2026-10-17' })
+    await b.vehicles.reorder([vehicleId])
     await b.fillUps.remove(fill.id)
     await b.db.execute('delete from service_records where id = ?', [oilChange.id])
 
@@ -255,11 +256,15 @@ describe('two phones signed in as one owner', () => {
     ).toEqual([extended])
     await eventually(
       () => a.vehicles.get(vehicleId),
-      (v) => v?.severeDuty === true && v.valueCents === 1_150_000,
-      'severe duty and value',
+      (v) => v?.severeDuty === true && v.valueCents === 1_150_000 && v.garagePosition === 0,
+      'severe duty, value and garage position',
     )
     expect(await serverRows('vehicles', 'id', vehicleId)).toEqual([
-      expect.objectContaining({ value_cents: 1_150_000, valued_on: '2026-10-17' }),
+      expect.objectContaining({
+        value_cents: 1_150_000,
+        valued_on: '2026-10-17',
+        garage_position: 0,
+      }),
     ])
     await eventually(
       () => a.fillUps.listForVehicle(vehicleId),
