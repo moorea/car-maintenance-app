@@ -378,6 +378,22 @@ describe('PowerSync repositories', () => {
     expect((await db.getNextCrudTransaction())?.crud.map((c) => c.op)).toEqual(['DELETE'])
   })
 
+  it("tells a watcher about the car's tire sets after each change", async () => {
+    const repos = createPowerSyncRepositories(db)
+    const updates = collect<TireSet[]>((cb) => repos.tireSets.watchForVehicle('v1', cb))
+    await updates.waitFor(1)
+    await repos.tireSets.save({
+      id: 't1',
+      vehicleId: 'v1',
+      name: 'Winter',
+      mounted: false,
+      priorMiles: 0,
+    })
+    const values = await updates.waitFor(2)
+    expect(values.at(-1)?.map((t) => t.name)).toEqual(['Winter'])
+    updates.stop()
+  })
+
   it('remembers whose data the local copy holds, without queueing it for upload', async () => {
     const session = powerSyncSessionDatabase(db, {} as PowerSyncBackendConnector)
     expect(await session.owner()).toBeUndefined()
