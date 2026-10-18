@@ -18,10 +18,10 @@ adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS > /dev/null
 maestro test --test-output-dir "$out/maestro" apps/mobile/e2e/android
 status=$?
 # The same screens as iOS's largest text size check, at Android's largest font scale.
+trap 'adb shell settings put system font_scale 1.0' EXIT
 adb shell settings put system font_scale 2.0
 adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS > /dev/null || true
 maestro test --test-output-dir "$out/maestro/large-text" apps/mobile/e2e-large-text || status=1
-adb shell settings put system font_scale 1.0
 
 # takeScreenshot writes to the working directory; failure screenshots go to the output dir.
 find . "$out/maestro" \( -name node_modules -o -name .expo -o -path ./apps/mobile/android \) -prune \

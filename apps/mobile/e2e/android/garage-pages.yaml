@@ -28,8 +28,9 @@ appId: com.moorea.carmaintenance
     timeout: 5000
 
 - tapOn: 'Reminders'
+# The garage's button reads "Reminders" too, so wait for the page's own switch.
 - extendedWaitUntil:
-    visible: 'Reminders'
+    visible: 'Service reminders'
     timeout: 5000
 - waitForAnimationToEnd
 - takeScreenshot: 41-reminders

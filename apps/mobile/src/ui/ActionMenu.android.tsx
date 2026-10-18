@@ -15,7 +15,8 @@ import { Text } from './Text'
 
 /**
  * A button that opens Material's dropdown menu. With several groups the menu first lists the
- * groups, and choosing one shows its actions in the same menu, as iOS opens a submenu.
+ * groups, and choosing one shows its actions in the same menu under a row that leads back, as iOS
+ * opens a submenu.
  */
 export function ActionMenu({ label, symbol, variant, groups }: ActionMenuProps) {
   const colors = useColors()
@@ -78,11 +79,16 @@ export function ActionMenu({ label, symbol, variant, groups }: ActionMenuProps) 
         )}
       </DropdownMenu.Trigger>
       <DropdownMenu.Items>
-        {shown
-          ? shown.actions.map(action)
-          : groups.map((g) =>
-              item(g.title, g.title, g.symbol, () => setGroup(g), colors.textPrimary),
-            )}
+        {group
+          ? [
+              item('back', group.title, 'back', () => setGroup(undefined), colors.textSecondary),
+              ...group.actions.map(action),
+            ]
+          : shown
+            ? shown.actions.map(action)
+            : groups.map((g) =>
+                item(g.title, g.title, g.symbol, () => setGroup(g), colors.textPrimary),
+              )}
       </DropdownMenu.Items>
     </DropdownMenu>
   )
