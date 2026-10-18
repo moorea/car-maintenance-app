@@ -1,0 +1,28 @@
+# An electric car on Android, as apps/mobile/e2e/electric.yaml does on iOS.
+appId: com.moorea.carmaintenance
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      '-demoElectric': true
+- extendedWaitUntil:
+    visible: 'Demo car.*'
+    timeout: 90000
+- tapOn: 'Car'
+- scrollUntilVisible:
+    element: 'Charging & costs'
+    centerElement: true
+    timeout: 30000
+- waitForAnimationToEnd
+- takeScreenshot: 80-car-electric
+- tapOn: 'Charging & costs'
+- extendedWaitUntil:
+    visible: 'Log a charge'
+    timeout: 10000
+- waitForAnimationToEnd
+- takeScreenshot: 80-charging
+- tapOn: 'Log a charge'
+- waitForAnimationToEnd
+- takeScreenshot: 80-charging-form

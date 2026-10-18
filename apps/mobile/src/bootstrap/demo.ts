@@ -471,6 +471,8 @@ export const createDemoRepositories = () => {
   const firstRun = launchFlag('demoSignedOut')
   // UI tests can add a second car, to show a garage with more than one.
   const twoCars = launchFlag('demoTwoCars')
+  // Or make the demo car electric, to show the pages that speak of charging rather than fuel.
+  const electric = launchFlag('demoElectric')
   const auth = memoryAuth({
     ...(firstRun ? {} : { user: { id: OWNER, email: 'demo@example.com' } }),
     userIdFor: () => (firstRun ? NEW_OWNER : OWNER),
@@ -483,7 +485,7 @@ export const createDemoRepositories = () => {
       make: 'Toyota',
       model: 'RAV4',
       trim: 'XLE',
-      engine: '2.5L 4-cyl',
+      engine: electric ? 'Electric motor' : '2.5L 4-cyl',
       drivetrain: 'AWD',
       nickname: 'Demo car',
       severeDuty: false,
