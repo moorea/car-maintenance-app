@@ -1,6 +1,7 @@
 import {
   createAttachmentsModel,
   createCarModel,
+  createEditCarModel,
   createSafetyModel,
   createScheduleItemModel,
   type Vehicle,
@@ -11,7 +12,7 @@ import { openPrivacyPolicy } from '../../bootstrap/links'
 import { useScreenModel } from '../../models/useScreenModel'
 import { CarView } from './CarView'
 
-/** Wires the car, safety, schedule item and documents models to the view. No state or logic lives here (ADR 0003). */
+/** Wires the car, safety, schedule item, edit car and documents models to the view. No state or logic lives here (ADR 0003). */
 export function CarScreen({
   vehicle,
   onCheckQuote,
@@ -37,6 +38,12 @@ export function CarScreen({
   const scheduleItem = useStore(
     useScreenModel(key, () => createScheduleItemModel({ vehicle, ...deps })),
   )
+  // Keyed by the name too, so the sheet opens with the name the car has now.
+  const editCar = useStore(
+    useScreenModel(`${vehicle.id}:${vehicle.nickname}`, () =>
+      createEditCarModel({ vehicle, ...deps }),
+    ),
+  )
   const documents = useStore(
     useScreenModel(vehicle.id, () => createAttachmentsModel({ vehicleId: vehicle.id, ...deps })),
   )
@@ -45,6 +52,7 @@ export function CarScreen({
       car={car}
       safety={safety}
       scheduleItem={scheduleItem}
+      editCar={editCar}
       documents={documents}
       onCheckQuote={onCheckQuote}
       onTroubleCodes={onTroubleCodes}

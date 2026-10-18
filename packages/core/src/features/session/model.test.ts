@@ -114,6 +114,30 @@ describe('session model', () => {
     expect(model.getState().selectedVehicleId).toBe('v-civic')
   })
 
+  it("lands on the garage when the car whose page is open is removed, not the next car's page", () => {
+    const { vehicles, model } = setup(true, [civic, accord])
+    model.getState().start()
+    model.getState().openCar('v-accord')
+    vehicles.set([civic])
+    expect(model.getState()).toMatchObject({ selectedVehicleId: 'v-civic', tab: 'garage' })
+  })
+
+  it('stays on the open page when a car other than the selected one is removed', () => {
+    const { vehicles, model } = setup(true, [civic, accord])
+    model.getState().start()
+    model.getState().openCar('v-accord')
+    vehicles.set([accord])
+    expect(model.getState()).toMatchObject({ selectedVehicleId: 'v-accord', tab: 'car' })
+  })
+
+  it('asks for a car once the last one is removed', () => {
+    const { vehicles, model } = setup(true, [civic])
+    model.getState().start()
+    model.getState().openCar('v-civic')
+    vehicles.set([])
+    expect(model.getState()).toMatchObject({ status: 'no-vehicles', tab: 'garage' })
+  })
+
   it('ignores selecting a car the owner does not have', () => {
     const { model } = setup(true, [civic])
     model.getState().start()

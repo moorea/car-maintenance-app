@@ -138,15 +138,21 @@ export const createSessionModel = (deps: {
       }
       const added = sorted.find((v) => v.id === justAdded)
       if (added) justAdded = undefined
-      const kept = sorted.find((v) => v.id === get().selectedVehicleId)
+      const previous = get().selectedVehicleId
+      const kept = sorted.find((v) => v.id === previous)
       const selected = opened ?? added ?? kept ?? sorted[0]
+      // The selected car was removed (here or on another phone): its pages would show the next
+      // car instead, so the owner lands on the garage.
+      const gone = previous !== undefined && !kept && selected?.id !== previous
       set({
         vehicles: sorted,
         selectedVehicleId: selected?.id,
         status: selected ? 'ready' : synced ? 'no-vehicles' : 'syncing',
+        ...(gone && !opened && { tab: 'garage' as const, logRequest: undefined }),
         // A tapped reminder opens that car's page.
         ...(opened && { addingCar: false, tab: 'car' as const }),
       })
+      if (gone && !opened) openedFrom = []
     }
 
     const onUser = (user: AuthUser | null) => {
