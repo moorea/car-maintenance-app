@@ -31,9 +31,18 @@ appId: com.moorea.carmaintenance
 - scrollUntilVisible:
     element: 'Known issues'
 - tapOn: 'Known issues'
+- scroll
 - waitForAnimationToEnd
 - takeScreenshot: 31-car-known-issues
+- launchApp
+- extendedWaitUntil:
+    visible: 'Demo car'
+    timeout: 60000
+- tapOn: 'Car'
+- scrollUntilVisible:
+    element: 'Recalls · 2'
 - tapOn: 'Recalls · 2'
+- scroll
 - waitForAnimationToEnd
 - takeScreenshot: 32-car-recalls
 
@@ -58,6 +67,9 @@ appId: com.moorea.carmaintenance
     visible: 'Care report'
     timeout: 5000
 - takeScreenshot: 35-warranty
+- scroll
+- waitForAnimationToEnd
+- takeScreenshot: 35-warranty-care-report
 
 - tapOn: 'Car'
 - scrollUntilVisible:
