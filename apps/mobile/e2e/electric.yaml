@@ -18,9 +18,14 @@ appId: com.moorea.carmaintenance
     timeout: 30000
 - waitForAnimationToEnd
 - takeScreenshot: 80-car-electric
-- tapOn: 'Charging & costs'
-- extendedWaitUntil:
-    visible: 'Log a charge'
-    timeout: 10000
+# The charging page's own chart, not the car page the tap left. Tried twice, as a tap during the
+# scroll's settle can be dropped; a second tap on the page itself lands on its title, harmlessly.
+- retry:
+    maxRetries: 1
+    commands:
+      - tapOn: 'Charging & costs'
+      - extendedWaitUntil:
+          visible: 'Charging efficiency'
+          timeout: 15000
 - waitForAnimationToEnd
 - takeScreenshot: 80-charging
