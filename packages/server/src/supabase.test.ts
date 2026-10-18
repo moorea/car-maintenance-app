@@ -236,6 +236,55 @@ describe('supabaseStore', () => {
     expect(odis).not.toContain(2)
   })
 
+  it('answers from the schedule the owner set: their intervals and their own items', async () => {
+    const user = fakeClient({
+      ...tables,
+      custom_items: [
+        {
+          id: 'own-oil',
+          vehicle_id: 'v1',
+          replaces_item_id: 'oil',
+          task: 'Oil change',
+          interval_miles: 5_000,
+          interval_months: null,
+        },
+        {
+          id: 'own-wipers',
+          vehicle_id: 'v1',
+          replaces_item_id: null,
+          task: 'Wiper blades',
+          interval_miles: null,
+          interval_months: 12,
+        },
+      ],
+    })
+    const facts = await supabaseStore(user.client, fakeClient({}).client, 'u1').facts('v1')
+    expect(facts?.schedule).toEqual([
+      {
+        id: 'oil',
+        configId: 'c1',
+        task: 'Oil change',
+        kind: 'engine-oil',
+        source: 'baseline',
+        intervalMiles: 5_000,
+        owner: 'changed',
+      },
+      {
+        id: 'own-wipers',
+        configId: 'c1',
+        task: 'Wiper blades',
+        source: 'owner',
+        intervalMonths: 12,
+        owner: 'added',
+      },
+    ])
+    expect(user.calls).toContainEqual({
+      table: 'custom_items',
+      op: 'eq',
+      args: ['vehicle_id', 'v1'],
+    })
+  })
+
   it('finds no car the owner cannot see', async () => {
     const store = supabaseStore(fakeClient(tables).client, fakeClient({}).client, 'u1')
     expect(await store.facts('someone-elses')).toBeUndefined()

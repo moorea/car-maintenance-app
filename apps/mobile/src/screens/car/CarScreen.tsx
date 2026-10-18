@@ -1,10 +1,16 @@
-import { createAttachmentsModel, createCarModel, createSafetyModel, type Vehicle } from '@car/core'
+import {
+  createAttachmentsModel,
+  createCarModel,
+  createSafetyModel,
+  createScheduleItemModel,
+  type Vehicle,
+} from '@car/core'
 import { useStore } from 'zustand'
 import { deps } from '../../bootstrap/deps'
 import { useScreenModel } from '../../models/useScreenModel'
 import { CarView } from './CarView'
 
-/** Wires the car, safety and documents models to the view. No state or logic lives here (ADR 0003). */
+/** Wires the car, safety, schedule item and documents models to the view. No state or logic lives here (ADR 0003). */
 export function CarScreen({
   vehicle,
   onCheckQuote,
@@ -27,6 +33,9 @@ export function CarScreen({
   const key = `${vehicle.id}:${vehicle.configId ?? ''}:${vehicle.severeDuty}`
   const car = useStore(useScreenModel(key, () => createCarModel({ vehicle, ...deps })))
   const safety = useStore(useScreenModel(key, () => createSafetyModel({ vehicle, ...deps })))
+  const scheduleItem = useStore(
+    useScreenModel(key, () => createScheduleItemModel({ vehicle, ...deps })),
+  )
   const documents = useStore(
     useScreenModel(vehicle.id, () => createAttachmentsModel({ vehicleId: vehicle.id, ...deps })),
   )
@@ -34,6 +43,7 @@ export function CarScreen({
     <CarView
       car={car}
       safety={safety}
+      scheduleItem={scheduleItem}
       documents={documents}
       onCheckQuote={onCheckQuote}
       onTroubleCodes={onTroubleCodes}

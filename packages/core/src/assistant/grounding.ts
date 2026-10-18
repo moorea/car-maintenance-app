@@ -137,8 +137,12 @@ const scheduleText = (item: MaintenanceItem, due: DueProjection | undefined, fac
     .filter((r) => r.itemId === item.id)
     .sort((a, b) => b.performedOn.localeCompare(a.performedOn))[0]
   const lines = [
-    `${item.task}: ${every(item.intervalMiles, item.intervalMonths)} under normal conditions.`,
-    item.source === BASELINE_SOURCE
+    item.owner === 'changed'
+      ? `${item.task}: ${every(item.intervalMiles, item.intervalMonths)}, an interval the owner set themselves in place of the schedule's, for all driving conditions.`
+      : item.owner === 'added'
+        ? `${item.task}: ${every(item.intervalMiles, item.intervalMonths)}. The owner added this item to the schedule themselves.`
+        : `${item.task}: ${every(item.intervalMiles, item.intervalMonths)} under normal conditions.`,
+    item.source === BASELINE_SOURCE && item.owner === undefined
       ? `This is the app's general guidance for most cars, not ${facts.vehicle.make}'s own schedule for this car, which the owner's manual has.`
       : undefined,
     item.severeMiles !== undefined || item.severeMonths !== undefined

@@ -73,7 +73,7 @@ export const createDrivingModel = (deps: DrivingDeps): DrivingModel => {
         set({ status: 'ready' })
         return
       }
-      deps.schedule.itemsForConfig(vehicle.configId).then(
+      deps.schedule.itemsForVehicle(vehicle).then(
         (items) => {
           if (disposed) return
           set({

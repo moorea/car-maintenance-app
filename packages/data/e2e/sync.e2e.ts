@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type {
   Attachment,
+  CustomItem,
   FillUp,
   Renewal,
   SafetyReport,
@@ -66,6 +67,15 @@ const renewal = (vehicleId: string, fields: Partial<Renewal> = {}): Renewal => (
   kind: 'registration',
   dueOn: '2026-11-01',
   everyMonths: 12,
+  ...fields,
+})
+
+const customItem = (vehicleId: string, fields: Partial<CustomItem> = {}): CustomItem => ({
+  id: id(),
+  vehicleId,
+  task: 'Cabin air filter',
+  intervalMiles: 15_000,
+  intervalMonths: 12,
   ...fields,
 })
 
@@ -293,6 +303,62 @@ describe('two phones signed in as one owner', () => {
       ),
     ).toEqual([renewed])
     expect(await serverRows('renewals', 'id', permit.id)).toEqual([])
+    expect([...a.dropped, ...b.dropped]).toEqual([])
+  })
+
+  it('each follow the schedule items and intervals the other set, and log services against them', async () => {
+    const owner = await createUser()
+    const [a, b] = [await open(owner), await open(owner)]
+    const added = await addCar(a)
+    const vehicleId = added.id
+    const [oil] = await eventually(
+      () => a.schedule.itemsForConfig(added.configId),
+      (items) => items.length > 0,
+      'the schedule',
+    )
+    if (!oil) throw new Error('The configuration has no schedule')
+    const filter = customItem(vehicleId)
+    const oilEvery5k = customItem(vehicleId, {
+      replacesItemId: oil.id,
+      task: oil.task,
+      intervalMiles: 5_000,
+    })
+    await a.customItems.save(filter)
+    await a.customItems.save(oilEvery5k)
+    // A service counts as the owner's own item, which the server's schedule does not have.
+    const changed = service(vehicleId, { itemId: filter.id })
+    await a.records.add(changed)
+    await a.uploaded()
+
+    const onB = await eventually(
+      () => b.schedule.itemsForVehicle(added),
+      (items) => items.some((i) => i.id === filter.id),
+      'the custom items on the second phone',
+    )
+    expect(onB.find((i) => i.id === oil.id)).toMatchObject({
+      intervalMiles: 5_000,
+      owner: 'changed',
+    })
+    expect(
+      await eventually(
+        () => b.records.listForVehicle(vehicleId),
+        (r) => r.length === 1,
+        'the service',
+      ),
+    ).toEqual([changed])
+
+    await b.customItems.save({ ...filter, intervalMiles: 20_000 })
+    await b.customItems.remove(oilEvery5k.id)
+    expect(
+      await eventually(
+        () => a.customItems.listForVehicle(vehicleId),
+        (items) => items.length === 1 && items[0]?.intervalMiles === 20_000,
+        'the edit and the deletion',
+      ),
+    ).toEqual([{ ...filter, intervalMiles: 20_000 }])
+    expect(await serverRows('service_records', 'id', changed.id)).toMatchObject([
+      { item_id: filter.id },
+    ])
     expect([...a.dropped, ...b.dropped]).toEqual([])
   })
 
@@ -628,6 +694,7 @@ describe('owner isolation', () => {
     await a.warranties.save(warranty(vehicleId))
     await a.fillUps.save(fillUp(vehicleId))
     await a.renewals.save(renewal(vehicleId))
+    await a.customItems.save(customItem(vehicleId))
     await a.attachments.add(attachment(vehicleId, { sizeBytes: 20 }), pickedPdf('alice'))
     await a.uploaded()
     expect(await serverRows('attachments', 'vehicle_id', vehicleId)).toHaveLength(1)
@@ -652,6 +719,7 @@ describe('owner isolation', () => {
       warranties: 0,
       fill_ups: 0,
       renewals: 0,
+      custom_items: 0,
       attachments: 0,
     })
   })
@@ -667,6 +735,7 @@ describe('owner isolation', () => {
     await b.warranties.save(warranty(vehicleId))
     await b.fillUps.save(fillUp(vehicleId))
     await b.renewals.save(renewal(vehicleId))
+    await b.customItems.save(customItem(vehicleId))
     await b.odometer.add({ vehicleId, date: '2026-10-05', miles: 99_999 })
     await b.db.execute(
       'insert into vehicles (id, owner_id, year, make, model, nickname) values (?, ?, ?, ?, ?, ?)',
@@ -674,8 +743,8 @@ describe('owner isolation', () => {
     )
     await b.uploaded()
 
-    expect(b.dropped).toHaveLength(6)
-    for (const table of ['service_records', 'warranties', 'fill_ups', 'renewals'])
+    expect(b.dropped).toHaveLength(7)
+    for (const table of ['service_records', 'warranties', 'fill_ups', 'renewals', 'custom_items'])
       expect(await serverRows(table, 'vehicle_id', vehicleId)).toEqual([])
     expect(await serverRows('odometer_readings', 'vehicle_id', vehicleId)).toHaveLength(1)
     expect(await serverRows('vehicles', 'id', vehicleId)).toMatchObject([
@@ -786,6 +855,7 @@ describe('deletes', () => {
     await a.warranties.save(warranty(vehicleId))
     await a.fillUps.save(fillUp(vehicleId))
     await a.renewals.save(renewal(vehicleId))
+    await a.customItems.save(customItem(vehicleId))
     const receipt = attachment(vehicleId, { sizeBytes: 20 })
     await a.attachments.add(receipt, pickedPdf('receipt'))
     await a.uploaded()
@@ -855,6 +925,7 @@ describe('coverage', () => {
     'warranties',
     'fill_ups',
     'renewals',
+    'custom_items',
     'attachments',
   ]
 

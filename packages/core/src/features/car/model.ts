@@ -21,6 +21,8 @@ export interface ScheduleRow {
   interval: string
   /** When it is next due, such as "36,500 mi", "Mar 2027" or "Overdue". */
   next: string
+  /** Set for an item the owner added, or one whose interval they changed. */
+  own?: 'added' | 'changed' | undefined
 }
 
 export interface OdometerEditor {
@@ -126,9 +128,7 @@ export const createCarModel = (deps: CarDeps): CarModel => {
           getDueItems(deps)(vehicle.id),
           deps.odometer.listForVehicle(vehicle.id),
           deps.records.listForVehicle(vehicle.id),
-          vehicle.configId === undefined
-            ? Promise.resolve([] as MaintenanceItem[])
-            : deps.schedule.itemsForConfig(vehicle.configId),
+          deps.schedule.itemsForVehicle(vehicle),
         ])
         if (mine !== generation) return
         const odometer = currentOdometer(readings, records, today)
@@ -158,6 +158,7 @@ export const createCarModel = (deps: CarDeps): CarModel => {
               status: d.status,
               interval: item ? describeInterval(item, vehicle.severeDuty) : '',
               next: describeNextDue(d),
+              own: item?.owner,
             }
           }),
           error: undefined,
@@ -229,6 +230,7 @@ export const createCarModel = (deps: CarDeps): CarModel => {
         subscriptions.push(
           deps.records.watchForVehicle(vehicle.id, () => void refresh()),
           deps.odometer.watchForVehicle(vehicle.id, () => void refresh()),
+          deps.schedule.watchForVehicle(vehicle, () => void refresh()),
         )
       },
 

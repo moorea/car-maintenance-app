@@ -3,6 +3,7 @@ import type {
   AnswerSource,
   Attachment,
   AuthUser,
+  CustomItem,
   DecodedVin,
   FillUp,
   MaintenanceItem,
@@ -190,8 +191,33 @@ export interface DataFiles {
   stage(bytes: Uint8Array, file: { name: string; contentType: string }): Promise<PickedFile>
 }
 
+/** The car a schedule is for: the configuration it matched, if it has synced back yet. */
+export interface ScheduledCar {
+  id: VehicleId
+  configId?: string | undefined
+}
+
+/** A car's maintenance schedule. */
 export interface ScheduleRepo {
+  /** The configuration's schedule as the manufacturer, or the app's baseline, gives it. */
   itemsForConfig(configId: string): Promise<MaintenanceItem[]>
+  /**
+   * The schedule this car follows: its configuration's items with the owner's own intervals in
+   * place, then the owner's own items. A car not matched to a configuration yet has only those.
+   */
+  itemsForVehicle(vehicle: ScheduledCar): Promise<MaintenanceItem[]>
+  /** Calls `onChange` with the car's schedule now and after the owner changes it. */
+  watchForVehicle(vehicle: ScheduledCar, onChange: (items: MaintenanceItem[]) => void): Unsubscribe
+}
+
+/** The owner's own schedule items and intervals for their cars. Editable. */
+export interface CustomItemRepo {
+  listForVehicle(vehicleId: VehicleId): Promise<CustomItem[]>
+  /** Calls `onChange` with the car's custom items now and after every change. */
+  watchForVehicle(vehicleId: VehicleId, onChange: (items: CustomItem[]) => void): Unsubscribe
+  /** Adds the item, or replaces the one with the same id. */
+  save(item: CustomItem): Promise<void>
+  remove(id: string): Promise<void>
 }
 
 /** Recalls and complaints for a configuration, which the server fetches from NHTSA. */

@@ -5,6 +5,8 @@ import type {
   DueStatus,
   SafetyActions,
   SafetyState,
+  ScheduleItemActions,
+  ScheduleItemState,
   ScheduleRow,
 } from '@car/core'
 import { Button, Column, Row, ScrollView } from '@expo/ui'
@@ -17,17 +19,19 @@ import { SegmentedControl } from '../../ui/SegmentedControl'
 import { Symbol } from '../../ui/Symbol'
 import { TAB_BAR_CLEARANCE } from '../../ui/TabBar'
 import { TextField } from '../../ui/TextField'
-import { Card, Dot, FillColumn, Separator } from '../../ui/surfaces'
+import { Card, Dot, FillColumn, Separator, TappableRow } from '../../ui/surfaces'
 import type { AttachmentsProps } from '../attachments/AttachmentList'
 import { DocumentsSection } from '../attachments/DocumentsSection'
 import { KnownIssuesSection } from './KnownIssues'
 import { RecallsSection } from './SafetySections'
+import { ScheduleItemSheet } from './ScheduleItemSheet'
 import { Reflow } from '../../ui/Reflow'
 import { Text } from '../../ui/Text'
 
 interface Props {
   car: CarState & CarActions
   safety: SafetyState & Pick<SafetyActions, 'toggle'>
+  scheduleItem: ScheduleItemState & ScheduleItemActions
   documents: AttachmentsProps
   onCheckQuote: () => void
   onTroubleCodes: () => void
@@ -43,6 +47,7 @@ const OVERLINE = { fontSize: 13, fontWeight: '600', letterSpacing: 0.5 } as cons
 export function CarView({
   car,
   safety,
+  scheduleItem,
   documents,
   onCheckQuote,
   onTroubleCodes,
@@ -82,7 +87,12 @@ export function CarView({
           <DocumentsSection {...documents} />
           <SegmentedControl options={sections} selected={car.section} onSelect={car.showSection} />
           {car.section === 'schedule' ? (
-            <Schedule {...car} onDriving={onDriving} />
+            <Schedule
+              {...car}
+              onDriving={onDriving}
+              onItem={scheduleItem.openItem}
+              onAdd={scheduleItem.openNew}
+            />
           ) : car.section === 'recalls' ? (
             <RecallsSection {...safety} />
           ) : (
@@ -90,6 +100,7 @@ export function CarView({
           )}
         </Column>
       </ScrollView>
+      <ScheduleItemSheet {...scheduleItem} />
     </Host>
   )
 }
@@ -250,13 +261,29 @@ const STATUS_LABEL: Record<DueStatus, string> = {
   upcoming: 'Upcoming',
 }
 
-function Schedule(car: CarState & { onDriving: () => void }) {
+function Schedule(
+  car: CarState & { onDriving: () => void; onItem: (itemId: string) => void; onAdd: () => void },
+) {
   const colors = useColors()
-  if (car.status === 'unmatched')
-    return <Note>Your schedule appears once your car has synced.</Note>
   if (car.error) return <ErrorText>{car.error}</ErrorText>
-  if (car.schedule.length === 0)
-    return <Note>We don't have a maintenance schedule for this car yet.</Note>
+  const addItem = (
+    <Row style={{ paddingHorizontal: 4 }}>
+      <Button variant="text" label="Add an item" onPress={car.onAdd} />
+    </Row>
+  )
+  // Before the car has synced, or without a schedule for it, the owner's own items still show.
+  if (car.status === 'unmatched' || car.schedule.length === 0)
+    return (
+      <Column spacing={8}>
+        <Note>
+          {car.status === 'unmatched'
+            ? 'Your schedule appears once your car has synced.'
+            : "We don't have a maintenance schedule for this car yet."}
+        </Note>
+        {car.schedule.length > 0 ? <ScheduleCard rows={car.schedule} onItem={car.onItem} /> : null}
+        {addItem}
+      </Column>
+    )
   return (
     <Column spacing={8}>
       <Column spacing={4} style={{ paddingHorizontal: 4 }}>
@@ -270,40 +297,62 @@ function Schedule(car: CarState & { onDriving: () => void }) {
         </Row>
         {car.scheduleNote ? <Note>{car.scheduleNote}</Note> : null}
       </Column>
-      <Card padding={0}>
-        {car.schedule.map((row, i) => (
-          <Fragment key={row.itemId}>
-            {i > 0 ? <Separator inset={38} /> : null}
-            <ScheduleRowView row={row} />
-          </Fragment>
-        ))}
-      </Card>
+      <ScheduleCard rows={car.schedule} onItem={car.onItem} />
+      <Column spacing={0} style={{ paddingHorizontal: 4 }}>
+        <Note>Tap an item to set your own interval.</Note>
+        {addItem}
+      </Column>
     </Column>
   )
 }
 
-function ScheduleRowView({ row }: { row: ScheduleRow }) {
+function ScheduleCard({ rows, onItem }: { rows: ScheduleRow[]; onItem: (itemId: string) => void }) {
+  return (
+    <Card padding={0}>
+      {rows.map((row, i) => (
+        <Fragment key={row.itemId}>
+          {i > 0 ? <Separator inset={38} /> : null}
+          <ScheduleRowView row={row} onPress={() => onItem(row.itemId)} />
+        </Fragment>
+      ))}
+    </Card>
+  )
+}
+
+// Marks the owner's own changes beside the interval.
+const OWN_LABEL = { added: 'Your item', changed: 'Your interval' } as const
+
+function ScheduleRowView({ row, onPress }: { row: ScheduleRow; onPress: () => void }) {
   const colors = useColors()
   const overdue = row.status === 'overdue'
   return (
-    <Row alignment="center" spacing={12} style={{ paddingHorizontal: 16, paddingVertical: 11 }}>
-      <Dot color={DOT[row.status]} label={STATUS_LABEL[row.status]} />
-      <FillColumn spacing={1}>
-        <Text textStyle={{ fontSize: 16, fontWeight: '500' }}>{row.task}</Text>
-        {row.interval ? (
-          <Text textStyle={{ fontSize: 13, color: colors.textSecondary }}>{row.interval}</Text>
-        ) : null}
-      </FillColumn>
-      <Text
-        textStyle={{
-          fontSize: 14,
-          fontWeight: overdue ? '600' : '400',
-          color: overdue ? colors.warning : colors.textSecondary,
-        }}
-      >
-        {row.next}
-      </Text>
-    </Row>
+    <TappableRow onPress={onPress}>
+      <Row alignment="center" spacing={12}>
+        <Dot color={DOT[row.status]} label={STATUS_LABEL[row.status]} />
+        <FillColumn spacing={1}>
+          <Text textStyle={{ fontSize: 16, fontWeight: '500' }}>{row.task}</Text>
+          {row.interval ? (
+            <Reflow spacing={4}>
+              <Text textStyle={{ fontSize: 13, color: colors.textSecondary }}>{row.interval}</Text>
+              {row.own ? (
+                <Text textStyle={{ fontSize: 13, fontWeight: '600', color: colors.accent }}>
+                  {`· ${OWN_LABEL[row.own]}`}
+                </Text>
+              ) : null}
+            </Reflow>
+          ) : null}
+        </FillColumn>
+        <Text
+          textStyle={{
+            fontSize: 14,
+            fontWeight: overdue ? '600' : '400',
+            color: overdue ? colors.warning : colors.textSecondary,
+          }}
+        >
+          {row.next}
+        </Text>
+      </Row>
+    </TappableRow>
   )
 }
 

@@ -108,3 +108,29 @@ appId: com.moorea.carmaintenance
     visible: 'Before you ask'
     timeout: 5000
 - takeScreenshot: 38-ask-consent
+
+- launchApp
+- extendedWaitUntil:
+    visible: 'Demo car.*'
+    timeout: 90000
+- tapOn: 'Car'
+# Centred, so the tap can't land on the tab bar floating over the bottom of the page.
+- scrollUntilVisible:
+    element: '.*Engine air filter.*'
+    centerElement: true
+- takeScreenshot: 39-schedule-own-interval
+- tapOn: '.*Engine air filter.*'
+- extendedWaitUntil:
+    visible: 'Use the schedule.s interval'
+    timeout: 5000
+- takeScreenshot: 39-schedule-item
+- tapOn: 'Cancel'
+- scrollUntilVisible:
+    element: 'Add an item'
+    centerElement: true
+- tapOn: 'Add an item'
+- extendedWaitUntil:
+    visible: 'Or every \(months\)'
+    timeout: 5000
+- takeScreenshot: 39-schedule-add
+- tapOn: 'Cancel'

@@ -51,7 +51,7 @@ export interface ServiceLogActions {
   openForm: (itemId?: string) => void
   /** Closes the form. A save already under way finishes, and reopens the form if it fails. */
   closeForm: () => void
-  /** Loads the scheduled tasks for the car's configuration once it has synced or changed. */
+  /** Follows the schedule of the car's configuration once it has synced or changed. */
   setConfig: (configId: string | undefined) => void
   setQuery: (query: string) => void
   /** Asks the system for a photo or PDF of the receipt, to attach when the service is saved. */
@@ -107,8 +107,7 @@ export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => 
   let unsubscribe: Unsubscribe | undefined
   let taskNames = new Map<string, string>()
   let configId = deps.configId
-  // Each schedule read supersedes the one before, and dispose drops any still in flight.
-  let scheduleRead = 0
+  let stopSchedule: Unsubscribe | undefined
   const today = () => deps.clock.today()
   const draftFor = (itemId?: string) => ({ ...emptyDraft(today()), itemId: itemId ?? '' })
 
@@ -121,28 +120,19 @@ export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => 
       summary: summarizeHistory(records, today()),
     })
 
-    /** Reads the names of the scheduled tasks, for the form and the history. */
-    const loadTasks = () => {
-      const mine = ++scheduleRead
-      if (configId === undefined) {
-        taskNames = new Map()
-        set((s) => ({ tasks: [], ...show(s.records, s.query) }))
-        return
-      }
-      void deps.schedule.itemsForConfig(configId).then(
-        (items) => {
-          if (mine !== scheduleRead) return
-          taskNames = new Map(items.map((i) => [i.id, i.task]))
-          set((s) => ({
-            tasks: items
-              .map((i) => ({ id: i.id, task: i.task }))
-              .sort((a, b) => a.task.localeCompare(b.task)),
-            ...show(s.records, s.query),
-          }))
-        },
-        // Without the schedule, entries fall back to their notes; nothing else is lost.
-        () => {},
-      )
+    /** Follows the car's schedule, the owner's own items included, for the form and history. */
+    const followSchedule = () => {
+      stopSchedule?.()
+      // Without the schedule, entries fall back to their notes; nothing else is lost.
+      stopSchedule = deps.schedule.watchForVehicle({ id: deps.vehicleId, configId }, (items) => {
+        taskNames = new Map(items.map((i) => [i.id, i.task]))
+        set((s) => ({
+          tasks: items
+            .map((i) => ({ id: i.id, task: i.task }))
+            .sort((a, b) => a.task.localeCompare(b.task)),
+          ...show(s.records, s.query),
+        }))
+      })
     }
 
     return {
@@ -178,7 +168,7 @@ export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => 
       setConfig: (next) => {
         if (next === configId) return
         configId = next
-        if (unsubscribe) loadTasks()
+        if (unsubscribe) followSchedule()
       },
 
       setQuery: (query) => set((s) => show(s.records, query)),
@@ -265,13 +255,14 @@ export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => 
             status: s.status === 'loading' ? 'ready' : s.status,
           })),
         )
-        loadTasks()
+        followSchedule()
       },
 
       dispose: () => {
         unsubscribe?.()
         unsubscribe = undefined
-        scheduleRead++
+        stopSchedule?.()
+        stopSchedule = undefined
       },
     }
   })

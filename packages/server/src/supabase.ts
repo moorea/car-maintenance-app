@@ -6,13 +6,20 @@ import type {
   ChatTurn,
   Complaint,
   ComplaintSummary,
+  CustomItem,
   MaintenanceItem,
   OdometerReading,
   Recall,
   ServiceRecord,
   Vehicle,
 } from '@car/core'
-import { MAX_COMPLAINTS, MAX_HISTORY_TURNS, MAX_NEARBY_COMPLAINTS, MILEAGE_BAND } from '@car/core'
+import {
+  applyCustomItems,
+  MAX_COMPLAINTS,
+  MAX_HISTORY_TURNS,
+  MAX_NEARBY_COMPLAINTS,
+  MILEAGE_BAND,
+} from '@car/core'
 import type { AssistantStore } from './handler'
 
 /** PostgREST returns JSON: null for missing values, numbers, booleans and ISO date strings. */
@@ -75,6 +82,16 @@ const toItem = (r: Row): MaintenanceItem =>
     intervalMonths: num(r.interval_months),
     severeMiles: num(r.severe_miles),
     severeMonths: num(r.severe_months),
+  })
+
+const toCustomItem = (r: Row): CustomItem =>
+  defined({
+    id: String(r.id),
+    vehicleId: String(r.vehicle_id),
+    replacesItemId: text(r.replaces_item_id),
+    task: String(r.task),
+    intervalMiles: num(r.interval_miles),
+    intervalMonths: num(r.interval_months),
   })
 
 const toRecall = (r: Row): Recall =>
@@ -175,25 +192,36 @@ export const supabaseStore = (
     const forConfig = async (table: string) =>
       configId === undefined ? [] : rows(user.from(table).select('*').eq('config_id', configId))
 
-    const [readings, fillUps, records, schedule, recalls, summaries, bulletins, configs] =
-      await Promise.all([
-        rows(user.from('odometer_readings').select('*').eq('vehicle_id', vehicleId)),
-        // A fill-up's mileage is one of the car's readings, as it is on the phone.
-        rows(
-          user
-            .from('fill_ups')
-            .select('vehicle_id, filled_on, odometer_miles')
-            .eq('vehicle_id', vehicleId),
-        ),
-        rows(user.from('service_records').select('*').eq('vehicle_id', vehicleId)),
-        forConfig('maintenance_items'),
-        forConfig('recalls'),
-        forConfig('complaint_summaries'),
-        forConfig('bulletins'),
-        configId === undefined
-          ? []
-          : rows(user.from('vehicle_configs').select('*').eq('id', configId)),
-      ])
+    const [
+      readings,
+      fillUps,
+      records,
+      schedule,
+      customItems,
+      recalls,
+      summaries,
+      bulletins,
+      configs,
+    ] = await Promise.all([
+      rows(user.from('odometer_readings').select('*').eq('vehicle_id', vehicleId)),
+      // A fill-up's mileage is one of the car's readings, as it is on the phone.
+      rows(
+        user
+          .from('fill_ups')
+          .select('vehicle_id, filled_on, odometer_miles')
+          .eq('vehicle_id', vehicleId),
+      ),
+      rows(user.from('service_records').select('*').eq('vehicle_id', vehicleId)),
+      forConfig('maintenance_items'),
+      // The owner's own items and intervals, so answers follow the schedule they set.
+      rows(user.from('custom_items').select('*').eq('vehicle_id', vehicleId)),
+      forConfig('recalls'),
+      forConfig('complaint_summaries'),
+      forConfig('bulletins'),
+      configId === undefined
+        ? []
+        : rows(user.from('vehicle_configs').select('*').eq('id', configId)),
+    ])
     // The newest complaints, and the newest of those that happened near the car's last reading,
     // from which the grounding picks its sample.
     const latest = readings.map(toReading).sort((a, b) => b.date.localeCompare(a.date))[0]?.miles
@@ -226,7 +254,7 @@ export const supabaseStore = (
         ...readings.map(toReading),
         ...fillUps.map((r) => toReading({ ...r, read_on: r.filled_on, miles: r.odometer_miles })),
       ],
-      schedule: schedule.map(toItem),
+      schedule: applyCustomItems(schedule.map(toItem), customItems.map(toCustomItem), vehicle),
       records: records.map(toRecord),
       safety: defined({
         recallsCheckedAt: text(config.recalls_checked_at),

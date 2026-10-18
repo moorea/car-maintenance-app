@@ -2,6 +2,7 @@ import { strFromU8, strToU8, unzipSync, zipSync, type Zippable } from 'fflate'
 import { z } from 'zod'
 import type {
   Attachment,
+  CustomItem,
   FillUp,
   MaintenanceItem,
   Renewal,
@@ -36,6 +37,8 @@ export interface CarData {
   fillUps: FillUp[]
   /** Registration, inspection and insurance dates. */
   renewals: Renewal[]
+  /** The owner's own schedule items and intervals. */
+  customItems: CustomItem[]
   /** The car's schedule, to name each service's item. */
   items: MaintenanceItem[]
 }
@@ -121,6 +124,19 @@ const exportedRenewal = z.object({
   notes: clipped(NOTES_MAX),
 })
 
+const exportedCustomItem = z
+  .object({
+    id: z.string().min(1),
+    /** The schedule item whose interval this replaces; ids are stable for a config. */
+    replacesItemId: z.string().min(1).optional(),
+    task: z.string().min(1).max(100),
+    intervalMiles: z.number().int().min(100).max(500_000).optional(),
+    intervalMonths: z.number().int().min(1).max(240).optional(),
+  })
+  .refine((c) => c.intervalMiles !== undefined || c.intervalMonths !== undefined, {
+    message: 'A schedule item needs an interval',
+  })
+
 const exportedCar = z.object({
   id: z.string().min(1),
   year: z.number().int(),
@@ -140,6 +156,8 @@ const exportedCar = z.object({
   fillUps: z.array(exportedFillUp).default([]),
   // Exports made before renewals existed have none.
   renewals: z.array(exportedRenewal).default([]),
+  // Exports made before custom schedule items existed have none.
+  customItems: z.array(exportedCustomItem).default([]),
 })
 
 const exportFile = z.object({
@@ -155,6 +173,7 @@ export type ExportedDocument = z.infer<typeof exportedDocument>
 export type ExportedWarranty = z.infer<typeof exportedWarranty>
 export type ExportedFillUp = z.infer<typeof exportedFillUp>
 export type ExportedRenewal = z.infer<typeof exportedRenewal>
+export type ExportedCustomItem = z.infer<typeof exportedCustomItem>
 export type ExportFile = z.infer<typeof exportFile>
 
 /** A car's name in the export: its nickname, or year, make and model. */
@@ -213,6 +232,7 @@ odometer.csv    Every odometer reading, in miles.
 warranties.csv  Every warranty, with when and at what mileage it ends.
 fill-ups.csv    Every fill-up and charging session: gallons or kWh, and its cost in US dollars.
 renewals.csv    Every registration, inspection and insurance date, and how often it repeats.
+schedule.csv    The items you added to each car's schedule, and the intervals you set yourself.
 documents.csv   Every attached receipt, registration, inspection report, insurance card or file.
 documents/      The files themselves, in a folder per car.
 
@@ -276,10 +296,21 @@ export const buildArchive = (
       ],
     ],
     renewals: [['car', 'kind', 'name', 'due_on', 'every_months', 'notes']],
+    customItems: [['car', 'item', 'change', 'every_miles', 'every_months']],
   }
 
   const exported: ExportedCar[] = cars.map(
-    ({ vehicle: v, readings, services, attachments, warranties, fillUps, renewals, items }) => {
+    ({
+      vehicle: v,
+      readings,
+      services,
+      attachments,
+      warranties,
+      fillUps,
+      renewals,
+      customItems,
+      items,
+    }) => {
       const label = carName(safeName(carLabel(v)))
       const fileName = uniquely(true)
       const itemById = new Map(items.map((i) => [i.id, i]))
@@ -376,6 +407,18 @@ export const buildArchive = (
           r.everyMonths !== undefined ? String(r.everyMonths) : '',
           r.notes ?? '',
         ])
+      const sortedCustomItems = [...customItems].sort(
+        (a, b) => a.task.localeCompare(b.task) || a.id.localeCompare(b.id),
+      )
+      for (const c of sortedCustomItems)
+        rows.customItems.push([
+          label,
+          // A replacement is named as the schedule names it now.
+          (c.replacesItemId && itemById.get(c.replacesItemId)?.task) || c.task,
+          c.replacesItemId ? 'your interval' : 'your item',
+          c.intervalMiles?.toString() ?? '',
+          c.intervalMonths?.toString() ?? '',
+        ])
       rows.cars.push([
         label,
         String(v.year),
@@ -446,6 +489,13 @@ export const buildArchive = (
           ...(r.everyMonths !== undefined && { everyMonths: r.everyMonths }),
           ...(r.notes && { notes: r.notes }),
         })),
+        customItems: sortedCustomItems.map((c) => ({
+          id: c.id,
+          ...(c.replacesItemId && { replacesItemId: c.replacesItemId }),
+          task: c.task,
+          ...(c.intervalMiles !== undefined && { intervalMiles: c.intervalMiles }),
+          ...(c.intervalMonths !== undefined && { intervalMonths: c.intervalMonths }),
+        })),
       }
     },
   )
@@ -464,6 +514,7 @@ export const buildArchive = (
   zip['warranties.csv'] = strToU8(csv(rows.warranties))
   zip['fill-ups.csv'] = strToU8(csv(rows.fillUps))
   zip['renewals.csv'] = strToU8(csv(rows.renewals))
+  zip['schedule.csv'] = strToU8(csv(rows.customItems))
   zip['documents.csv'] = strToU8(csv(rows.documents))
   return { bytes: zipSync(zip, { level: 6 }), missing }
 }

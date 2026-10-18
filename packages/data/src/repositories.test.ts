@@ -2,7 +2,9 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type {
+  CustomItem,
   FillUp,
+  MaintenanceItem,
   OdometerReading,
   Renewal,
   SafetyReport,
@@ -457,6 +459,67 @@ describe('PowerSync repositories', () => {
         intervalMonths: 6,
       },
     ])
+  })
+
+  it("reads back custom items, applies them to the car's schedule, and uploads edits as changes", async () => {
+    await db.execute(
+      "insert into maintenance_items (id, config_id, source, task, interval_miles, interval_months, severe_miles) values ('oil', 'c1', 'baseline', 'Oil change', 10000, 12, 5000)",
+    )
+    const repos = createPowerSyncRepositories(db)
+    const own: CustomItem = {
+      id: 'own-oil',
+      vehicleId: 'v1',
+      replacesItemId: 'oil',
+      task: 'Oil change',
+      intervalMiles: 5_000,
+    }
+    const filter: CustomItem = {
+      id: 'own-filter',
+      vehicleId: 'v1',
+      task: 'Cabin air filter',
+      intervalMonths: 12,
+    }
+    const seen = collect<MaintenanceItem[]>((onChange) =>
+      repos.schedule.watchForVehicle({ id: 'v1', configId: 'c1' }, onChange),
+    )
+    await seen.waitFor(1)
+    await repos.customItems.save(own)
+    await repos.customItems.save(filter)
+    expect(await repos.customItems.listForVehicle('v1')).toStrictEqual([filter, own])
+    expect(await repos.schedule.itemsForVehicle({ id: 'v1', configId: 'c1' })).toEqual([
+      {
+        id: 'oil',
+        configId: 'c1',
+        task: 'Oil change',
+        source: 'baseline',
+        intervalMiles: 5_000,
+        owner: 'changed',
+      },
+      {
+        id: 'own-filter',
+        configId: 'c1',
+        task: 'Cabin air filter',
+        source: 'owner',
+        intervalMonths: 12,
+        owner: 'added',
+      },
+    ])
+    await seen.waitUntil((items) => items.length === 2)
+    seen.stop()
+
+    await repos.customItems.save({ ...own, intervalMiles: 7_500 })
+    await repos.customItems.remove('own-filter')
+    const ops: [string, Record<string, unknown> | undefined][] = []
+    for (let tx = await db.getNextCrudTransaction(); tx; tx = await db.getNextCrudTransaction()) {
+      ops.push(
+        ...tx.crud
+          .filter((c) => c.table === 'custom_items')
+          .map((c) => [c.op, c.opData] as [string, Record<string, unknown> | undefined]),
+      )
+      await tx.complete()
+    }
+    expect(ops.map(([op]) => op)).toEqual(['PUT', 'PUT', 'PATCH', 'DELETE'])
+    expect(Object.keys(ops[2]?.[1] ?? {}).sort()).toEqual(['interval_miles', 'updated_at'])
   })
 
   it("reads a configuration's recalls, complaint summaries and check times, and follows changes", async () => {

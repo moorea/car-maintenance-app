@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { MaintenanceItem, OdometerReading, ServiceRecord, Vehicle } from '../../domain/types'
 import {
   fixedClock,
+  memoryCustomItems,
   memoryOdometer,
   memorySchedule,
   memoryServiceRecords,
@@ -344,6 +345,36 @@ describe('car model', () => {
     model.getState().start()
     await settle()
     expect(model.getState()).toMatchObject({ status: 'unmatched', schedule: [] })
+  })
+
+  it("follows the owner's own items and intervals as they change", async () => {
+    const custom = memoryCustomItems()
+    const vehicle = car
+    const model = createCarModel({
+      vehicle,
+      vehicles: memoryVehicles([vehicle]),
+      schedule: memorySchedule([oil, tires], custom),
+      records: memoryServiceRecords([done('oil', '2026-07-09', 30_000)]),
+      odometer: memoryOdometer(readings),
+      clock: fixedClock(TODAY),
+    })
+    model.getState().start()
+    await settle()
+    await custom.save({
+      id: 'own-oil',
+      vehicleId: 'v1',
+      replacesItemId: 'oil',
+      task: 'Oil & filter change',
+      intervalMiles: 5_000,
+    })
+    await custom.save({ id: 'wipers', vehicleId: 'v1', task: 'Wiper blades', intervalMonths: 12 })
+    await settle()
+    expect(model.getState().schedule.map((r) => [r.task, r.interval, r.next, r.own])).toEqual([
+      // 5,000 miles after the last change at 30,000 has passed; the maker's 10,000 had not.
+      ['Oil & filter change', 'Every 5,000 mi', 'Overdue', 'changed'],
+      ['Wiper blades', 'Every 12 months', 'Oct 2026', 'added'],
+      ['Tire rotation', 'Every 5,000 mi', '40,000 mi', undefined],
+    ])
   })
 })
 

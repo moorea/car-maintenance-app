@@ -18,6 +18,7 @@ import {
   type Warranty,
   type FillUp,
   type Renewal,
+  type CustomItem,
 } from '../domain/types'
 import type {
   AttachmentRepo,
@@ -47,7 +48,9 @@ import type {
   VehicleRepo,
   WarrantyRepo,
   RenewalRepo,
+  CustomItemRepo,
 } from '../ports'
+import { withCustomItems } from '../lib/customSchedule'
 import type { IsoDate } from '../lib/date'
 import type { CareReport } from '../features/care-report/report'
 
@@ -220,9 +223,55 @@ export const memoryAccount = (auth: Pick<AuthPort, 'signOut'>) => {
   return account
 }
 
-export const memorySchedule = (items: MaintenanceItem[] = []): ScheduleRepo => ({
-  itemsForConfig: async (configId) => items.filter((i) => i.configId === configId),
-})
+/** Schedules by configuration, with the owner's changes from `custom` applied per car. */
+export const memorySchedule = (
+  items: MaintenanceItem[] = [],
+  custom: CustomItemRepo = memoryCustomItems(),
+): ScheduleRepo =>
+  withCustomItems(
+    { itemsForConfig: async (configId) => items.filter((i) => i.configId === configId) },
+    custom,
+  )
+
+/** Custom schedule items kept in memory. `failNext` makes the next save or removal throw. */
+export const memoryCustomItems = (initial: CustomItem[] = []) => {
+  let items = [...initial]
+  const watchers = new Set<{ vehicleId: VehicleId; onChange: (items: CustomItem[]) => void }>()
+  let nextFailure: string | undefined
+  const forVehicle = (vehicleId: VehicleId) => items.filter((i) => i.vehicleId === vehicleId)
+  const notify = () => {
+    for (const w of watchers) w.onChange(forVehicle(w.vehicleId))
+  }
+  const failIfScheduled = () => {
+    if (nextFailure === undefined) return
+    const message = nextFailure
+    nextFailure = undefined
+    throw new Error(message)
+  }
+  const repo: CustomItemRepo & { failNext: (message: string) => void } = {
+    listForVehicle: async (vehicleId) => forVehicle(vehicleId),
+    watchForVehicle: (vehicleId, onChange) => {
+      const watcher = { vehicleId, onChange }
+      watchers.add(watcher)
+      onChange(forVehicle(vehicleId))
+      return () => watchers.delete(watcher)
+    },
+    save: async (item) => {
+      failIfScheduled()
+      items = [...items.filter((i) => i.id !== item.id), item]
+      notify()
+    },
+    remove: async (id) => {
+      failIfScheduled()
+      items = items.filter((i) => i.id !== id)
+      notify()
+    },
+    failNext: (message) => {
+      nextFailure = message
+    },
+  }
+  return repo
+}
 
 export const memoryOdometer = (initial: OdometerReading[] = []): OdometerRepo => {
   const readings = [...initial]

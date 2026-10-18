@@ -70,6 +70,28 @@ export interface MaintenanceItem {
   intervalMonths?: number
   severeMiles?: number
   severeMonths?: number
+  /**
+   * Set when the owner shaped this line: `added` for an item of their own, `changed` for a
+   * schedule item whose intervals they replaced with their own.
+   */
+  owner?: 'added' | 'changed'
+}
+
+/**
+ * The owner's own change to a car's schedule: an item the schedule doesn't have (a cabin filter,
+ * a timing belt, a boat trailer's bearings), or their own interval for one it does, such as oil
+ * every 5,000 miles where the maker says 10,000. Editable and deletable.
+ */
+export interface CustomItem {
+  id: string
+  vehicleId: VehicleId
+  /** The schedule item whose intervals this replaces; absent for an item the owner added. */
+  replacesItemId?: MaintenanceItemId
+  /** The item's name. A replacement keeps a copy of the schedule's, shown only if that goes. */
+  task: string
+  /** The owner's interval, used for normal and severe driving alike. At least one is set. */
+  intervalMiles?: number
+  intervalMonths?: number
 }
 
 export interface ServiceRecord {

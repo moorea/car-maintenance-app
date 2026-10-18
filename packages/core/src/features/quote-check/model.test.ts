@@ -212,7 +212,7 @@ describe('quote check model', () => {
 
   it('keeps the lines to try again when checking fails', async () => {
     const { state, schedule } = setup()
-    schedule.itemsForConfig = () => Promise.reject(new Error('Database closed'))
+    schedule.itemsForVehicle = () => Promise.reject(new Error('Database closed'))
     state().setDraft('Oil change')
     await state().check()
     expect(state()).toMatchObject({
