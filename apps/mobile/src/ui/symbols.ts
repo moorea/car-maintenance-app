@@ -108,3 +108,11 @@ export const SYMBOLS = {
 } satisfies Record<string, { ios: SFSymbol; paths: string[] }>
 
 export type SymbolName = keyof typeof SYMBOLS
+
+/**
+ * Width of the slot a leading icon of `size` points sits in on iOS. The widest symbol we lead rows
+ * with, `engine.combustion`, draws about 1.4 times its point size.
+ */
+export function leadingWidth(size: number): number {
+  return Math.ceil(size * 1.5)
+}

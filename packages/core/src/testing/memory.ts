@@ -68,7 +68,7 @@ export const memoryVehicles = (
 ): VehicleRepo & {
   set: (vehicles: Vehicle[]) => void
   added: { ownerId: string; vehicle: Vehicle; firstReading?: OdometerReading }[]
-  /** Makes the next `add`, `setSevereDuty` or `setValue` throw. */
+  /** Makes the next `add`, `setSevereDuty`, `setValue`, `rename` or `remove` throw. */
   failNextAdd: (message: string) => void
 } => {
   let vehicles = [...initial]
@@ -121,6 +121,24 @@ export const memoryVehicles = (
         const { valueCents: _cents, valuedOn: _on, ...rest } = v
         return value ? { ...rest, valueCents: value.cents, valuedOn: value.valuedOn } : rest
       })
+      notify()
+    },
+    rename: async (id, nickname) => {
+      if (nextFailure !== undefined) {
+        const message = nextFailure
+        nextFailure = undefined
+        throw new Error(message)
+      }
+      vehicles = vehicles.map((v) => (v.id === id ? { ...v, nickname } : v))
+      notify()
+    },
+    remove: async (id) => {
+      if (nextFailure !== undefined) {
+        const message = nextFailure
+        nextFailure = undefined
+        throw new Error(message)
+      }
+      vehicles = vehicles.filter((v) => v.id !== id)
       notify()
     },
     /** Replaces the vehicles, as a sync would, and notifies watchers. */

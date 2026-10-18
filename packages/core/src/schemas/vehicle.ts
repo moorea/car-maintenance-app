@@ -23,6 +23,13 @@ const requiredText = (what: string) =>
 /** Matches the vehicles_nickname_check constraint in Postgres. */
 export const NICKNAME_MAX = 40
 
+/** A car's name, as the owner renames it. */
+export const nicknameSchema = z
+  .string()
+  .trim()
+  .min(1, 'Give the car a name')
+  .max(NICKNAME_MAX, `Keep the name to ${NICKNAME_MAX} characters`)
+
 /** Oldest model year with a 17-character VIN, which the shared configs require. */
 export const FIRST_MODEL_YEAR = 1981
 

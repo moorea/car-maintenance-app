@@ -442,6 +442,72 @@ describe('PowerSync repositories', () => {
     expect(await repos.vehicles.get('v-val')).toStrictEqual(car)
   })
 
+  it('renames a car and uploads only the new name', async () => {
+    const repos = createPowerSyncRepositories(db)
+    const car: Vehicle = {
+      id: 'v-name',
+      year: 2021,
+      make: 'Toyota',
+      model: 'RAV4',
+      nickname: 'RAV4',
+      severeDuty: false,
+    }
+    await repos.vehicles.add('u1', car)
+    await (await db.getNextCrudTransaction())?.complete()
+
+    await repos.vehicles.rename('v-name', 'Daily')
+
+    expect(await repos.vehicles.get('v-name')).toMatchObject({ nickname: 'Daily' })
+    const transaction = await db.getNextCrudTransaction()
+    expect(transaction?.crud[0]).toMatchObject({ table: 'vehicles', id: 'v-name', op: 'PATCH' })
+    expect(Object.keys(transaction?.crud[0]?.opData ?? {}).sort()).toEqual([
+      'nickname',
+      'updated_at',
+    ])
+  })
+
+  it("removes a car with its documents first, so their files leave Storage, and leaves the rest to the server's cascade", async () => {
+    const repos = createPowerSyncRepositories(db)
+    const car: Vehicle = {
+      id: 'v-gone',
+      year: 2012,
+      make: 'Honda',
+      model: 'Accord',
+      nickname: 'Accord',
+      severeDuty: false,
+    }
+    const kept: Vehicle = { ...car, id: 'v-kept', nickname: 'Civic', model: 'Civic' }
+    await repos.vehicles.add('u1', car)
+    await repos.vehicles.add('u1', kept)
+    for (const [id, vehicleId] of [
+      ['a-gone', 'v-gone'],
+      ['a-kept', 'v-kept'],
+    ])
+      await db.execute(
+        'insert into attachments (id, owner_id, vehicle_id, kind, content_type) values (?, ?, ?, ?, ?)',
+        [id, 'u1', vehicleId, 'receipt', 'image/jpeg'],
+      )
+    await repos.records.add({ ...oilChange, id: 'r-gone', vehicleId: 'v-gone' })
+    while (true) {
+      const pending = await db.getNextCrudTransaction()
+      if (!pending) break
+      await pending.complete()
+    }
+
+    await repos.vehicles.remove('v-gone')
+
+    const owned = collect<Vehicle[]>((cb) => repos.vehicles.watchOwned('u1', cb))
+    const [vehicles] = await owned.waitFor(1)
+    expect(vehicles?.map((v) => v.id)).toEqual(['v-kept'])
+    const left = await db.getAll<{ id: string }>('select id from attachments')
+    expect(left.map((r) => r.id)).toEqual(['a-kept'])
+    const transaction = await db.getNextCrudTransaction()
+    expect(transaction?.crud.map((c) => [c.table, c.id, c.op])).toEqual([
+      ['attachments', 'a-gone', 'DELETE'],
+      ['vehicles', 'v-gone', 'DELETE'],
+    ])
+  })
+
   it('adds a car without a reading when the owner gives no mileage', async () => {
     const repos = createPowerSyncRepositories(db)
     const car: Vehicle = {

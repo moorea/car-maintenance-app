@@ -43,6 +43,8 @@ interface Props {
   name: SymbolName
   size?: number
   color: string
+  /** The icon leads a row of text. Material Symbols are square, so a leading icon already lines rows up. */
+  leading?: boolean
 }
 
 // The Material Symbol closest to each SF Symbol in `SYMBOLS`. Imported here rather than listed

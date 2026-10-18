@@ -41,6 +41,13 @@ export interface VehicleRepo {
   setSevereDuty(id: VehicleId, severeDuty: boolean): Promise<void>
   /** Saves what the owner thinks the car is worth on `valuedOn`, or forgets it when undefined. */
   setValue(id: VehicleId, value: { cents: number; valuedOn: IsoDate } | undefined): Promise<void>
+  /** Changes the name the garage shows for the car. */
+  rename(id: VehicleId, nickname: string): Promise<void>
+  /**
+   * Deletes the car and everything recorded for it, on every phone. The server deletes its
+   * history with it; its documents' files are deleted as well.
+   */
+  remove(id: VehicleId): Promise<void>
 }
 
 /** Looks up what a VIN is. Needs a connection. */

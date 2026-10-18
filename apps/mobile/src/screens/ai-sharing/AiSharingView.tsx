@@ -90,7 +90,7 @@ function Point({ symbol, title, body }: { symbol: SymbolName; title: string; bod
   const colors = useColors()
   return (
     <Row spacing={12} style={{ paddingHorizontal: 16, paddingVertical: 14 }}>
-      <Symbol name={symbol} size={22} color={colors.accent} />
+      <Symbol name={symbol} size={22} color={colors.accent} leading />
       <FillColumn spacing={2}>
         <Text textStyle={{ fontSize: 17, fontWeight: '600' }}>{title}</Text>
         <Text textStyle={{ fontSize: 15, color: colors.textSecondary }}>{body}</Text>
