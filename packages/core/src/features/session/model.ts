@@ -54,6 +54,11 @@ export interface SessionActions {
    * question was about; the garage if there is nowhere to go back to.
    */
   back: () => void
+  /**
+   * The system back gesture (Android): closes "add your car", or leaves the open page for the one
+   * its own back button goes to. False when there is nowhere to go back to, so the app can close.
+   */
+  systemBack: () => boolean
   /** Opens the service log with its form, for a scheduled task if one is given. */
   logService: (itemId?: string) => void
   /** The log has opened its form for the request, so it is not opened again. */
@@ -70,6 +75,13 @@ export interface SessionActions {
 }
 
 export type SessionModel = StoreApi<SessionState & SessionActions>
+
+/** The page each page's back button leaves for, where that is not the garage. */
+const PARENT: Partial<Record<AppTab, AppTab>> = {
+  fuel: 'car',
+  warranty: 'car',
+  data: 'account',
+}
 
 /** Root model: follows sign-in and the owner's vehicles, and keeps one vehicle selected. */
 export const createSessionModel = (deps: {
@@ -200,6 +212,20 @@ export const createSessionModel = (deps: {
       },
 
       back: () => set({ tab: openedFrom.pop() ?? 'garage', logRequest: undefined }),
+
+      systemBack: () => {
+        const { status, tab, addingCar } = get()
+        if (status === 'starting' || status === 'signed-out') return false
+        // Without a ready car, "add your car" is the first screen rather than a page over one.
+        if (addingCar && status === 'ready') {
+          set({ addingCar: false })
+          return true
+        }
+        if (tab === 'garage') return false
+        if (tab === 'ask' || tab === 'quote' || tab === 'codes') get().back()
+        else get().openTab(PARENT[tab] ?? 'garage')
+        return true
+      },
 
       logService: (itemId) => {
         openedFrom = []
