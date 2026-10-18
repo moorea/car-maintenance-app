@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type {
   Attachment,
   FillUp,
+  CustomItem,
   Renewal,
   ServiceRecord,
   Vehicle,
@@ -15,6 +16,7 @@ import {
   memoryDataFiles,
   memoryFillUps,
   memoryRenewals,
+  memoryCustomItems,
   memoryOdometer,
   memorySchedule,
   memoryServiceRecords,
@@ -100,6 +102,7 @@ const phone = (
     warranties?: Warranty[]
     fillUps?: FillUp[]
     renewals?: Renewal[]
+    customItems?: CustomItem[]
     remote?: string[]
     files?: Record<string, Uint8Array>
   } = {},
@@ -120,9 +123,11 @@ const phone = (
   const fillUps = memoryFillUps(data.fillUps ?? [])
   const renewals = memoryRenewals(data.renewals ?? [])
   const files = memoryDataFiles(data.files ?? {})
-  const schedule = memorySchedule([
-    { id: 'item-oil', configId: 'cfg-civic', task: 'Engine oil', kind: 'engine-oil' },
-  ])
+  const customItems = memoryCustomItems(data.customItems ?? [])
+  const schedule = memorySchedule(
+    [{ id: 'item-oil', configId: 'cfg-civic', task: 'Engine oil', kind: 'engine-oil' }],
+    customItems,
+  )
   const model = createYourDataModel({
     auth,
     vehicles,
@@ -132,6 +137,7 @@ const phone = (
     warranties,
     fillUps,
     renewals,
+    customItems,
     schedule,
     files,
     clock: fixedClock('2026-10-17'),
@@ -147,6 +153,7 @@ const phone = (
     warranties,
     fillUps,
     renewals,
+    customItems,
     files,
     model,
   }
@@ -380,6 +387,49 @@ describe('your data model', () => {
       expect(alex.model.getState().message?.text).toBe(
         'Added 1 car with 0 services, 0 warranties, 1 renewal date and 0 documents.',
       )
+    })
+
+    it("carries the owner's own schedule items over, with the services logged against them", async () => {
+      const filter: CustomItem = {
+        id: 'own-1',
+        vehicleId: 'civic',
+        task: 'Cabin air filter',
+        intervalMiles: 15_000,
+      }
+      const oilEvery5k: CustomItem = {
+        id: 'own-2',
+        vehicleId: 'civic',
+        replacesItemId: 'item-oil',
+        task: 'Engine oil',
+        intervalMiles: 5_000,
+        intervalMonths: 6,
+      }
+      const changed: ServiceRecord = {
+        id: 's-9',
+        vehicleId: 'civic',
+        itemId: 'own-1',
+        performedOn: '2026-05-01',
+      }
+      const sam = phone(SAM, {
+        vehicles: [civic],
+        customItems: [filter, oilEvery5k],
+        services: [changed],
+      })
+      await sam.model.getState().exportAll()
+      const alex = phone({ id: 'alex' })
+      alex.files.queueArchive(got(sam.files.shared[0]).bytes)
+
+      await alex.model.getState().chooseImport()
+      await alex.model.getState().confirmImport()
+
+      expect(await alex.customItems.listForVehicle('new-1')).toEqual([
+        { ...filter, id: 'new-2', vehicleId: 'new-1' },
+        // A replacement keeps the schedule item's id, which the same config has on any phone.
+        { ...oilEvery5k, id: 'new-3', vehicleId: 'new-1' },
+      ])
+      expect(await alex.services.listForVehicle('new-1')).toMatchObject([
+        { itemId: 'new-2', performedOn: '2026-05-01' },
+      ])
     })
 
     it('leaves cars already in the garage as they are, so importing twice adds nothing twice', async () => {

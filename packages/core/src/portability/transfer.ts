@@ -8,6 +8,7 @@ import type {
 import type {
   AttachmentRepo,
   Clock,
+  CustomItemRepo,
   DataFiles,
   FillUpRepo,
   RenewalRepo,
@@ -50,7 +51,8 @@ export interface ExportDeps {
   warranties: Pick<WarrantyRepo, 'listForVehicle'>
   fillUps: Pick<FillUpRepo, 'listForVehicle'>
   renewals: Pick<RenewalRepo, 'listForVehicle'>
-  schedule: ScheduleRepo
+  customItems: Pick<CustomItemRepo, 'listForVehicle'>
+  schedule: Pick<ScheduleRepo, 'itemsForVehicle'>
   files: Pick<DataFiles, 'read' | 'share'>
   clock: Clock
 }
@@ -78,7 +80,7 @@ export const exportData = async (deps: ExportDeps, ownerId: string): Promise<Exp
   const cars: CarData[] = []
   const files = new Map<string, Uint8Array>()
   for (const vehicle of vehicles) {
-    const [allReadings, services, attachments, warranties, fillUps, renewals, items] =
+    const [allReadings, services, attachments, warranties, fillUps, renewals, customItems, items] =
       await Promise.all([
         deps.odometer.listForVehicle(vehicle.id),
         deps.services.listForVehicle(vehicle.id),
@@ -86,7 +88,8 @@ export const exportData = async (deps: ExportDeps, ownerId: string): Promise<Exp
         deps.warranties.listForVehicle(vehicle.id),
         deps.fillUps.listForVehicle(vehicle.id),
         deps.renewals.listForVehicle(vehicle.id),
-        vehicle.configId ? deps.schedule.itemsForConfig(vehicle.configId) : Promise.resolve([]),
+        deps.customItems.listForVehicle(vehicle.id),
+        deps.schedule.itemsForVehicle(vehicle),
       ])
     // One at a time, so a garage of large files is never all downloading at once.
     for (const attachment of attachments) {
@@ -100,7 +103,17 @@ export const exportData = async (deps: ExportDeps, ownerId: string): Promise<Exp
     // it themselves, so importing it as a reading too would make a copy that outlives an edit.
     const fromFillUps = new Set(fillUps.map((f) => `${f.filledOn}:${f.odometerMiles}`))
     const readings = allReadings.filter((r) => !fromFillUps.has(`${r.date}:${r.miles}`))
-    cars.push({ vehicle, readings, services, attachments, warranties, fillUps, renewals, items })
+    cars.push({
+      vehicle,
+      readings,
+      services,
+      attachments,
+      warranties,
+      fillUps,
+      renewals,
+      customItems,
+      items,
+    })
   }
   const today = deps.clock.today()
   const archive = buildArchive(cars, files, today)
@@ -171,6 +184,7 @@ export interface ImportDeps {
   warranties: Pick<WarrantyRepo, 'save'>
   fillUps: Pick<FillUpRepo, 'save'>
   renewals: Pick<RenewalRepo, 'save'>
+  customItems: Pick<CustomItemRepo, 'save'>
   files: Pick<DataFiles, 'stage'>
   ids: IdGenerator
 }
@@ -234,14 +248,31 @@ export const importData = async (
     result.cars++
     for (const reading of laterReadings) await deps.odometer.add(reading)
 
+    // The owner's own items come first and under new ids, so services logged against one point
+    // at its copy. A replacement keeps the schedule item's id, which is stable for a config.
+    const customIds = new Map<string, string>()
+    for (const c of car.customItems) {
+      const id = deps.ids.next()
+      await deps.customItems.save({
+        id,
+        vehicleId: vehicle.id,
+        ...(c.replacesItemId && { replacesItemId: c.replacesItemId }),
+        task: c.task,
+        ...(c.intervalMiles !== undefined && { intervalMiles: c.intervalMiles }),
+        ...(c.intervalMonths !== undefined && { intervalMonths: c.intervalMonths }),
+      })
+      if (!c.replacesItemId) customIds.set(c.id, id)
+    }
+
     const serviceIds = new Map<string, string>()
     for (const s of car.services) {
+      const itemId = s.itemId && (customIds.get(s.itemId) ?? s.itemId)
       const record: ServiceRecord = {
         id: deps.ids.next(),
         vehicleId: vehicle.id,
         // Item ids are stable for a configuration, and the car matches the same one again. A link
         // the server does not know is dropped on upload, keeping the service.
-        ...(s.itemId && { itemId: s.itemId }),
+        ...(itemId && { itemId }),
         performedOn: s.performedOn,
         ...(s.odometerMiles !== undefined && { odometerMiles: s.odometerMiles }),
         ...(s.costCents !== undefined && { costCents: s.costCents }),

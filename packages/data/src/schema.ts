@@ -109,7 +109,8 @@ export const schema = new Schema({
       receipt_path: column.text,
       created_at: column.text,
     },
-    { indexes: { by_vehicle: ['vehicle_id', 'performed_on'] } },
+    // Ordered as the log lists them, so years of history read without a sort.
+    { indexes: { by_vehicle: ['vehicle_id', 'performed_on', 'created_at'] } },
   ),
   reminders: new Table(
     {
@@ -150,7 +151,7 @@ export const schema = new Schema({
       notes: column.text,
       updated_at: column.text,
     },
-    { indexes: { by_vehicle: ['vehicle_id'] } },
+    { indexes: { by_vehicle: ['vehicle_id', 'filled_on', 'odometer_miles'] } },
   ),
   renewals: new Table(
     {
@@ -160,6 +161,17 @@ export const schema = new Schema({
       due_on: column.text,
       every_months: column.integer,
       notes: column.text,
+      updated_at: column.text,
+    },
+    { indexes: { by_vehicle: ['vehicle_id'] } },
+  ),
+  custom_items: new Table(
+    {
+      vehicle_id: column.text,
+      replaces_item_id: column.text,
+      task: column.text,
+      interval_miles: column.integer,
+      interval_months: column.integer,
       updated_at: column.text,
     },
     { indexes: { by_vehicle: ['vehicle_id'] } },
@@ -176,7 +188,7 @@ export const schema = new Schema({
       added_on: column.text,
       created_at: column.text,
     },
-    { indexes: { by_vehicle: ['vehicle_id'] } },
+    { indexes: { by_vehicle: ['vehicle_id', 'added_on', 'created_at'] } },
   ),
   // Never synced or uploaded: facts about this phone's copy, such as whose data it holds.
   device_state: new Table({ value: column.text }, { localOnly: true }),
@@ -190,6 +202,7 @@ export const UPLOADABLE_TABLES = [
   'warranties',
   'fill_ups',
   'renewals',
+  'custom_items',
   'attachments',
 ] as const
 export type UploadableTable = (typeof UPLOADABLE_TABLES)[number]

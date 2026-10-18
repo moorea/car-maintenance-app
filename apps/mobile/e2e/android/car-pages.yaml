@@ -150,3 +150,33 @@ appId: com.moorea.carmaintenance
     visible: 'Read the miles with Claude\?'
     timeout: 5000
 - takeScreenshot: 39-odometer-photo-consent
+
+- launchApp
+- extendedWaitUntil:
+    visible: 'Demo car.*'
+    timeout: 90000
+- tapOn: 'Car'
+# Centred, so the tap can't land on the tab bar floating over the bottom of the page.
+- scrollUntilVisible:
+    element: '.*Engine air filter.*'
+    centerElement: true
+    timeout: 30000
+- waitForAnimationToEnd
+- takeScreenshot: 40-schedule-own-interval
+- tapOn: '.*Engine air filter.*'
+- extendedWaitUntil:
+    visible: 'Use the schedule.s interval'
+    timeout: 5000
+- takeScreenshot: 40-schedule-item
+- tapOn: 'Cancel'
+- scrollUntilVisible:
+    element: 'Add an item'
+    centerElement: true
+    timeout: 30000
+- waitForAnimationToEnd
+- tapOn: 'Add an item'
+- extendedWaitUntil:
+    visible: 'Or every \(months\)'
+    timeout: 5000
+- takeScreenshot: 40-schedule-add
+- tapOn: 'Cancel'

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Attachment, MaintenanceItem, ServiceRecord } from '../../domain/types'
 import {
+  memoryCustomItems,
   fixedClock,
   memoryAttachments,
   memoryFilePicker,
@@ -8,6 +9,8 @@ import {
   memoryServiceRecords,
   sequentialIds,
 } from '../../testing'
+import { withCustomItems } from '../../lib/customSchedule'
+import { LIST_PAGE } from './history'
 import { createServiceLogModel } from './model'
 
 const tasks: MaintenanceItem[] = [
@@ -227,6 +230,35 @@ describe('service log screen model', () => {
       expect(model.getState().groups).toHaveLength(3)
     })
 
+    it('lists the newest page of years of history, and older services on request', () => {
+      // Fifteen years of monthly services.
+      const years: ServiceRecord[] = Array.from({ length: 180 }, (_, i) => ({
+        id: `r${i}`,
+        vehicleId: 'v1',
+        performedOn: `${2026 - Math.floor(i / 12)}-${String(12 - (i % 12)).padStart(2, '0')}-01`,
+        notes: i % 2 === 0 ? 'Oil' : 'Wipers',
+      }))
+      const { model } = setup(years)
+      const ids = () => model.getState().groups.flatMap((g) => g.entries.map((e) => e.id))
+      expect(ids()).toEqual(years.slice(0, LIST_PAGE).map((r) => r.id))
+      expect(model.getState().hidden).toBe(180 - LIST_PAGE)
+      expect(model.getState().summary.count).toBe(180)
+
+      model.getState().showMore()
+      expect(ids()).toHaveLength(2 * LIST_PAGE)
+      expect(model.getState().hidden).toBe(180 - 2 * LIST_PAGE)
+
+      // A search covers every record, and starts again from its newest matches.
+      model.getState().setQuery('wipers')
+      expect(ids()).toEqual(
+        years
+          .filter((r) => r.notes === 'Wipers')
+          .slice(0, LIST_PAGE)
+          .map((r) => r.id),
+      )
+      expect(model.getState().hidden).toBe(90 - LIST_PAGE)
+    })
+
     it('searches the notes of a record that also has a task', async () => {
       const { model } = setup([
         { id: 'n', vehicleId: 'v1', itemId: 'oil', performedOn: '2026-09-01', notes: 'Synthetic' },
@@ -252,12 +284,15 @@ describe('service log screen model', () => {
       const schedule = memorySchedule(tasks)
       const model = createServiceLogModel({
         vehicleId: 'v1',
-        schedule: {
-          itemsForConfig: (id) => {
-            reads++
-            return schedule.itemsForConfig(id)
+        schedule: withCustomItems(
+          {
+            itemsForConfig: (id) => {
+              reads++
+              return schedule.itemsForConfig(id)
+            },
           },
-        },
+          memoryCustomItems(),
+        ),
         records,
         attachments: memoryAttachments(),
         picker: memoryFilePicker(),
@@ -282,7 +317,10 @@ describe('service log screen model', () => {
       const model = createServiceLogModel({
         vehicleId: 'v1',
         configId: 'c1',
-        schedule: { itemsForConfig: () => Promise.reject(new Error('offline')) },
+        schedule: withCustomItems(
+          { itemsForConfig: () => Promise.reject(new Error('offline')) },
+          memoryCustomItems(),
+        ),
         records: memoryServiceRecords(history),
         attachments: memoryAttachments(),
         picker: memoryFilePicker(),

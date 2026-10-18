@@ -103,8 +103,9 @@ export const getDueSummary =
     if (!vehicle) throw new Error(`Unknown vehicle ${vehicleId}`)
 
     const [items, records, readings] = await Promise.all([
-      // A car added on this device has no schedule until the server has matched its config.
-      vehicle.configId === undefined ? [] : deps.schedule.itemsForConfig(vehicle.configId),
+      // A car added on this device has only the owner's own items until the server has matched
+      // its config.
+      deps.schedule.itemsForVehicle(vehicle),
       deps.records.listForVehicle(vehicleId),
       deps.odometer.listForVehicle(vehicleId),
     ])

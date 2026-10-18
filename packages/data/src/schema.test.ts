@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
   fromAttachment,
+  fromCustomItem,
   fromFillUp,
   fromRenewal,
   fromServiceRecord,
@@ -72,6 +73,14 @@ describe('device schema', () => {
     const columns = synced.find((t) => t.name === 'renewals')?.columns.map((c) => c.name)
     const written = Object.keys(
       fromRenewal({ id: 'r', vehicleId: 'v', kind: 'other', title: 't', dueOn: 'd' }),
+    )
+    expect(['id', ...(columns ?? [])]).toEqual(expect.arrayContaining(written))
+  })
+
+  it('stores every field the app writes for a custom schedule item', () => {
+    const columns = synced.find((t) => t.name === 'custom_items')?.columns.map((c) => c.name)
+    const written = Object.keys(
+      fromCustomItem({ id: 'c', vehicleId: 'v', replacesItemId: 'i', task: 't', intervalMiles: 1 }),
     )
     expect(['id', ...(columns ?? [])]).toEqual(expect.arrayContaining(written))
   })
