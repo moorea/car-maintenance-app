@@ -25,6 +25,9 @@ appId: com.moorea.carmaintenance
 # The fuel economy chart and cost bars are drawn from Compose views on Android.
 - scrollUntilVisible:
     element: 'Fuel & costs'
+    centerElement: true
+    timeout: 30000
+- waitForAnimationToEnd
 - tapOn: 'Fuel & costs'
 - waitForAnimationToEnd
 - takeScreenshot: 4-fuel
@@ -36,6 +39,9 @@ appId: com.moorea.carmaintenance
 - tapOn: 'Account'
 - scrollUntilVisible:
     element: 'Sign out'
+    centerElement: true
+    timeout: 30000
+- waitForAnimationToEnd
 - takeScreenshot: 5-account
 - tapOn: 'Sign out'
 - extendedWaitUntil:
