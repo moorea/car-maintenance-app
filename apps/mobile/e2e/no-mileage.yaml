@@ -15,14 +15,18 @@ appId: com.moorea.carmaintenance
 - extendedWaitUntil:
     visible: 'Answers you can check'
     timeout: 5000
+# Let the page finish sliding in, or the next tap can land on the one leaving.
+- waitForAnimationToEnd
 - tapOn: 'Continue'
 - extendedWaitUntil:
     visible: 'Walk into the shop knowing more'
     timeout: 5000
+- waitForAnimationToEnd
 - tapOn: 'Continue'
 - extendedWaitUntil:
     visible: "A heads-up when it's due"
     timeout: 5000
+- waitForAnimationToEnd
 - tapOn: 'Get started'
 - extendedWaitUntil:
     visible: 'Email me a code'

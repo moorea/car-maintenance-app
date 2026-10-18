@@ -24,6 +24,16 @@ import {
   QUANTITY_UNIT,
   type EconomyStretch,
 } from './economy'
+import {
+  CHART_WAITING,
+  ENERGY_WORDING,
+  energyCostLabel,
+  FILL_UP_NOUN,
+  PARTIAL_NOTE,
+  FORM_NOTE,
+  usualEnergy,
+  type EnergyWording,
+} from './wording'
 
 export type FuelSection = 'fill-ups' | 'costs'
 export type FillUpField = Exclude<keyof FillUpDraft, 'full' | 'missedPrevious'>
@@ -53,6 +63,8 @@ export interface EconomyTrend {
   title: string
   /** "31.2 mpg". */
   average: string
+  /** Says the chart waits for a second stretch, for when it has fewer than two points. */
+  waiting: string
   /** Each plausible stretch, oldest first, dated by the fill-up that ends it. */
   points: { date: IsoDate; label: string; value: number }[]
 }
@@ -90,6 +102,8 @@ export interface FillUpForm {
   latestDate: IsoDate
   /** "$3.89/gal" once both quantity and total are typed. */
   unitPrice?: string | undefined
+  /** How full and missed affect economy, for the energy going in. */
+  note: string
   saving: boolean
   /** True after the owner tapped delete once, until they confirm or change their mind. */
   confirmingDelete: boolean
@@ -115,6 +129,10 @@ export interface FuelState {
   years: CostRow[]
   /** The choices for what went in, the car's usual one first. */
   energies: { energy: EnergyKind; label: string }[]
+  /** Titles, buttons and notes in the words of the car's usual energy. */
+  wording: EnergyWording
+  /** What fill-ups' costs are called: "Fuel", "Charging", or "Fuel & charging" once both. */
+  costLabel: string
   /** Present while the add or edit sheet is open. */
   form?: FillUpForm | undefined
 }
@@ -155,10 +173,6 @@ const TREND_TITLE: Record<EnergyKind, string> = {
   electric: 'Charging efficiency',
 }
 
-/** An electric car charges; anything else, hybrids included, starts on fuel. */
-const usualEnergy = (vehicle: Vehicle): EnergyKind =>
-  /electric/i.test(vehicle.engine ?? '') ? 'electric' : 'fuel'
-
 const toFieldErrors = (error: z.ZodError): FillUpFieldErrors =>
   Object.fromEntries(
     error.issues.flatMap((issue) => {
@@ -184,12 +198,15 @@ const costRow = (label: string, cost: PeriodCost): CostRow => ({
   ...(cost.centsPerMile !== undefined && { perMile: formatPerMile(cost.centsPerMile) }),
 })
 
+const energyOf = (draft: FillUpDraft): EnergyKind =>
+  draft.energy === 'electric' ? 'electric' : 'fuel'
+
 /** The price per gallon or kWh as typed so far, if both numbers read as numbers. */
 const unitPriceOf = (draft: FillUpDraft): string | undefined => {
   const quantity = Number(draft.quantity.trim())
   const dollars = Number(draft.cost.trim().replace(/^\$/, '').replaceAll(',', ''))
   if (!(quantity > 0) || !(dollars > 0) || draft.cost.trim() === '') return undefined
-  const energy: EnergyKind = draft.energy === 'electric' ? 'electric' : 'fuel'
+  const energy = energyOf(draft)
   // Pumps price fuel to a tenth of a cent, so three decimals reads like the sign.
   return `$${(dollars / quantity).toFixed(3)}/${QUANTITY_UNIT[energy]}`
 }
@@ -259,6 +276,7 @@ export const createFuelModel = (deps: FuelDeps): FuelModel => {
           energy,
           title: TREND_TITLE[energy],
           average: formatEconomy(measured.average, energy),
+          waiting: CHART_WAITING[energy],
           points: measured.stretches
             .filter((s) => !s.implausible)
             .map((s) => ({ date: s.to, label: formatDay(s.to, today), value: s.economy })),
@@ -270,9 +288,9 @@ export const createFuelModel = (deps: FuelDeps): FuelModel => {
         const note = measured?.stretch.implausible
           ? 'Check the odometer and amount'
           : f.missedPrevious
-            ? 'After a missed fill-up'
+            ? `After a missed ${FILL_UP_NOUN[f.energy]}`
             : !f.full
-              ? 'Partial fill'
+              ? PARTIAL_NOTE[f.energy]
               : undefined
         return {
           id: f.id,
@@ -323,6 +341,7 @@ export const createFuelModel = (deps: FuelDeps): FuelModel => {
       set({
         status: 'ready',
         economy,
+        costLabel: energyCostLabel(new Set(fillUps.map((f) => f.energy)), usual),
         ...pageOfRows(get().rowLimit),
         lastYear: costRow('Last 12 months', costs.lastYear),
         months: costs.months.map((m) => ({
@@ -355,6 +374,7 @@ export const createFuelModel = (deps: FuelDeps): FuelModel => {
           Object.entries(form.fieldErrors).filter(([f]) => !cleared.includes(f as FillUpField)),
         ),
         unitPrice: unitPriceOf(draft),
+        note: FORM_NOTE[energyOf(draft)],
         confirmingDelete: false,
         error: undefined,
       })
@@ -370,7 +390,11 @@ export const createFuelModel = (deps: FuelDeps): FuelModel => {
       const others = [
         ...fillUps
           .filter((f) => f.id !== id)
-          .map((f) => ({ date: f.filledOn, miles: f.odometerMiles, what: 'fill-up' })),
+          .map((f) => ({
+            date: f.filledOn,
+            miles: f.odometerMiles,
+            what: FILL_UP_NOUN[f.energy],
+          })),
         ...checkpoints,
       ]
       const today = deps.clock.today()
@@ -417,6 +441,8 @@ export const createFuelModel = (deps: FuelDeps): FuelModel => {
       months: [],
       years: [],
       energies,
+      wording: ENERGY_WORDING[usual],
+      costLabel: energyCostLabel(new Set(), usual),
 
       showSection: (section) => set({ section }),
 
@@ -425,12 +451,13 @@ export const createFuelModel = (deps: FuelDeps): FuelModel => {
       openNew: () => {
         // A new fill-up is usually like the last one: same energy, same station.
         const last = [...fillUps].sort(newestFirst)[0]
+        const energy = last?.energy ?? usual
         set({
           form: {
             draft: {
               filledOn: deps.clock.today(),
               odometerMiles: '',
-              energy: last?.energy ?? usual,
+              energy,
               quantity: '',
               cost: '',
               full: true,
@@ -441,6 +468,7 @@ export const createFuelModel = (deps: FuelDeps): FuelModel => {
             fieldErrors: {},
             odometerHint,
             latestDate: deps.clock.today(),
+            note: FORM_NOTE[energy],
             saving: false,
             confirmingDelete: false,
           },
@@ -459,6 +487,7 @@ export const createFuelModel = (deps: FuelDeps): FuelModel => {
             odometerHint,
             latestDate: deps.clock.today(),
             unitPrice: unitPriceOf(draft),
+            note: FORM_NOTE[f.energy],
             saving: false,
             confirmingDelete: false,
           },
@@ -511,7 +540,10 @@ export const createFuelModel = (deps: FuelDeps): FuelModel => {
         try {
           await deps.fillUps.save(fillUp)
         } catch (e) {
-          updateForm({ saving: false, error: message(e, 'Could not save the fill-up') })
+          updateForm({
+            saving: false,
+            error: message(e, `Could not save the ${FILL_UP_NOUN[energyOf(form.draft)]}`),
+          })
           return false
         }
         set({ form: undefined })
@@ -532,7 +564,7 @@ export const createFuelModel = (deps: FuelDeps): FuelModel => {
           updateForm({
             saving: false,
             confirmingDelete: false,
-            error: message(e, 'Could not delete the fill-up'),
+            error: message(e, `Could not delete the ${FILL_UP_NOUN[energyOf(form.draft)]}`),
           })
           return false
         }

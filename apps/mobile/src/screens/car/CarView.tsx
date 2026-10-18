@@ -5,6 +5,7 @@ import type {
   DueStatus,
   EditCarActions,
   EditCarState,
+  FuelLink,
   SafetyActions,
   SafetyState,
   ScheduleItemActions,
@@ -105,7 +106,7 @@ export function CarView({
           <OdometerCard {...car} onPrivacyPolicy={onPrivacyPolicy} />
           <QuoteCard onPress={onCheckQuote} />
           <TroubleCodesCard onPress={onTroubleCodes} />
-          <FuelCard onPress={onFuel} />
+          <FuelCard link={car.fuelLink} onPress={onFuel} />
           <TiresCard onPress={onTires} />
           <WarrantyCard onPress={onWarranty} />
           <RenewalsCard onPress={onRenewals} />
@@ -287,18 +288,21 @@ function TroubleCodesCard({ onPress }: { onPress: () => void }) {
   )
 }
 
-/** Opens the car's fill-ups and what it costs to run. */
-function FuelCard({ onPress }: { onPress: () => void }) {
+/** Opens the car's fill-ups or charging sessions and what it costs to run. */
+function FuelCard({ link, onPress }: { link: FuelLink; onPress: () => void }) {
   const colors = useColors()
   return (
     <Card padding={14} onPress={onPress}>
       <Row alignment="center" spacing={12}>
-        <Symbol name="fuel" size={22} color={colors.accent} leading />
+        <Symbol
+          name={link.energy === 'electric' ? 'charging' : 'fuel'}
+          size={22}
+          color={colors.accent}
+          leading
+        />
         <FillColumn spacing={1}>
-          <Text textStyle={{ fontSize: 16, fontWeight: '600' }}>Fuel & costs</Text>
-          <Text textStyle={{ fontSize: 13, color: colors.textSecondary }}>
-            Log fill-ups, see economy and what the car costs each month
-          </Text>
+          <Text textStyle={{ fontSize: 16, fontWeight: '600' }}>{link.title}</Text>
+          <Text textStyle={{ fontSize: 13, color: colors.textSecondary }}>{link.detail}</Text>
         </FillColumn>
         <Symbol name="chevron" size={16} color={colors.textSecondary} />
       </Row>

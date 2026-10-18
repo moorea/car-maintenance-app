@@ -45,8 +45,8 @@ type Props = FuelState &
 
 const OVERLINE = { fontSize: 13, fontWeight: '600', letterSpacing: 0.5 } as const
 
-const SECTIONS: { value: FuelSection; label: string }[] = [
-  { value: 'fill-ups', label: 'Fill-ups' },
+const sections = (fillUps: string): { value: FuelSection; label: string }[] => [
+  { value: 'fill-ups', label: fillUps },
   { value: 'costs', label: 'Costs' },
 ]
 
@@ -68,19 +68,19 @@ export function FuelView(props: Props) {
           <Row alignment="center">
             <GlassIconButton symbol="back" label="Back" onPress={props.onBack} />
             <Spacer flexible />
-            <GlassIconButton symbol="plus" label="Log a fill-up" onPress={props.openNew} />
+            <GlassIconButton symbol="plus" label={props.wording.add} onPress={props.openNew} />
           </Row>
           <Column spacing={2}>
             <Text textStyle={{ ...OVERLINE, color: colors.textSecondary }}>
               {props.carName.toUpperCase()}
             </Text>
-            <Text textStyle={{ fontSize: 34, fontWeight: '700' }}>Fuel & costs</Text>
+            <Text textStyle={{ fontSize: 34, fontWeight: '700' }}>{props.wording.title}</Text>
           </Column>
 
-          <SummaryCard lastYear={props.lastYear} economy={props.economy} />
+          <SummaryCard {...props} />
 
           <SegmentedControl
-            options={SECTIONS}
+            options={sections(props.wording.tab)}
             selected={props.section}
             onSelect={props.showSection}
           />
@@ -100,7 +100,11 @@ export function FuelView(props: Props) {
 }
 
 /** The last twelve months at a glance: what the car cost, per mile, and its economy. */
-function SummaryCard({ lastYear, economy }: Pick<Props, 'lastYear' | 'economy'>) {
+function SummaryCard({
+  lastYear,
+  economy,
+  costLabel,
+}: Pick<Props, 'lastYear' | 'economy' | 'costLabel'>) {
   const colors = useColors()
   return (
     <Card spacing={10}>
@@ -112,7 +116,7 @@ function SummaryCard({ lastYear, economy }: Pick<Props, 'lastYear' | 'economy'>)
         ) : null}
       </Row>
       <Row spacing={16}>
-        <Legend color={FUEL} label={`Fuel ${lastYear.fuel}`} />
+        <Legend color={FUEL} label={`${costLabel} ${lastYear.fuel}`} />
         <Legend color={SERVICE} label={`Service ${lastYear.service}`} />
       </Row>
       {economy.map((e) => (
@@ -152,14 +156,11 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 }
 
 /** The economy charts and the fill-up log, newest first. */
-function FillUps({ rows, hiddenRows, economy, openEdit, showMoreRows }: Props) {
+function FillUps({ rows, hiddenRows, economy, wording, openEdit, showMoreRows }: Props) {
   if (rows.length === 0) {
     return (
       <Card>
-        <Note>
-          Log each fill-up or charge with the odometer reading. Economy shows after two full
-          fill-ups, and every reading keeps your reminders on time. Tap + to start.
-        </Note>
+        <Note>{wording.empty}</Note>
       </Card>
     )
   }
@@ -168,7 +169,7 @@ function FillUps({ rows, hiddenRows, economy, openEdit, showMoreRows }: Props) {
       {economy.map((e) => (
         <EconomyCard key={e.energy} trend={e} />
       ))}
-      <Section title="FILL-UPS">
+      <Section title={wording.heading}>
         <Card padding={0}>
           {rows.map((row, i) => (
             <Fragment key={row.id}>
@@ -180,7 +181,7 @@ function FillUps({ rows, hiddenRows, economy, openEdit, showMoreRows }: Props) {
         {hiddenRows > 0 ? (
           <Button
             variant="text"
-            label={`Show earlier fill-ups (${hiddenRows})`}
+            label={`${wording.showEarlier} (${hiddenRows})`}
             onPress={showMoreRows}
           />
         ) : null}
@@ -205,7 +206,7 @@ function EconomyCard({ trend }: { trend: EconomyTrend }) {
       {recent.length >= 2 ? (
         <TrendChart points={recent} color={FUEL} />
       ) : (
-        <Note>The chart starts once two stretches between full fill-ups are logged.</Note>
+        <Note>{trend.waiting}</Note>
       )}
     </Card>
   )
@@ -243,7 +244,7 @@ function FillUpLine({ row, onPress }: { row: FillUpRow; onPress: () => void }) {
 }
 
 /** Costs by month as stacked bars of fuel and service, then a line per year. */
-function Costs({ months, years }: Props) {
+function Costs({ months, years, costLabel, wording }: Props) {
   const colors = useColors()
   return (
     <Column spacing={16}>
@@ -259,7 +260,7 @@ function Costs({ months, years }: Props) {
             }))}
           />
           <Row spacing={16}>
-            <Legend color={FUEL} label="Fuel and charging" />
+            <Legend color={FUEL} label={costLabel} />
             <Legend color={SERVICE} label="Service" />
           </Row>
         </Card>
@@ -267,17 +268,14 @@ function Costs({ months, years }: Props) {
       <Section title="BY YEAR">
         {years.length === 0 ? (
           <Card>
-            <Note>
-              Costs add up here from fill-ups and services with a price. Nothing is logged with a
-              cost yet.
-            </Note>
+            <Note>{wording.costsEmpty}</Note>
           </Card>
         ) : (
           <Card padding={0}>
             {years.map((y, i) => (
               <Fragment key={y.label}>
                 {i > 0 ? <Separator /> : null}
-                <YearLine row={y} />
+                <YearLine row={y} costLabel={costLabel} />
               </Fragment>
             ))}
           </Card>
@@ -293,7 +291,7 @@ function Costs({ months, years }: Props) {
   )
 }
 
-function YearLine({ row }: { row: CostRow }) {
+function YearLine({ row, costLabel }: { row: CostRow; costLabel: string }) {
   const colors = useColors()
   return (
     <Column spacing={2} style={{ padding: 14 }}>
@@ -303,7 +301,7 @@ function YearLine({ row }: { row: CostRow }) {
         <Text textStyle={{ fontSize: 17, fontWeight: '600' }}>{row.total}</Text>
       </Row>
       <Text textStyle={{ fontSize: 13, color: colors.textSecondary }}>
-        {`Fuel ${row.fuel} · Service ${row.service}`}
+        {`${costLabel} ${row.fuel} · Service ${row.service}`}
       </Text>
       {row.perMile ? (
         <Text textStyle={{ fontSize: 13, color: colors.textSecondary }}>
@@ -323,6 +321,7 @@ const FULL_LABEL: Record<EnergyKind, string> = {
 function FillUpForm({
   form,
   energies,
+  wording,
   setField,
   setFull,
   setMissedPrevious,
@@ -341,7 +340,7 @@ function FillUpForm({
           <Button variant="text" label="Cancel" disabled={saving} onPress={closeForm} />
           <Spacer flexible />
           <Text textStyle={{ fontSize: 17, fontWeight: '600' }}>
-            {form.id ? 'Edit fill-up' : 'Add fill-up'}
+            {form.id ? wording.editTitle : wording.addTitle}
           </Text>
           <Spacer flexible />
           <Button
@@ -406,10 +405,7 @@ function FillUpForm({
           onValueChange={setMissedPrevious}
           label="I missed logging the one before"
         />
-        <Note>
-          Economy is measured from one full fill-up to the next. Turn off the first switch for a
-          top-up, and turn on the second if a fill-up went unlogged, so neither skews it.
-        </Note>
+        <Note>{form.note}</Note>
         <TextField
           label="Station"
           value={draft.station}
@@ -429,7 +425,7 @@ function FillUpForm({
           <Column spacing={6} style={{ paddingTop: 8 }}>
             <Row>
               <PillButton
-                label={form.confirmingDelete ? 'Tap again to delete' : 'Delete fill-up'}
+                label={form.confirmingDelete ? 'Tap again to delete' : wording.remove}
                 onPress={() => void remove()}
                 fill={form.confirmingDelete ? 'danger' : 'neutralSubtle'}
                 text={form.confirmingDelete ? 'onDanger' : 'danger'}

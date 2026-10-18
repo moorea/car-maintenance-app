@@ -22,6 +22,7 @@ import stopIcon from '@expo/material-symbols/stop.xml'
 import composeIcon from '@expo/material-symbols/edit_square.xml'
 import shieldIcon from '@expo/material-symbols/verified_user.xml'
 import fuelIcon from '@expo/material-symbols/local_gas_station.xml'
+import chargingIcon from '@expo/material-symbols/ev_station.xml'
 import shareIcon from '@expo/material-symbols/share.xml'
 import sourceIcon from '@expo/material-symbols/find_in_page.xml'
 import cameraIcon from '@expo/material-symbols/photo_camera.xml'
@@ -75,6 +76,7 @@ const MATERIAL: Record<SymbolName, ImageSourcePropType> = {
   compose: composeIcon,
   shield: shieldIcon,
   fuel: fuelIcon,
+  charging: chargingIcon,
   share: shareIcon,
   source: sourceIcon,
   camera: cameraIcon,

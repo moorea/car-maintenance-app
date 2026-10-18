@@ -1,0 +1,28 @@
+# An electric car: the Car page and the costs page speak of charging, not fill-ups. The
+# `demoElectric` launch argument gives the demo car an electric motor (see apps/mobile/src/bootstrap/demo.ts).
+appId: com.moorea.carmaintenance
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      '-demoElectric': true
+- extendedWaitUntil:
+    visible: 'Demo car.*'
+    timeout: 90000
+- tapOn: 'Car'
+- scrollUntilVisible:
+    element: 'Charging & costs'
+    centerElement: true
+    timeout: 30000
+- waitForAnimationToEnd
+- takeScreenshot: 80-car-electric
+- tapOn: 'Charging & costs'
+# The page's own content, as car-pages.yaml waits for "Fuel economy", rather than the glass add
+# button in its header: waiting on that button once timed out on iOS.
+- extendedWaitUntil:
+    visible: 'Charging efficiency'
+    timeout: 10000
+- waitForAnimationToEnd
+- takeScreenshot: 80-charging
