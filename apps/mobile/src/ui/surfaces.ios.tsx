@@ -9,6 +9,7 @@ import {
   buttonBorderShape,
   buttonStyle,
   contentShape,
+  disabled as disabledModifier,
   frame,
   glassEffect,
   onTapGesture,
@@ -189,7 +190,9 @@ export function PillButton({ label, onPress, fill, text, disabled = false }: Pil
         frame({ minHeight: 44 }),
         frame({ maxWidth: Infinity }),
         background(colors[fill], shapes.capsule()),
-        ...(disabled ? [opacity(DISABLED_OPACITY)] : tappable(onPress)),
+        ...tappable(onPress),
+        // Disabled turns the tap off and has VoiceOver read the pill as a dimmed button.
+        ...(disabled ? [disabledModifier(true), opacity(DISABLED_OPACITY)] : []),
       ]}
     >
       <Text textStyle={{ fontSize: 16, fontWeight: '600', color: colors[text] }}>{label}</Text>
