@@ -3,6 +3,7 @@ import { padding, weight } from '@expo/ui/jetpack-compose/modifiers'
 import { useColors } from '../theme'
 import type { ChatComposerProps } from './ChatComposer'
 import { useModelText } from './composerText'
+import { placeholderProps } from './placeholder'
 import { FilledIconButton, GlassBar } from './surfaces'
 
 /** The floating glass field at the bottom of a chat, with its send button. */
@@ -24,7 +25,7 @@ export function ChatComposer({
             onChangeText={onChange}
             onSubmitEditing={onSubmit}
             placeholder={placeholder}
-            placeholderTextColor={colors.textSecondary}
+            {...placeholderProps(colors)}
             returnKeyType="send"
             autoCapitalize="sentences"
             modifiers={[weight(1), padding(0, 12, 0, 12)]}
