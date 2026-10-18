@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { Attachment, Vehicle } from '../domain/types'
 import { buildArchive, ImportError, readArchive, type CarData } from './archive'
 import { csv } from './csv'
+import { NOTES_MAX, SHORT_TEXT_MAX } from '../schemas/text'
 
 /** The value, failing the test when there is none. */
 const got = <T>(value: T | undefined): T => {
@@ -254,6 +255,18 @@ describe('readArchive', () => {
     delete json.cars[0].fillUps
 
     expect(readArchive(zipOf(json)).data.cars[0]?.fillUps).toEqual([])
+  })
+
+  it('cuts free text past what the server keeps, rather than refuse the export', () => {
+    const json = JSON.parse(
+      textOf(buildArchive([rav4], files, '2026-10-17').bytes, 'car-data.json'),
+    )
+    json.cars[0].services[0].notes = 'n'.repeat(NOTES_MAX + 5)
+    json.cars[0].services[0].shop = 's'.repeat(SHORT_TEXT_MAX + 5)
+
+    const [service] = readArchive(zipOf(json)).data.cars[0]?.services ?? []
+    expect(service?.notes).toHaveLength(NOTES_MAX)
+    expect(service?.shop).toHaveLength(SHORT_TEXT_MAX)
   })
 
   const kindOf = (bytes: Uint8Array) => {

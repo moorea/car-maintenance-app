@@ -46,10 +46,13 @@ select isnt(
 );
 
 update public.vehicles set nickname = 'Renamed' where id = '20000000-0000-0000-0000-00000000000a';
+-- Counted as the server: owners only see the configs their own cars use.
+reset role;
 select is(
   (select count(*) from public.vehicle_configs)::int, 3,
   'renaming a car leaves its config alone'
 );
+set local role authenticated;
 
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000b', true);
 insert into public.vehicles (id, year, make, model, trim, engine, nickname) values

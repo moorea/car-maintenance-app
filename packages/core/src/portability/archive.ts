@@ -12,6 +12,7 @@ import type {
 import type { IsoDate } from '../lib/date'
 import { ATTACHMENT_TYPES, MAX_ATTACHMENT_BYTES } from '../features/attachments/files'
 import { csv } from './csv'
+import { NOTES_MAX, SHORT_TEXT_MAX } from '../schemas/text'
 
 /**
  * A full copy of an owner's data as one zip, in open formats: `car-data.json` holds everything and
@@ -38,6 +39,13 @@ export interface CarData {
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 const text = (max: number) => z.string().max(max)
 
+// Free text past the server's limits is cut to fit, so an export never fails to import.
+const clipped = (max: number) =>
+  z
+    .string()
+    .transform((s) => s.slice(0, max))
+    .optional()
+
 const exportedService = z.object({
   id: z.string().min(1),
   /** The schedule item it counts as; ids are stable for a config across schedule updates. */
@@ -48,9 +56,8 @@ const exportedService = z.object({
   performedOn: isoDate,
   odometerMiles: z.number().int().nonnegative().optional(),
   costCents: z.number().int().nonnegative().optional(),
-  // Free text with no limit in the app or the database, so an export never fails to import.
-  shop: z.string().optional(),
-  notes: z.string().optional(),
+  shop: clipped(SHORT_TEXT_MAX),
+  notes: clipped(NOTES_MAX),
 })
 
 const exportedDocument = z.object({
@@ -77,12 +84,12 @@ const exportedWarranty = z
       'extended',
       'other',
     ]),
-    provider: z.string().optional(),
+    provider: clipped(SHORT_TEXT_MAX),
     startsOn: isoDate,
     months: z.number().int().min(1).max(1200).optional(),
     endMiles: z.number().int().min(1).max(2_000_000).optional(),
-    policyNumber: z.string().optional(),
-    notes: z.string().optional(),
+    policyNumber: clipped(SHORT_TEXT_MAX),
+    notes: clipped(NOTES_MAX),
   })
   .refine((w) => w.months !== undefined || w.endMiles !== undefined, 'A warranty needs a limit')
 
@@ -96,8 +103,8 @@ const exportedFillUp = z.object({
   costCents: z.number().int().nonnegative().max(1_000_000).optional(),
   full: z.boolean(),
   missedPrevious: z.boolean(),
-  station: z.string().optional(),
-  notes: z.string().optional(),
+  station: clipped(SHORT_TEXT_MAX),
+  notes: clipped(NOTES_MAX),
 })
 
 const exportedCar = z.object({
