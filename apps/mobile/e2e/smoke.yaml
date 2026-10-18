@@ -21,6 +21,10 @@ appId: com.moorea.carmaintenance
     timeout: 10000
 - waitForAnimationToEnd
 - takeScreenshot: 3-car
+# Centred, so the tap can't land on the tab bar floating over the bottom of the page.
+- scrollUntilVisible:
+    element: 'Registration & insurance.*'
+    centerElement: true
 - tapOn: 'Registration & insurance.*'
 - assertVisible: 'Renewals'
 - waitForAnimationToEnd
