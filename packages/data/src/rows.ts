@@ -52,6 +52,12 @@ export const toVehicle = (r: Row): Vehicle =>
     drivetrain: text(r.drivetrain),
     nickname: text(r.nickname) ?? '',
     severeDuty: r.severe_duty === 1,
+    // A value without its date, or the reverse, is half a fact: read neither.
+    ...(num(r.value_cents) !== undefined &&
+      text(r.valued_on) !== undefined && {
+        valueCents: num(r.value_cents),
+        valuedOn: text(r.valued_on),
+      }),
   })
 
 /** The columns the device writes for a new car. The server fills in config_id. */
@@ -67,6 +73,8 @@ export const fromVehicle = (ownerId: string, v: Vehicle) => ({
   drivetrain: v.drivetrain ?? null,
   nickname: v.nickname,
   severe_duty: v.severeDuty ? 1 : 0,
+  value_cents: v.valueCents ?? null,
+  valued_on: v.valuedOn ?? null,
 })
 
 export const toServiceRecord = (r: Row): ServiceRecord =>

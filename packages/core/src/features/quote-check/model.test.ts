@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { AssistantError, type Vehicle } from '../../domain/types'
+import { AssistantError, type ServiceRecord, type Vehicle } from '../../domain/types'
 import {
   controlledQuoteReader,
   fixedClock,
@@ -8,6 +8,7 @@ import {
   memorySafety,
   memorySchedule,
   memoryServiceRecords,
+  memoryVehicles,
   SAMPLE_PHOTO,
 } from '../../testing'
 import { MAX_QUOTE_PHOTO_BASE64 } from '../../schemas/quote'
@@ -23,14 +24,16 @@ const vehicle: Vehicle = {
   severeDuty: false,
 }
 
-const setup = (v: Vehicle = vehicle) => {
+const setup = (v: Vehicle = vehicle, repairs: ServiceRecord[] = []) => {
   const reader = controlledQuoteReader()
+  const vehicles = memoryVehicles([v])
   const photos = memoryPhotoPicker()
   const schedule = memorySchedule([
     { id: 'oil', configId: 'c1', kind: 'engine-oil', task: 'Oil change', intervalMiles: 5_000 },
   ])
   const model = createQuoteCheckModel({
     vehicle: v,
+    vehicles,
     schedule,
     records: memoryServiceRecords([
       {
@@ -40,6 +43,7 @@ const setup = (v: Vehicle = vehicle) => {
         performedOn: '2026-07-01',
         odometerMiles: 30_000,
       },
+      ...repairs,
     ]),
     odometer: memoryOdometer([{ vehicleId: 'v1', date: '2026-10-10', miles: 36_000 }]),
     safety: memorySafety({
@@ -68,7 +72,7 @@ const setup = (v: Vehicle = vehicle) => {
     if (!c) throw new Error(`No call ${n}`)
     return c
   }
-  return { model, reader, photos, schedule, call, state: () => model.getState() }
+  return { model, reader, photos, schedule, vehicles, call, state: () => model.getState() }
 }
 
 const settle = async () => {
@@ -246,5 +250,107 @@ describe('quote check model', () => {
     await state().choosePhoto()
     expect(state().error).toContain('too large')
     expect(reader.calls).toHaveLength(0)
+  })
+
+  describe('repair or replace', () => {
+    const BIG = 'Transmission rebuild $3,200'
+
+    it('weighs a big quote and asks what the car is worth when it is not known', async () => {
+      const { state } = setup()
+      state().setDraft(BIG)
+      await state().check()
+      expect(state().weighing).toMatchObject({
+        quoteCents: 320_000,
+        share: undefined,
+        headline: 'Is a $3,200.00 repair worth it?',
+      })
+      expect(state().valueDraft).toBe('')
+    })
+
+    it('leaves a small quote alone', async () => {
+      const { state } = setup()
+      state().setDraft('Oil change $89.95')
+      await state().check()
+      expect(state().weighing).toBeUndefined()
+    })
+
+    it('saves the value the owner types and weighs the quote against it', async () => {
+      const { state, vehicles } = setup()
+      state().setDraft(BIG)
+      await state().check()
+      state().setValueDraft('$8,000')
+      await state().saveValue()
+
+      expect(await vehicles.get('v1')).toMatchObject({
+        valueCents: 800_000,
+        valuedOn: '2026-10-17',
+      })
+      expect(state().valueDraft).toBe('8,000')
+      expect(state().weighing).toMatchObject({
+        share: 'large',
+        headline: 'This quote is 40% of the $8,000.00 you think the car is worth',
+      })
+    })
+
+    it('weighs a smaller quote that is a large share of a cheap car', async () => {
+      const { state } = setup({ ...vehicle, valueCents: 200_000, valuedOn: '2026-09-01' })
+      expect(state().valueDraft).toBe('2,000')
+      state().setDraft('Brake pads and rotors $640')
+      await state().check()
+      expect(state().weighing).toMatchObject({ quoteCents: 64_000, share: 'large' })
+    })
+
+    it('counts the last year of repairs alongside the quote', async () => {
+      const { state } = setup({ ...vehicle, valueCents: 1_000_000, valuedOn: '2026-09-01' }, [
+        { id: 'a', vehicleId: 'v1', performedOn: '2026-03-02', costCents: 90_000 },
+        { id: 'b', vehicleId: 'v1', performedOn: '2025-01-10', costCents: 50_000 },
+      ])
+      state().setDraft(BIG)
+      await state().check()
+      expect(state().weighing?.points).toContain(
+        'You’ve logged $900.00 of repairs in the last 12 months. With this quote, that’s $4,100.00 in a year, 41% of its value.',
+      )
+    })
+
+    it('forgets the value when the field is cleared', async () => {
+      const { state, vehicles } = setup({ ...vehicle, valueCents: 800_000, valuedOn: '2026-09-01' })
+      state().setDraft(BIG)
+      await state().check()
+      state().setValueDraft('')
+      await state().saveValue()
+      const saved = await vehicles.get('v1')
+      expect(saved?.valueCents).toBeUndefined()
+      expect(saved?.valuedOn).toBeUndefined()
+      expect(state().weighing?.share).toBeUndefined()
+    })
+
+    it('explains a value it cannot read without saving it', async () => {
+      const { state, vehicles } = setup()
+      state().setDraft(BIG)
+      await state().check()
+      state().setValueDraft('about 8k')
+      await state().saveValue()
+      expect(state().valueError).toBe('Enter the value in dollars, like 9,500')
+      expect((await vehicles.get('v1'))?.valueCents).toBeUndefined()
+    })
+
+    it('says when saving the value fails, keeping what was typed', async () => {
+      const { state, vehicles } = setup()
+      state().setDraft(BIG)
+      await state().check()
+      vehicles.failNextAdd('Disk full')
+      state().setValueDraft('8000')
+      await state().saveValue()
+      expect(state()).toMatchObject({ valueError: 'Disk full', valueDraft: '8000' })
+      expect(state().weighing?.share).toBeUndefined()
+    })
+
+    it('stops weighing when the owner goes back to edit the lines', async () => {
+      const { state } = setup()
+      state().setDraft(BIG)
+      await state().check()
+      state().edit()
+      expect(state().weighing).toBeUndefined()
+    })
   })
 })
