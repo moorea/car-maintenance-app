@@ -31,7 +31,8 @@ run_flows() {
   lost=$(grep -l 'device offline' $failed /dev/null)
   if [ -n "$failed" ] && [ "$failed" = "$lost" ]; then
     echo "The device went offline during $(sed -E 's|.*/debug/([^/]+)/logs/.*|\1|' <<< "$lost" | paste -sd " " -). Running $flows again."
-    timeout 120 adb wait-for-device || return 1
+    # A device that does not come back fails the job here, rather than in every later run.
+    timeout 120 adb wait-for-device || exit 1
     maestro test --test-output-dir "$dir/retry" --debug-output "$dir/retry/debug" --flatten-debug-output "$flows"
     status=$?
   fi
