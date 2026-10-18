@@ -1,7 +1,8 @@
 # Running the app on a phone
 
-Expo Go cannot run this app: it uses native code Expo Go does not include (op-sqlite for
-PowerSync, the `launch-flags` module). Every route below installs a build of the app itself.
+Expo Go cannot run this app: PowerSync's on-device database (op-sqlite) is native code Expo Go
+does not include. Every route below installs a build of the app itself. The first `eas build`
+needs `eas login` and `eas init` from `apps/mobile`, which links the app to an Expo project.
 
 ## Android
 
@@ -26,7 +27,8 @@ Developer Program.
 - **Ad hoc, with the Developer Program and an Expo account:** `eas device:create` registers the
   phone, then `eas build --profile preview --platform ios` gives an install link.
 - **TestFlight:** `eas build --platform ios` then `eas submit`. Also the path to the App Store; see
-  [app-store/README.md](app-store/README.md).
+  [app-store/README.md](app-store/README.md). Raise `ios.buildNumber` in `app.json` before each
+  upload; App Store Connect refuses a number it has seen.
 
 For the real backend in an EAS build, add the three `EXPO_PUBLIC_*` values as EAS environment
 variables (`eas env:create`), or put them in `apps/mobile/.env.local` for a local build.
