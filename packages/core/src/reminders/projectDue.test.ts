@@ -75,7 +75,7 @@ describe('projectDue', () => {
     })
   })
 
-  it('treats a time-only item with no history as due now', () => {
+  it('treats a time-only item with no history as due now when the model year is unknown', () => {
     const wipers: MaintenanceItem = {
       id: 'w',
       configId: 'c1',
@@ -104,6 +104,23 @@ describe('projectDue', () => {
     expect(
       projectDue(input({ item: wipers, lastService: undefined, inServiceSince: '2027-01-01' })),
     ).toMatchObject({ dueDate: '2028-01-01' })
+  })
+
+  it('is due on the day a guessed interval ends, and moves to the next one after', () => {
+    const wipers: MaintenanceItem = { id: 'w', configId: 'c1', task: 'Wipers', intervalMonths: 12 }
+    const on = (today: string) =>
+      projectDue(
+        input({ item: wipers, lastService: undefined, inServiceSince: '2021-01-01', today }),
+      )
+    expect(on('2027-01-01')).toMatchObject({ dueDate: '2027-01-01', status: 'due-soon' })
+    expect(on('2027-01-02')).toMatchObject({ dueDate: '2028-01-01', status: 'upcoming' })
+  })
+
+  it('ignores a time limit of zero months rather than guessing from it', () => {
+    const broken: MaintenanceItem = { id: 'b', configId: 'c1', task: 'Broken', intervalMonths: 0 }
+    expect(
+      projectDue(input({ item: broken, lastService: undefined, inServiceSince: '2021-01-01' })),
+    ).toMatchObject({ dueDate: '2026-10-01', historyUnknown: true })
   })
 
   it('takes whichever comes first for an item with no history and both limits', () => {

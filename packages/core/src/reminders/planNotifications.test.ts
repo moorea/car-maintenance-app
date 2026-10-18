@@ -151,6 +151,11 @@ describe('planNotifications', () => {
     ])
   })
 
+  it("does not remind about a date guessed only from the car's age", () => {
+    const guessed = due({ itemId: 'battery', dueDate: '2027-01-01', historyUnknown: true })
+    expect(planNotifications([{ vehicle: rav4, due: [guessed] }], '2026-10-01')).toEqual([])
+  })
+
   it('skips items with no projected date, such as a parked car reaching its mileage', () => {
     expect(
       planNotifications(

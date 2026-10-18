@@ -63,7 +63,12 @@ export const dueItemsFor = ({ vehicle, items, records, readings, today }: DueInp
   const mileage = learnMilesPerDay(readingsFrom(vehicle.id, readings, records))
   const { milesPerDay, latest } = mileage
   const currentMiles = latest ? estimateMilesOn(latest, milesPerDay, today) : undefined
-  const inServiceSince = vehicle.year !== undefined ? `${vehicle.year}-01-01` : undefined
+  // A row with a missing or broken year reads as 0; one bad car must not break the rest.
+  const year = vehicle.year
+  const inServiceSince =
+    year !== undefined && Number.isInteger(year) && year >= 1900 && year <= 9999
+      ? `${year}-01-01`
+      : undefined
 
   const due = items
     .flatMap((item) => {

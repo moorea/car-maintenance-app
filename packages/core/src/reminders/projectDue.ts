@@ -35,8 +35,9 @@ export interface ProjectionInput {
   milesPerDay: number
   severeDuty: boolean
   /**
-   * Roughly when the car went into service (the start of its model year). With no service record,
-   * a time limit is assumed to fall on the next whole interval since then.
+   * Roughly when the car went into service: the start of its model year, though many go on sale
+   * the summer before. With no service record, a time limit is assumed to fall on the next whole
+   * interval since then.
    */
   inServiceSince?: IsoDate | undefined
   today: IsoDate
@@ -69,8 +70,12 @@ const dateForMiles = (
 
 /** The first whole number of `months` intervals from `since` that falls on or after `today`. */
 const nextBoundary = (since: IsoDate, months: number, today: IsoDate): IsoDate => {
-  let n = 1
-  while (addMonths(since, n * months) < today) n++
+  const elapsed = (Number(today.slice(0, 4)) - Number(since.slice(0, 4))) * 12
+  const monthsSince = elapsed + Number(today.slice(5, 7)) - Number(since.slice(5, 7))
+  // Counted rather than stepped to, so a bad interval can never loop; the check after covers a
+  // boundary earlier in the same month as today.
+  let n = Math.max(1, Math.ceil(monthsSince / months))
+  if (addMonths(since, n * months) < today) n++
   return addMonths(since, n * months)
 }
 
@@ -105,7 +110,9 @@ export const projectDue = (input: ProjectionInput): DueProjection | undefined =>
       : lastService
         ? addMonths(lastService.performedOn, interval.months)
         : // No history: assume it was done on schedule since the car went into service.
-          inServiceSince && nextBoundary(inServiceSince, interval.months, today)
+          inServiceSince && interval.months > 0
+          ? nextBoundary(inServiceSince, interval.months, today)
+          : undefined
 
   const candidates = [
     ...(byMiles ? [{ date: byMiles, trigger: 'miles' as const }] : []),
