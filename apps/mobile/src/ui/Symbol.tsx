@@ -4,6 +4,8 @@ interface Props {
   name: SymbolName
   size?: number
   color: string
+  /** The icon leads a row of text. The drawings are square, so a leading icon already lines rows up. */
+  leading?: boolean
 }
 
 /** An icon. On the web preview it is an inline stroke drawing; iOS uses the SF Symbol. */

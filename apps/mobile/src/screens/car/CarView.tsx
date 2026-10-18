@@ -192,7 +192,7 @@ function PhotoPermission(
   return (
     <Card spacing={12}>
       <Row alignment="center" spacing={10}>
-        <Symbol name="shield" size={22} color={colors.accent} />
+        <Symbol name="shield" size={22} color={colors.accent} leading />
         <Text textStyle={{ fontSize: 17, fontWeight: '600' }}>Read the miles with Claude?</Text>
       </Row>
       <Text>
@@ -231,7 +231,7 @@ function QuoteCard({ onPress }: { onPress: () => void }) {
   return (
     <Card padding={14} onPress={onPress}>
       <Row alignment="center" spacing={12}>
-        <Symbol name="quote" size={22} color={colors.accent} />
+        <Symbol name="quote" size={22} color={colors.accent} leading />
         <FillColumn spacing={1}>
           <Text textStyle={{ fontSize: 16, fontWeight: '600' }}>Check a shop’s quote</Text>
           <Text textStyle={{ fontSize: 13, color: colors.textSecondary }}>
@@ -250,7 +250,7 @@ function TroubleCodesCard({ onPress }: { onPress: () => void }) {
   return (
     <Card padding={14} onPress={onPress}>
       <Row alignment="center" spacing={12}>
-        <Symbol name="engine" size={22} color={colors.accent} />
+        <Symbol name="engine" size={22} color={colors.accent} leading />
         <FillColumn spacing={1}>
           <Text textStyle={{ fontSize: 16, fontWeight: '600' }}>Check-engine light on?</Text>
           <Text textStyle={{ fontSize: 13, color: colors.textSecondary }}>
@@ -269,7 +269,7 @@ function FuelCard({ onPress }: { onPress: () => void }) {
   return (
     <Card padding={14} onPress={onPress}>
       <Row alignment="center" spacing={12}>
-        <Symbol name="fuel" size={22} color={colors.accent} />
+        <Symbol name="fuel" size={22} color={colors.accent} leading />
         <FillColumn spacing={1}>
           <Text textStyle={{ fontSize: 16, fontWeight: '600' }}>Fuel & costs</Text>
           <Text textStyle={{ fontSize: 13, color: colors.textSecondary }}>
@@ -288,7 +288,7 @@ function RenewalsCard({ onPress }: { onPress: () => void }) {
   return (
     <Card padding={14} onPress={onPress}>
       <Row alignment="center" spacing={12}>
-        <Symbol name="calendar" size={22} color={colors.accent} />
+        <Symbol name="calendar" size={22} color={colors.accent} leading />
         <FillColumn spacing={1}>
           <Text textStyle={{ fontSize: 16, fontWeight: '600' }}>Registration & insurance</Text>
           <Text textStyle={{ fontSize: 13, color: colors.textSecondary }}>
@@ -307,7 +307,7 @@ function WarrantyCard({ onPress }: { onPress: () => void }) {
   return (
     <Card padding={14} onPress={onPress}>
       <Row alignment="center" spacing={12}>
-        <Symbol name="shield" size={22} color={colors.accent} />
+        <Symbol name="shield" size={22} color={colors.accent} leading />
         <FillColumn spacing={1}>
           <Text textStyle={{ fontSize: 16, fontWeight: '600' }}>Warranty & care report</Text>
           <Text textStyle={{ fontSize: 13, color: colors.textSecondary }}>

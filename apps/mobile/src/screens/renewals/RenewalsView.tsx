@@ -148,7 +148,12 @@ function RenewalCard(props: Props & { row: RenewalRow }) {
   return (
     <Card padding={14} spacing={10}>
       <Row alignment="center" spacing={12}>
-        <Symbol name={row.state === 'overdue' ? 'warning' : 'calendar'} size={22} color={color} />
+        <Symbol
+          name={row.state === 'overdue' ? 'warning' : 'calendar'}
+          size={22}
+          color={color}
+          leading
+        />
         <FillColumn spacing={1}>
           <Text textStyle={{ fontSize: 17, fontWeight: '600' }}>{row.title}</Text>
           <Text
