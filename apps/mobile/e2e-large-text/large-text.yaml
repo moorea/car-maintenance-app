@@ -22,11 +22,13 @@ appId: com.moorea.carmaintenance
 - waitForAnimationToEnd
 - takeScreenshot: 9-large-text-car
 # The demo car's recall card, whose "Risk and fix" toggle label scales too. The Car tab opens on
-# the schedule, so switch to recalls first.
+# the schedule, so switch to recalls first. At this size the cards above the tabs fill several
+# screens and each swipe on iOS takes about 5 seconds, so 30 seconds ran out after 6 swipes, short
+# of the tabs.
 - scrollUntilVisible:
     element: 'Recalls.*'
     direction: DOWN
-    timeout: 30000
+    timeout: 90000
 # The scroll stops as soon as the tabs show, which can be under the floating tab bar, where a tap
 # lands on the Log tab instead. A short, slow drag lifts them a fifth of the screen, clear of it
 # (centring them fails at this size, and a whole scroll can carry them off the top).
