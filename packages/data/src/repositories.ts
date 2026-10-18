@@ -366,6 +366,34 @@ export const createPowerSyncRepositories = (db: CommonPowerSyncDatabase): PowerS
           Object.values(row),
         )
       },
+
+      // Only what changed is written, so the upload sends just those columns.
+      update: async (record) => {
+        await db.writeTransaction(async (tx) => {
+          const existing = await tx.getOptional<Row>('select * from service_records where id = ?', [
+            record.id,
+          ])
+          if (!existing) return
+          const { id: _id, vehicle_id: _car, ...fields } = fromServiceRecord(record)
+          const changed = Object.entries(fields).filter(
+            ([column, value]) => existing[column] !== value,
+          )
+          if (changed.length === 0) return
+          await tx.execute(
+            `update service_records set ${changed.map(([column]) => `${column} = ?`).join(', ')} where id = ?`,
+            [...changed.map(([, value]) => value), record.id],
+          )
+        })
+      },
+
+      // Its receipts go first, in the same transaction, so the upload deletes their files in
+      // Storage too rather than leaving them for the sweep.
+      remove: async (id) => {
+        await db.writeTransaction(async (tx) => {
+          await tx.execute('delete from attachments where service_record_id = ?', [id])
+          await tx.execute('delete from service_records where id = ?', [id])
+        })
+      },
     },
 
     odometer: {

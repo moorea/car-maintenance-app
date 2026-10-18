@@ -14,9 +14,11 @@ Screens read and write SQLite only; PowerSync syncs it with Supabase Postgres in
 - **Rejected uploads**: a change that fails with bad data (SQLSTATE class 22), a constraint
   violation (class 23), an RLS refusal for a signed-in user (42501) or any other 4xx is dropped
   and logged, because retrying it would block every later change. 401, 408, 429, 5xx and network
-  failures are retried, and nothing uploads while signed out. Service records and odometer
-  readings are append-only: the device refuses to upload an update to them, inserts are
-  `ON CONFLICT DO NOTHING` so a retry is harmless, and a correction is a delete plus an insert.
+  failures are retried, and nothing uploads while signed out. Odometer readings are
+  append-only: the device refuses to upload an update to them, and a correction is a delete plus
+  an insert. Service records can be corrected in place (since 2026-10-18: a mileage typo would
+  otherwise hold back every later reading), but not moved to another car. Inserts into both are
+  `ON CONFLICT DO NOTHING`, so a retry is harmless and never reverts a correction made since.
 - **Backlogs upload in batches.** The connector reads up to 100 queued changes at a time, and a
   run of consecutive inserts into one table with the same columns goes in one request, so a
   phone that was offline for weeks (or an import of years of history) catches up in a few

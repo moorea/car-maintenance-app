@@ -53,13 +53,13 @@ export const isPermanent = (error: BackendError): boolean => {
 }
 
 /**
- * What the device may change on the server, per table. Service records and odometer readings are
- * append-only (a correction is a delete plus an insert), so a local update to them is refused here
- * rather than uploaded and silently reverted.
+ * What the device may change on the server, per table. Odometer readings are append-only (a
+ * correction is a delete plus an insert), so a local update to them is refused here rather than
+ * uploaded and silently reverted.
  */
 const ALLOWED: Record<UploadableTable, readonly UpdateType[]> = {
   vehicles: [UpdateType.PUT, UpdateType.PATCH, UpdateType.DELETE],
-  service_records: [UpdateType.PUT, UpdateType.DELETE],
+  service_records: [UpdateType.PUT, UpdateType.PATCH, UpdateType.DELETE],
   odometer_readings: [UpdateType.PUT],
   warranties: [UpdateType.PUT, UpdateType.PATCH, UpdateType.DELETE],
   fill_ups: [UpdateType.PUT, UpdateType.PATCH, UpdateType.DELETE],
@@ -67,7 +67,11 @@ const ALLOWED: Record<UploadableTable, readonly UpdateType[]> = {
   custom_items: [UpdateType.PUT, UpdateType.PATCH, UpdateType.DELETE],
   attachments: [UpdateType.PUT, UpdateType.DELETE],
 }
-const APPEND_ONLY = new Set<string>(['service_records', 'odometer_readings', 'attachments'])
+/**
+ * Tables whose inserts never overwrite: a retried insert must not turn into an update, which would
+ * revert a correction made since (service records) or which the table refuses (the others).
+ */
+const INSERT_ONLY = new Set<string>(['service_records', 'odometer_readings', 'attachments'])
 
 const isUploadable = (table: string): table is UploadableTable => Object.hasOwn(ALLOWED, table)
 
@@ -142,10 +146,20 @@ export const applyCrud = async (
       return settle(entry.table, await backend.insert(entry.table, { ...row, item_id: null }))
     return settle(entry.table, error)
   }
+  if (entry.table === 'service_records' && entry.op === UpdateType.PATCH) {
+    const error = await backend.update(entry.table, entry.id, data)
+    // As for an insert: a correction naming a schedule item the server no longer has keeps the
+    // rest of the correction.
+    if (error?.code === '23503' && data.item_id != null)
+      return settle(
+        entry.table,
+        await backend.update(entry.table, entry.id, { ...data, item_id: null }),
+      )
+    return settle(entry.table, error)
+  }
   const error =
     entry.op === UpdateType.PUT
-      ? // A retried insert must not turn into an update, which append-only tables refuse.
-        APPEND_ONLY.has(entry.table)
+      ? INSERT_ONLY.has(entry.table)
         ? await backend.insert(entry.table, row)
         : await backend.upsert(entry.table, row)
       : entry.op === UpdateType.PATCH
@@ -206,7 +220,7 @@ const applyRun = async (
   const [first] = run
   if (first && run.length > 1) {
     const rows = run.map((entry) => ({ ...entry.opData, id: entry.id }))
-    const error = APPEND_ONLY.has(first.table)
+    const error = INSERT_ONLY.has(first.table)
       ? await backend.insertMany(first.table, rows)
       : await backend.upsertMany(first.table, rows)
     if (!settle(first.table, error)) return

@@ -40,7 +40,7 @@ const context = (missing = false): UploadContext => ({
 })
 
 describe('applyCrud', () => {
-  it('inserts into append-only tables, so a retried insert cannot become an update', async () => {
+  it('inserts services and readings, so a retried insert can never overwrite a correction', async () => {
     const { backend, calls } = fakeBackend()
     await applyCrud(
       backend,
@@ -98,8 +98,31 @@ describe('applyCrud', () => {
     expect(calls).toEqual([['remove', 'service_records', 'row1']])
   })
 
+  it('uploads a correction to a service as an update', async () => {
+    const { backend, calls } = fakeBackend()
+    await applyCrud(
+      backend,
+      entry(UpdateType.PATCH, 'service_records', { cost_cents: 8999 }),
+      context(),
+    )
+    expect(calls).toEqual([['update', 'service_records', 'row1', { cost_cents: 8999 }]])
+  })
+
+  it('keeps the rest of a correction when the server does not know its schedule item', async () => {
+    const { backend, calls } = fakeBackend([{ code: '23503', message: 'item_id fkey' }])
+    const dropped = await applyCrud(
+      backend,
+      entry(UpdateType.PATCH, 'service_records', { item_id: 'gone', shop: 'Main St' }),
+      context(),
+    )
+    expect(dropped).toBeNull()
+    expect(calls).toEqual([
+      ['update', 'service_records', 'row1', { item_id: 'gone', shop: 'Main St' }],
+      ['update', 'service_records', 'row1', { item_id: null, shop: 'Main St' }],
+    ])
+  })
+
   it.each([
-    [UpdateType.PATCH, 'service_records'],
     [UpdateType.PATCH, 'odometer_readings'],
     [UpdateType.DELETE, 'odometer_readings'],
   ])('refuses %s on append-only %s instead of uploading it', async (op, table) => {

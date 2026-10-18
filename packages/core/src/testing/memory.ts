@@ -343,6 +343,9 @@ export const memoryServiceRecords = (
   const watchers = new Set<{ vehicleId: VehicleId; onChange: (r: ServiceRecord[]) => void }>()
   let nextFailure: string | undefined
   const forVehicle = (vehicleId: VehicleId) => records.filter((r) => r.vehicleId === vehicleId)
+  const notify = (vehicleId: VehicleId) => {
+    for (const w of watchers) if (w.vehicleId === vehicleId) w.onChange(forVehicle(vehicleId))
+  }
 
   return {
     listForVehicle: async (vehicleId) => forVehicle(vehicleId),
@@ -359,8 +362,20 @@ export const memoryServiceRecords = (
         throw new Error(message)
       }
       records.push(record)
-      for (const w of watchers)
-        if (w.vehicleId === record.vehicleId) w.onChange(forVehicle(w.vehicleId))
+      notify(record.vehicleId)
+    },
+    update: async (record) => {
+      const i = records.findIndex((r) => r.id === record.id)
+      if (i < 0) return
+      const vehicleId = records[i]?.vehicleId ?? record.vehicleId
+      records[i] = { ...record, vehicleId }
+      notify(vehicleId)
+    },
+    remove: async (id) => {
+      const i = records.findIndex((r) => r.id === id)
+      if (i < 0) return
+      const [removed] = records.splice(i, 1)
+      if (removed) notify(removed.vehicleId)
     },
     failNextAdd: (message) => {
       nextFailure = message
