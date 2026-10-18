@@ -28,10 +28,11 @@ appId: com.moorea.carmaintenance
     visible: 'Demo car'
     timeout: 60000
 - tapOn: 'Car'
+# Centred, so the tap can't land on the tab bar floating over the bottom of the page.
 - scrollUntilVisible:
     element: 'Known issues'
+    centerElement: true
 - tapOn: 'Known issues'
-- scroll
 - waitForAnimationToEnd
 - takeScreenshot: 31-car-known-issues
 - launchApp
@@ -39,10 +40,11 @@ appId: com.moorea.carmaintenance
     visible: 'Demo car'
     timeout: 60000
 - tapOn: 'Car'
+# Centred, so the tap can't land on the tab bar floating over the bottom of the page.
 - scrollUntilVisible:
     element: 'Recalls · 2'
+    centerElement: true
 - tapOn: 'Recalls · 2'
-- scroll
 - waitForAnimationToEnd
 - takeScreenshot: 32-car-recalls
 
