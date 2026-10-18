@@ -37,6 +37,8 @@ export interface SessionState {
   selectedVehicleId?: string | undefined
   /** True while the owner is adding another car from a car's screen. */
   addingCar: boolean
+  /** True after a car is added, until reminders have been offered for it (or need not be). */
+  offerReminders: boolean
   /** The open tab. Signing in opens the garage. */
   tab: AppTab
   /**
@@ -69,8 +71,13 @@ export interface SessionActions {
   /** Opens "add your car" over the selected car. */
   addCar: () => void
   cancelAddCar: () => void
-  /** Closes "add your car" and selects the new car as soon as it shows up in the list. */
+  /**
+   * Closes "add your car", offers reminders, and selects the new car as soon as it shows up in the
+   * list.
+   */
   carAdded: (id: string) => void
+  /** Reminders were offered, or needed no offer, after a car was added. */
+  remindersOffered: () => void
   signOut: () => Promise<void>
   dispose: () => void
 }
@@ -162,6 +169,7 @@ export const createSessionModel = (deps: {
           vehicles: [],
           selectedVehicleId: undefined,
           addingCar: false,
+          offerReminders: false,
           tab: 'garage',
         })
         return
@@ -173,6 +181,7 @@ export const createSessionModel = (deps: {
         vehicles: [],
         selectedVehicleId: undefined,
         addingCar: false,
+        offerReminders: false,
         tab: 'garage',
       })
       stopVehicles = deps.vehicles.watchOwned(user.id, showVehicles)
@@ -186,6 +195,7 @@ export const createSessionModel = (deps: {
       status: 'starting',
       vehicles: [],
       addingCar: false,
+      offerReminders: false,
       tab: 'garage',
 
       start: () => {
@@ -256,13 +266,15 @@ export const createSessionModel = (deps: {
       carAdded: (id) => {
         justAdded = id
         tapped = undefined
-        set({ addingCar: false })
+        set({ addingCar: false, offerReminders: true })
         // The list may already have it; otherwise the next update selects it.
         if (vehiclesLoaded) showVehicles(get().vehicles)
       },
 
       // A failure to revoke the session on the server still signs out locally, which is what
       // the owner asked for, so it is not reported.
+      remindersOffered: () => set({ offerReminders: false }),
+
       signOut: async () => {
         try {
           await deps.auth.signOut()

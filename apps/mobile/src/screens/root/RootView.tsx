@@ -9,6 +9,7 @@ import { CarScreen } from '../car/CarScreen'
 import { DrivingScreen } from '../driving/DrivingScreen'
 import { GarageScreen } from '../garage/GarageScreen'
 import { QuoteCheckScreen } from '../quote-check/QuoteCheckScreen'
+import { ReminderOfferScreen } from '../reminder-offer/ReminderOfferScreen'
 import { RemindersScreen } from '../reminders/RemindersScreen'
 import { ServiceLogScreen } from '../service-log/ServiceLogScreen'
 import { SignInScreen } from '../sign-in/SignInScreen'
@@ -33,6 +34,7 @@ type Props = SessionState &
     | 'addCar'
     | 'cancelAddCar'
     | 'carAdded'
+    | 'remindersOffered'
   >
 
 const TABS: TabBarItem<AppTab>[] = [
@@ -50,6 +52,15 @@ export function RootView(props: Props) {
   if (status === 'signed-out' || !user) return <SignInScreen />
 
   const vehicle = vehicles.find((v) => v.id === selectedVehicleId)
+  // Reminders become useful the moment there is a car, so they are offered then, once per phone.
+  if (status === 'ready' && vehicle && !addingCar && props.offerReminders) {
+    return (
+      <ReminderOfferScreen
+        carName={vehicle.nickname || `${vehicle.year} ${vehicle.make} ${vehicle.model}`}
+        onDone={props.remindersOffered}
+      />
+    )
+  }
   if (status === 'ready' && vehicle && !addingCar) {
     return (
       <View style={styles.fill}>

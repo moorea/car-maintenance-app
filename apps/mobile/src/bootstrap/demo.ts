@@ -24,7 +24,9 @@ import {
   type Clock,
   type FillUp,
   type MaintenanceItem,
+  type OdometerReading,
   type SafetyReport,
+  type Vehicle,
 } from '@car/core'
 
 /** A VIN the demo's offline decoder knows, for previews where the real lookup cannot run. */
@@ -42,6 +44,9 @@ export const demoVinDecoder = () =>
       engine: '3.0L 6-cyl',
     },
   ])
+
+/** Who signs in on a first run (see `demoSignedOut`): a new owner with no cars yet. */
+const NEW_OWNER = 'demo-new-owner'
 
 const DEMO_CHECKED = '2026-10-17 12:00:00Z'
 
@@ -420,30 +425,37 @@ export const demoFillUps = (): FillUp[] => {
 export const createDemoRepositories = () => {
   // Already signed in, so the demo opens on the sample car. After signing out, any email with
   // code 123456 signs back in as the same demo owner. UI tests can start signed out instead, to
-  // see the first-run introduction.
+  // walk through a first run: the introduction, then signing in as a new owner with no cars.
+  const firstRun = launchFlag('demoSignedOut')
   const auth = memoryAuth({
-    ...(launchFlag('demoSignedOut') ? {} : { user: { id: OWNER, email: 'demo@example.com' } }),
-    userIdFor: () => OWNER,
+    ...(firstRun ? {} : { user: { id: OWNER, email: 'demo@example.com' } }),
+    userIdFor: () => (firstRun ? NEW_OWNER : OWNER),
   })
+  const vehicles = memoryVehicles([
+    {
+      id: 'demo',
+      configId: 'demo',
+      year: 2021,
+      make: 'Toyota',
+      model: 'RAV4',
+      trim: 'XLE',
+      engine: '2.5L 4-cyl',
+      drivetrain: 'AWD',
+      nickname: 'Demo car',
+      severeDuty: false,
+    },
+  ])
   return {
     auth,
     // Deleting the demo account only signs out; the sample data stays for the next sign-in.
     account: memoryAccount(auth),
     sync: memorySync(),
-    vehicles: memoryVehicles([
-      {
-        id: 'demo',
-        configId: 'demo',
-        year: 2021,
-        make: 'Toyota',
-        model: 'RAV4',
-        trim: 'XLE',
-        engine: '2.5L 4-cyl',
-        drivetrain: 'AWD',
-        nickname: 'Demo car',
-        severeDuty: false,
-      },
-    ]),
+    vehicles: {
+      ...vehicles,
+      // The server matches a new car to its schedule; the demo gives every car the sample one.
+      add: (ownerId: string, vehicle: Vehicle, firstReading?: OdometerReading) =>
+        vehicles.add(ownerId, { ...vehicle, configId: vehicle.configId ?? 'demo' }, firstReading),
+    },
     odometer: memoryOdometer([
       { vehicleId: 'demo', date: '2026-04-02', miles: 24_150 },
       { vehicleId: 'demo', date: '2026-10-10', miles: 35_780 },

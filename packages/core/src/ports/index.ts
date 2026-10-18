@@ -265,6 +265,8 @@ export interface DevicePreferences {
    * else signing in on this phone is asked again.
    */
   aiSharingOwner: string | null
+  /** Reminders were offered after a car was added on this phone, and turned on or declined. */
+  remindersOffered: boolean
 }
 
 export interface DevicePreferencesRepo {
