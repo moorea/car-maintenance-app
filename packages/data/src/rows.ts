@@ -59,6 +59,7 @@ export const toVehicle = (r: Row): Vehicle =>
         valueCents: num(r.value_cents),
         valuedOn: text(r.valued_on),
       }),
+    garagePosition: num(r.garage_position),
   })
 
 /** The columns the device writes for a new car. The server fills in config_id. */
@@ -76,6 +77,7 @@ export const fromVehicle = (ownerId: string, v: Vehicle) => ({
   severe_duty: v.severeDuty ? 1 : 0,
   value_cents: v.valueCents ?? null,
   valued_on: v.valuedOn ?? null,
+  garage_position: v.garagePosition ?? null,
 })
 
 export const toServiceRecord = (r: Row): ServiceRecord =>

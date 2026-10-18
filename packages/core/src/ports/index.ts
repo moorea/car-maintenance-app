@@ -41,6 +41,8 @@ export interface VehicleRepo {
   setValue(id: VehicleId, value: { cents: number; valuedOn: IsoDate } | undefined): Promise<void>
   /** Changes the name the garage shows for the car. */
   rename(id: VehicleId, nickname: string): Promise<void>
+  /** Puts the owner's cars in this order in the garage, on every phone: the first leads. */
+  reorder(ids: VehicleId[]): Promise<void>
   /**
    * Deletes the car and everything recorded for it, on every phone. The server deletes its
    * history with it; its documents' files are deleted as well.

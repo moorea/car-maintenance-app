@@ -37,6 +37,8 @@ export const SYMBOLS = {
   },
   plus: { ios: 'plus', paths: ['M12 5v14M5 12h14'] },
   chevron: { ios: 'chevron.right', paths: ['M9 6l6 6-6 6'] },
+  moveUp: { ios: 'chevron.up', paths: ['M6 15l6-6 6 6'] },
+  moveDown: { ios: 'chevron.down', paths: ['M6 9l6 6 6-6'] },
   dropdown: { ios: 'chevron.up.chevron.down', paths: ['M8 10l4 4 4-4'] },
   back: { ios: 'chevron.left', paths: ['M15 6l-6 6 6 6'] },
   calendar: {

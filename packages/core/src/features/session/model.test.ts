@@ -40,6 +40,22 @@ describe('session model', () => {
     expect(model.getState().vehicles.map((v) => v.nickname)).toEqual(['Accord', 'Civic'])
   })
 
+  it('lists the cars in the order the owner arranged, and starts on the first', async () => {
+    const { vehicles, model } = setup(true, [civic, accord])
+    model.getState().start()
+    await vehicles.reorder(['v-civic', 'v-accord'])
+    expect(model.getState().vehicles.map((v) => v.nickname)).toEqual(['Civic', 'Accord'])
+    // The car already open stays open; a fresh start opens the one the owner put first.
+    expect(model.getState().selectedVehicleId).toBe('v-accord')
+    const fresh = setup(true, [
+      civic,
+      { ...accord, garagePosition: 1 },
+      { ...civic, id: 'v-1', garagePosition: 0 },
+    ])
+    fresh.model.getState().start()
+    expect(fresh.model.getState().selectedVehicleId).toBe('v-1')
+  })
+
   it('asks for a car when the owner has none, then shows it once one syncs', () => {
     const { vehicles, model } = setup(true)
     model.getState().start()

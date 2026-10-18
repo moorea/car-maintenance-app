@@ -1,6 +1,7 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
 import type { AuthUser, Vehicle } from '../../domain/types'
 import type { AuthPort, Notifier, SyncStatus, Unsubscribe, VehicleRepo } from '../../ports'
+import { byGarageOrder } from '../../lib/garageOrder'
 
 /**
  * What the app shows at its root: nothing yet while the stored session loads, the sign-in screen,
@@ -155,7 +156,7 @@ export const createSessionModel = (deps: {
   return createStore<SessionState & SessionActions>()((set, get) => {
     const showVehicles = (vehicles: Vehicle[]) => {
       vehiclesLoaded = true
-      const sorted = [...vehicles].sort((a, b) => a.nickname.localeCompare(b.nickname))
+      const sorted = [...vehicles].sort(byGarageOrder)
       const opened = sorted.find((v) => v.id === tapped)
       // A tapped car not here once everything has synced is gone, or another account's.
       if (opened || synced) tapped = undefined
