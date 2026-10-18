@@ -14,6 +14,7 @@ import type {
   RenewalKind,
   SafetyReport,
   ServiceRecord,
+  TireSet,
   Vehicle,
   Warranty,
   WarrantyKind,
@@ -173,6 +174,30 @@ export const fromFillUp = (f: FillUp) => ({
   notes: f.notes ?? null,
 })
 
+export const toTireSet = (r: Row): TireSet => {
+  const madeWeek = num(r.made_week)
+  const madeYear = num(r.made_year)
+  const mounted = r.mounted === 1
+  const treadDepth32nds = num(r.tread_32nds)
+  const treadCheckedOn = text(r.tread_checked_on)
+  return defined({
+    id: required(text(r.id), 'id'),
+    vehicleId: required(text(r.vehicle_id), 'vehicle_id'),
+    name: text(r.name) ?? '',
+    brand: text(r.brand),
+    size: text(r.size),
+    // Half a DOT date says nothing, so it reads as unknown.
+    ...(madeWeek !== undefined && madeYear !== undefined ? { madeWeek, madeYear } : {}),
+    mounted,
+    mountedAtMiles: mounted ? num(r.mounted_at_miles) : undefined,
+    priorMiles: num(r.prior_miles) ?? 0,
+    ...(treadDepth32nds !== undefined && treadCheckedOn !== undefined
+      ? { treadDepth32nds, treadCheckedOn }
+      : {}),
+    notes: text(r.notes),
+  })
+}
+
 const RENEWAL_KINDS = new Set<string>([
   'registration',
   'inspection',
@@ -203,6 +228,22 @@ export const fromRenewal = (r: Renewal) => ({
   due_on: r.dueOn,
   every_months: r.everyMonths ?? null,
   notes: r.notes ?? null,
+})
+
+export const fromTireSet = (t: TireSet) => ({
+  id: t.id,
+  vehicle_id: t.vehicleId,
+  name: t.name,
+  brand: t.brand ?? null,
+  size: t.size ?? null,
+  made_week: t.madeWeek ?? null,
+  made_year: t.madeYear ?? null,
+  mounted: t.mounted ? 1 : 0,
+  mounted_at_miles: t.mountedAtMiles ?? null,
+  prior_miles: t.priorMiles,
+  tread_32nds: t.treadDepth32nds ?? null,
+  tread_checked_on: t.treadCheckedOn ?? null,
+  notes: t.notes ?? null,
 })
 
 const KINDS: readonly AttachmentKind[] = [

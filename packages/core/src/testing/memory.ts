@@ -17,6 +17,7 @@ import {
   type VehicleId,
   type Warranty,
   type FillUp,
+  type TireSet,
   type Renewal,
   type CustomItem,
 } from '../domain/types'
@@ -31,6 +32,7 @@ import type {
   Clock,
   FilePicker,
   FillUpRepo,
+  TireSetRepo,
   FilePreview,
   FileSource,
   IdGenerator,
@@ -730,6 +732,47 @@ export const memoryWarranties = (initial: Warranty[] = []) => {
     remove: async (id) => {
       failIfScheduled()
       warranties = warranties.filter((w) => w.id !== id)
+      notify()
+    },
+    failNext: (message) => {
+      nextFailure = message
+    },
+  }
+  return repo
+}
+
+/** Tire sets kept in memory. `failNext` makes the next save or removal throw. */
+export const memoryTireSets = (initial: TireSet[] = []) => {
+  let sets = [...initial]
+  const watchers = new Set<{ vehicleId: VehicleId; onChange: (s: TireSet[]) => void }>()
+  let nextFailure: string | undefined
+  const forVehicle = (vehicleId: VehicleId) => sets.filter((s) => s.vehicleId === vehicleId)
+  const notify = () => {
+    for (const w of watchers) w.onChange(forVehicle(w.vehicleId))
+  }
+  const failIfScheduled = () => {
+    if (nextFailure === undefined) return
+    const message = nextFailure
+    nextFailure = undefined
+    throw new Error(message)
+  }
+  const repo: TireSetRepo & { failNext: (message: string) => void } = {
+    listForVehicle: async (vehicleId) => forVehicle(vehicleId),
+    watchForVehicle: (vehicleId, onChange) => {
+      const watcher = { vehicleId, onChange }
+      watchers.add(watcher)
+      onChange(forVehicle(vehicleId))
+      return () => watchers.delete(watcher)
+    },
+    save: async (...saved) => {
+      failIfScheduled()
+      const ids = new Set(saved.map((s) => s.id))
+      sets = [...sets.filter((s) => !ids.has(s.id)), ...saved]
+      notify()
+    },
+    remove: async (id) => {
+      failIfScheduled()
+      sets = sets.filter((s) => s.id !== id)
       notify()
     },
     failNext: (message) => {

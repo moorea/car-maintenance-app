@@ -40,6 +40,8 @@ import ellipsisIcon from '@expo/material-symbols/more_horiz.xml'
 import calendarIcon from '@expo/material-symbols/calendar_month.xml'
 import bulletinIcon from '@expo/material-symbols/build.xml'
 import gaugeIcon from '@expo/material-symbols/speed.xml'
+import tireIcon from '@expo/material-symbols/tire_repair.xml'
+import swapIcon from '@expo/material-symbols/sync.xml'
 import priceIcon from '@expo/material-symbols/attach_money.xml'
 
 interface Props {
@@ -92,6 +94,8 @@ const MATERIAL: Record<SymbolName, ImageSourcePropType> = {
   calendar: calendarIcon,
   bulletin: bulletinIcon,
   gauge: gaugeIcon,
+  tire: tireIcon,
+  swap: swapIcon,
   price: priceIcon,
 }
 

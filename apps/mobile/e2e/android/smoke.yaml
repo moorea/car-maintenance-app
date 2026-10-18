@@ -17,8 +17,9 @@ appId: com.moorea.carmaintenance
 - waitForAnimationToEnd
 - takeScreenshot: 2-service-log
 - tapOn: 'Car'
+# The recalls sit below the car's pages; car-pages.yaml opens them.
 - extendedWaitUntil:
-    visible: 'Recalls · 2'
+    visible: 'Fuel & costs'
     timeout: 10000
 - waitForAnimationToEnd
 - takeScreenshot: 3-car

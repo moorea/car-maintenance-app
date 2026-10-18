@@ -110,6 +110,18 @@ appId: com.moorea.carmaintenance
 
 - tapOn: 'Car'
 - scrollUntilVisible:
+    element: 'Tires.*'
+    centerElement: true
+    timeout: 30000
+- waitForAnimationToEnd
+- tapOn: 'Tires.*'
+- extendedWaitUntil:
+    visible: 'Put on the car'
+    timeout: 5000
+- takeScreenshot: 35-tires
+
+- tapOn: 'Car'
+- scrollUntilVisible:
     element: 'Check a shop.s quote'
     centerElement: true
     timeout: 30000

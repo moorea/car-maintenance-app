@@ -16,6 +16,7 @@ import type {
   Renewal,
   SafetyReport,
   ServiceRecord,
+  TireSet,
   Vehicle,
   VehicleId,
   Warranty,
@@ -129,6 +130,19 @@ export interface FillUpRepo {
   watchForVehicle(vehicleId: VehicleId, onChange: (fillUps: FillUp[]) => void): Unsubscribe
   /** Adds the fill-up, or replaces the one with the same id. */
   save(fillUp: FillUp): Promise<void>
+  remove(id: string): Promise<void>
+}
+
+/** The tire sets the owner tracks for their cars. Editable, unlike the service history. */
+export interface TireSetRepo {
+  listForVehicle(vehicleId: VehicleId): Promise<TireSet[]>
+  /** Calls `onChange` with the car's tire sets now and after every change, like a live query. */
+  watchForVehicle(vehicleId: VehicleId, onChange: (sets: TireSet[]) => void): Unsubscribe
+  /**
+   * Adds each set, or replaces the one with the same id, in one write: swapping sets saves both,
+   * and no one ever sees two sets on the car.
+   */
+  save(...sets: TireSet[]): Promise<void>
   remove(id: string): Promise<void>
 }
 

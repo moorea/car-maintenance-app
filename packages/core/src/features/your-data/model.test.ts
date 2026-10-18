@@ -6,6 +6,7 @@ import type {
   CustomItem,
   Renewal,
   ServiceRecord,
+  TireSet,
   Vehicle,
   Warranty,
 } from '../../domain/types'
@@ -15,6 +16,7 @@ import {
   memoryAuth,
   memoryDataFiles,
   memoryFillUps,
+  memoryTireSets,
   memoryRenewals,
   memoryCustomItems,
   memoryOdometer,
@@ -101,6 +103,7 @@ const phone = (
     attachments?: Attachment[]
     warranties?: Warranty[]
     fillUps?: FillUp[]
+    tireSets?: TireSet[]
     renewals?: Renewal[]
     customItems?: CustomItem[]
     remote?: string[]
@@ -121,6 +124,7 @@ const phone = (
   const attachments = memoryAttachments(data.attachments ?? [], { remote: data.remote ?? [] })
   const warranties = memoryWarranties(data.warranties ?? [])
   const fillUps = memoryFillUps(data.fillUps ?? [])
+  const tireSets = memoryTireSets(data.tireSets ?? [])
   const renewals = memoryRenewals(data.renewals ?? [])
   const files = memoryDataFiles(data.files ?? {})
   const customItems = memoryCustomItems(data.customItems ?? [])
@@ -136,6 +140,7 @@ const phone = (
     attachments,
     warranties,
     fillUps,
+    tireSets,
     renewals,
     customItems,
     schedule,
@@ -152,6 +157,7 @@ const phone = (
     attachments,
     warranties,
     fillUps,
+    tireSets,
     renewals,
     customItems,
     files,
@@ -413,6 +419,38 @@ describe('your data model', () => {
       expect(await alex.odometer.listForVehicle('new-1')).toEqual([])
       expect(alex.model.getState().message?.text).toBe(
         'Added 1 car with 0 services, 0 warranties, 1 fill-up and 0 documents.',
+      )
+    })
+
+    it('adds tire sets under new ids, with only one of them on the car', async () => {
+      const set: TireSet = {
+        id: 't-1',
+        vehicleId: 'civic',
+        name: 'All-season',
+        madeWeek: 14,
+        madeYear: 2024,
+        mounted: true,
+        mountedAtMiles: 30_000,
+        priorMiles: 0,
+        treadDepth32nds: 8,
+        treadCheckedOn: '2026-03-01',
+      }
+      const sam = phone(SAM, { vehicles: [civic], tireSets: [set] })
+      await sam.model.getState().exportAll()
+      expect(sam.model.getState().message?.text).toBe(
+        'Your export is ready: 1 car, 0 services, 0 warranties, 1 tire set and 0 documents.',
+      )
+      const alex = phone({ id: 'alex' })
+      alex.files.queueArchive(got(sam.files.shared[0]).bytes)
+
+      await alex.model.getState().chooseImport()
+      await alex.model.getState().confirmImport()
+
+      expect(await alex.tireSets.listForVehicle('new-1')).toEqual([
+        { ...set, id: 'new-2', vehicleId: 'new-1' },
+      ])
+      expect(alex.model.getState().message?.text).toBe(
+        'Added 1 car with 0 services, 0 warranties, 1 tire set and 0 documents.',
       )
     })
 

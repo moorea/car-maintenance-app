@@ -10,6 +10,7 @@ import type {
   ScheduleRepo,
   ServiceRecordRepo,
   SyncStatus,
+  TireSetRepo,
   Unsubscribe,
   VehicleRepo,
   WarrantyRepo,
@@ -21,6 +22,7 @@ import {
   fromServiceRecord,
   fromFillUp,
   fromRenewal,
+  fromTireSet,
   fromVehicle,
   fromWarranty,
   toBulletin,
@@ -33,6 +35,7 @@ import {
   toRecall,
   toSafetyReport,
   toServiceRecord,
+  toTireSet,
   toVehicle,
   toWarranty,
 } from './rows'
@@ -45,6 +48,7 @@ export interface PowerSyncRepositories {
   safety: SafetyRepo
   warranties: WarrantyRepo
   fillUps: FillUpRepo
+  tireSets: TireSetRepo
   renewals: RenewalRepo
   customItems: CustomItemRepo
   sync: SyncStatus
@@ -62,6 +66,10 @@ const CUSTOM_ITEMS_FOR_VEHICLE = 'select * from custom_items where vehicle_id = 
 
 const FILL_UPS_FOR_VEHICLE =
   'select * from fill_ups where vehicle_id = ? order by filled_on desc, odometer_miles desc'
+
+// The set on the car first, as the tires page lists them.
+const TIRE_SETS_FOR_VEHICLE =
+  'select * from tire_sets where vehicle_id = ? order by mounted desc, name, id'
 
 const READINGS_FOR_VEHICLE = 'select * from odometer_readings where vehicle_id = ? order by read_on'
 
@@ -151,39 +159,41 @@ const watchSafety = (
   return () => stops.forEach((stop) => stop())
 }
 
-/** Same text format as synced timestamptz values, so local and synced rows sort alike. */
 /**
- * Saves a row of a table the owner can edit: an insert for a new row, and an update of only the
- * changed columns for an edit, so the upload is a PUT or a PATCH as it would be for a car. Saving
- * a row unchanged queues nothing.
+ * Saves rows of a table the owner can edit, in one write: an insert for a new row, and an update
+ * of only the changed columns for an edit, so the upload is a PUT or a PATCH as it would be for a
+ * car. Saving a row unchanged queues nothing.
  */
 const saveEditable = async (
   db: CommonPowerSyncDatabase,
-  table: 'warranties' | 'fill_ups' | 'renewals' | 'custom_items',
-  row: { id: string } & Row,
+  table: 'warranties' | 'fill_ups' | 'renewals' | 'custom_items' | 'tire_sets',
+  ...rows: ({ id: string } & Row)[]
 ) => {
   await db.writeTransaction(async (tx) => {
-    const existing = await tx.getOptional<Row>(`select * from ${table} where id = ?`, [row.id])
-    if (!existing) {
-      const inserted = { ...row, updated_at: now() }
-      const columns = Object.keys(inserted)
+    for (const row of rows) {
+      const existing = await tx.getOptional<Row>(`select * from ${table} where id = ?`, [row.id])
+      if (!existing) {
+        const inserted = { ...row, updated_at: now() }
+        const columns = Object.keys(inserted)
+        await tx.execute(
+          `insert into ${table} (${columns.join(', ')}) values (${columns.map(() => '?').join(', ')})`,
+          Object.values(inserted),
+        )
+        continue
+      }
+      const { id: _id, ...fields } = row
+      const changed = Object.entries(fields).filter(([column, value]) => existing[column] !== value)
+      if (changed.length === 0) continue
+      changed.push(['updated_at', now()])
       await tx.execute(
-        `insert into ${table} (${columns.join(', ')}) values (${columns.map(() => '?').join(', ')})`,
-        Object.values(inserted),
+        `update ${table} set ${changed.map(([column]) => `${column} = ?`).join(', ')} where id = ?`,
+        [...changed.map(([, value]) => value), row.id],
       )
-      return
     }
-    const { id: _id, ...fields } = row
-    const changed = Object.entries(fields).filter(([column, value]) => existing[column] !== value)
-    if (changed.length === 0) return
-    changed.push(['updated_at', now()])
-    await tx.execute(
-      `update ${table} set ${changed.map(([column]) => `${column} = ?`).join(', ')} where id = ?`,
-      [...changed.map(([, value]) => value), row.id],
-    )
   })
 }
 
+/** Same text format as synced timestamptz values, so local and synced rows sort alike. */
 export const now = () => new Date().toISOString().replace('T', ' ')
 
 const insertReading = async (
@@ -459,6 +469,24 @@ export const createPowerSyncRepositories = (db: CommonPowerSyncDatabase): PowerS
 
       remove: async (id) => {
         await db.execute('delete from fill_ups where id = ?', [id])
+      },
+    },
+
+    tireSets: {
+      listForVehicle: async (vehicleId) =>
+        (await db.getAll<Record<string, unknown>>(TIRE_SETS_FOR_VEHICLE, [vehicleId])).map(
+          toTireSet,
+        ),
+
+      watchForVehicle: (vehicleId, onChange) =>
+        watchRows(db, TIRE_SETS_FOR_VEHICLE, [vehicleId], 'tire_sets', (rows) =>
+          onChange(rows.map(toTireSet)),
+        ),
+
+      save: (...sets) => saveEditable(db, 'tire_sets', ...sets.map(fromTireSet)),
+
+      remove: async (id) => {
+        await db.execute('delete from tire_sets where id = ?', [id])
       },
     },
 

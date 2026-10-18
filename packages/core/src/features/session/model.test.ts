@@ -418,6 +418,15 @@ describe('session model, adding a car', () => {
     expect(model.getState().tab).toBe('garage')
   })
 
+  it('goes back from the tires page to the car', () => {
+    const { model } = setup(true, [civic])
+    model.getState().start()
+    model.getState().openTab('car')
+    model.getState().openTab('tires')
+    expect(model.getState().systemBack()).toBe(true)
+    expect(model.getState().tab).toBe('car')
+  })
+
   it('goes back from the reminder settings to the account when opened from the account', () => {
     const { model } = setup(true, [civic])
     model.getState().start()

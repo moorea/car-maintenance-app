@@ -8,6 +8,7 @@ import type {
   Renewal,
   OdometerReading,
   ServiceRecord,
+  TireSet,
   Vehicle,
   Warranty,
 } from '../domain/types'
@@ -36,6 +37,7 @@ export interface CarData {
   warranties: Warranty[]
   /** Fill-ups and charging sessions. Their mileage is not repeated in `readings`. */
   fillUps: FillUp[]
+  tireSets: TireSet[]
   /** Registration, inspection and insurance dates. */
   renewals: Renewal[]
   /** The owner's own schedule items and intervals. */
@@ -116,6 +118,29 @@ const exportedFillUp = z.object({
   notes: clipped(NOTES_MAX),
 })
 
+const exportedTireSet = z
+  .object({
+    id: z.string().min(1),
+    name: z
+      .string()
+      .min(1)
+      .transform((s) => Array.from(s).slice(0, SHORT_TEXT_MAX).join('')),
+    brand: clipped(SHORT_TEXT_MAX),
+    size: clipped(SHORT_TEXT_MAX),
+    madeWeek: z.number().int().min(1).max(53).optional(),
+    madeYear: z.number().int().min(2000).max(2099).optional(),
+    mounted: z.boolean(),
+    mountedAtMiles: z.number().int().min(0).max(2_000_000).optional(),
+    priorMiles: z.number().int().min(0).max(2_000_000),
+    treadDepth32nds: z.number().int().min(0).max(32).optional(),
+    treadCheckedOn: isoDate.optional(),
+    notes: clipped(NOTES_MAX),
+  })
+  .refine(
+    (t) => (t.madeWeek === undefined) === (t.madeYear === undefined),
+    'A DOT date needs its week and its year',
+  )
+
 const exportedRenewal = z.object({
   id: z.string().min(1),
   kind: z.enum(RENEWAL_KIND_IDS),
@@ -158,6 +183,8 @@ const exportedCar = z.object({
   warranties: z.array(exportedWarranty),
   // Exports made before fill-ups existed have none.
   fillUps: z.array(exportedFillUp).default([]),
+  // Nor did they have tire sets.
+  tireSets: z.array(exportedTireSet).default([]),
   // Exports made before renewals existed have none.
   renewals: z.array(exportedRenewal).default([]),
   // Exports made before custom schedule items existed have none.
@@ -176,6 +203,7 @@ export type ExportedService = z.infer<typeof exportedService>
 export type ExportedDocument = z.infer<typeof exportedDocument>
 export type ExportedWarranty = z.infer<typeof exportedWarranty>
 export type ExportedFillUp = z.infer<typeof exportedFillUp>
+export type ExportedTireSet = z.infer<typeof exportedTireSet>
 export type ExportedRenewal = z.infer<typeof exportedRenewal>
 export type ExportedCustomItem = z.infer<typeof exportedCustomItem>
 export type ExportFile = z.infer<typeof exportFile>
@@ -235,6 +263,7 @@ service-log.csv Every logged service, with its cost in US dollars.
 odometer.csv    Every odometer reading, in miles.
 warranties.csv  Every warranty, with when and at what mileage it ends.
 fill-ups.csv    Every fill-up and charging session: gallons or kWh, and its cost in US dollars.
+tires.csv       Every set of tires: when it was made, the miles on it and its last tread depth.
 renewals.csv    Every registration, inspection and insurance date, and how often it repeats.
 schedule.csv    The items you added to each car's schedule, and the intervals you set yourself.
 documents.csv   Every attached receipt, registration, inspection report, insurance card or file.
@@ -301,6 +330,22 @@ export const buildArchive = (
         'notes',
       ],
     ],
+    tireSets: [
+      [
+        'car',
+        'name',
+        'brand',
+        'size',
+        'dot_week',
+        'dot_year',
+        'on_car',
+        'put_on_at_miles',
+        'earlier_miles',
+        'tread_32nds',
+        'tread_checked_on',
+        'notes',
+      ],
+    ],
     renewals: [['car', 'kind', 'name', 'due_on', 'every_months', 'notes']],
     customItems: [['car', 'item', 'change', 'every_miles', 'every_months']],
   }
@@ -313,6 +358,7 @@ export const buildArchive = (
       attachments,
       warranties,
       fillUps,
+      tireSets,
       renewals,
       customItems,
       items,
@@ -400,6 +446,24 @@ export const buildArchive = (
           f.missedPrevious ? 'yes' : 'no',
           f.station ?? '',
           f.notes ?? '',
+        ])
+      const sortedTireSets = [...tireSets].sort(
+        (a, b) => Number(b.mounted) - Number(a.mounted) || a.name.localeCompare(b.name),
+      )
+      for (const t of sortedTireSets)
+        rows.tireSets.push([
+          label,
+          t.name,
+          t.brand ?? '',
+          t.size ?? '',
+          t.madeWeek?.toString() ?? '',
+          t.madeYear?.toString() ?? '',
+          t.mounted ? 'yes' : 'no',
+          t.mountedAtMiles?.toString() ?? '',
+          String(t.priorMiles),
+          t.treadDepth32nds?.toString() ?? '',
+          t.treadCheckedOn ?? '',
+          t.notes ?? '',
         ])
       const sortedRenewals = [...renewals].sort(
         (a, b) => a.dueOn.localeCompare(b.dueOn) || a.id.localeCompare(b.id),
@@ -491,6 +555,20 @@ export const buildArchive = (
           ...(f.station && { station: f.station }),
           ...(f.notes && { notes: f.notes }),
         })),
+        tireSets: sortedTireSets.map((t) => ({
+          id: t.id,
+          name: t.name,
+          ...(t.brand && { brand: t.brand }),
+          ...(t.size && { size: t.size }),
+          ...(t.madeWeek !== undefined && { madeWeek: t.madeWeek }),
+          ...(t.madeYear !== undefined && { madeYear: t.madeYear }),
+          mounted: t.mounted,
+          ...(t.mountedAtMiles !== undefined && { mountedAtMiles: t.mountedAtMiles }),
+          priorMiles: t.priorMiles,
+          ...(t.treadDepth32nds !== undefined && { treadDepth32nds: t.treadDepth32nds }),
+          ...(t.treadCheckedOn && { treadCheckedOn: t.treadCheckedOn }),
+          ...(t.notes && { notes: t.notes }),
+        })),
         renewals: sortedRenewals.map((r) => ({
           id: r.id,
           kind: r.kind,
@@ -523,6 +601,7 @@ export const buildArchive = (
   zip['odometer.csv'] = strToU8(csv(rows.odometer))
   zip['warranties.csv'] = strToU8(csv(rows.warranties))
   zip['fill-ups.csv'] = strToU8(csv(rows.fillUps))
+  zip['tires.csv'] = strToU8(csv(rows.tireSets))
   zip['renewals.csv'] = strToU8(csv(rows.renewals))
   zip['schedule.csv'] = strToU8(csv(rows.customItems))
   zip['documents.csv'] = strToU8(csv(rows.documents))

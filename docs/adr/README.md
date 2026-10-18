@@ -26,3 +26,4 @@ and what would make us revisit it. Add a new record rather than editing an accep
 | [0018](0018-repair-or-replace.md)       | A big quote is weighed against what the owner says the car is worth  |
 | [0019](0019-custom-schedule-items.md)   | Owners add their own schedule items and set their own intervals      |
 | [0020](0020-fair-prices.md)             | Fair prices are AI estimates from labor times, parts and local rates |
+| [0021](0021-tire-sets.md)               | Tire age comes from the DOT code; each set keeps its own miles       |

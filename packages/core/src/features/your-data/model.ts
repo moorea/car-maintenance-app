@@ -66,6 +66,7 @@ export interface YourDataDeps extends Omit<ExportDeps, keyof ImportDeps> {
   attachments: ExportDeps['attachments'] & ImportDeps['attachments']
   warranties: ExportDeps['warranties'] & ImportDeps['warranties']
   fillUps: ExportDeps['fillUps'] & ImportDeps['fillUps']
+  tireSets: ExportDeps['tireSets'] & ImportDeps['tireSets']
   renewals: ExportDeps['renewals'] & ImportDeps['renewals']
   customItems: ExportDeps['customItems'] & ImportDeps['customItems']
   files: DataFiles
@@ -88,8 +89,9 @@ const exportedText = (r: ExportResult) => {
     count(r.cars, 'car'),
     count(r.services, 'service'),
     count(r.warranties, 'warranty', 'warranties'),
-    // Only cars with fill-ups or renewals mention them.
+    // Only owners with fill-ups, tire sets or renewals hear about them.
     ...(r.fillUps > 0 ? [count(r.fillUps, 'fill-up')] : []),
+    ...(r.tireSets > 0 ? [count(r.tireSets, 'tire set')] : []),
     ...(r.renewals > 0 ? [count(r.renewals, 'renewal date')] : []),
     count(r.documents, 'document'),
   ]
@@ -105,6 +107,7 @@ const importedText = (r: ImportResult) => {
     count(r.services, 'service'),
     count(r.warranties, 'warranty', 'warranties'),
     ...(r.fillUps > 0 ? [count(r.fillUps, 'fill-up')] : []),
+    ...(r.tireSets > 0 ? [count(r.tireSets, 'tire set')] : []),
     ...(r.renewals > 0 ? [count(r.renewals, 'renewal date')] : []),
     count(r.documents, 'document'),
   ])}.`

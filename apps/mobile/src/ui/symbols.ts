@@ -111,6 +111,11 @@ export const SYMBOLS = {
     ],
   },
   ellipsis: { ios: 'ellipsis', paths: ['M6 12h.01M12 12h.01M18 12h.01'] },
+  tire: {
+    ios: 'tirepressure',
+    paths: ['M12 3a9 9 0 1 0 0.01 0', 'M12 8a4 4 0 1 0 0.01 0', 'M12 3v5M12 16v5M3 12h5M16 12h5'],
+  },
+  swap: { ios: 'arrow.triangle.2.circlepath', paths: ['M4 9h13l-3-3M20 15H7l3 3'] },
 } satisfies Record<string, { ios: SFSymbol; paths: string[] }>
 
 export type SymbolName = keyof typeof SYMBOLS

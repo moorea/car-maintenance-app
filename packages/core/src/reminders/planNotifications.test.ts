@@ -304,6 +304,55 @@ describe('planNotifications', () => {
       expect(plan.map((n) => n.id)).toEqual(['renewal:v1:r1:0'])
     })
   })
+  describe('tires', () => {
+    it('warns a month before a set turns six, and again before it turns ten', () => {
+      const plan = planNotifications(
+        [
+          {
+            vehicle: rav4,
+            due: [],
+            tires: [
+              { setId: 't1', name: 'Winter', years: 6, on: '2027-06-07' },
+              { setId: 't1', name: 'Winter', years: 10, on: '2031-06-07' },
+            ],
+          },
+        ],
+        '2026-10-01',
+      )
+      expect(plan).toEqual([
+        {
+          id: 'tires:v1:t1:6',
+          date: '2027-05-08',
+          hour: 9,
+          title: 'RAV4: tires getting old',
+          body: 'Winter tires turn 6 on Jun 7, 2027. Most carmakers say to replace tires by then, even with tread left.',
+          vehicleId: 'v1',
+        },
+        {
+          id: 'tires:v1:t1:10',
+          date: '2031-05-08',
+          hour: 9,
+          title: 'RAV4: tires getting old',
+          body: 'Winter tires turn 10 on Jun 7, 2031. Replace them: no tire should stay in service that long.',
+          vehicleId: 'v1',
+        },
+      ])
+    })
+
+    it('leaves out a heads-up whose day has passed', () => {
+      const plan = planNotifications(
+        [
+          {
+            vehicle: rav4,
+            due: [],
+            tires: [{ setId: 't1', name: 'Winter', years: 6, on: '2027-06-07' }],
+          },
+        ],
+        '2027-05-08',
+      )
+      expect(plan).toEqual([])
+    })
+  })
 
   it('gives every kind of notification an id the device adapter recognises as its own', () => {
     const plan = planNotifications(
@@ -315,6 +364,7 @@ describe('planNotifications', () => {
             { id: 'w1', coverage: 'Basic coverage', endsOn: '2027-01-01', endsBy: 'time' },
           ],
           renewals: [{ id: 'r1', vehicleId: 'v1', kind: 'registration', dueOn: '2027-01-01' }],
+          tires: [{ setId: 't1', name: 'Winter', years: 6, on: '2027-06-07' }],
           checkIn: {
             itemId: 'oil',
             task: 'Oil change',
@@ -328,7 +378,7 @@ describe('planNotifications', () => {
       '2026-10-01',
     )
     const kinds = new Set(plan.map((n) => n.id.split(':')[0]))
-    expect(kinds).toEqual(new Set(['reminder', 'warranty', 'renewal', 'odometer']))
+    expect(kinds).toEqual(new Set(['reminder', 'warranty', 'renewal', 'tires', 'odometer']))
     expect(plan.every((n) => isPlannedNotification(n.id))).toBe(true)
     expect(isPlannedNotification('another-app:1')).toBe(false)
   })

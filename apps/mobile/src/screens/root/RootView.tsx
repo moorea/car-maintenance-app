@@ -16,6 +16,7 @@ import { SignInScreen } from '../sign-in/SignInScreen'
 import { TroubleCodesScreen } from '../trouble-codes/TroubleCodesScreen'
 import { WarrantyScreen } from '../warranty/WarrantyScreen'
 import { FuelScreen } from '../fuel/FuelScreen'
+import { TiresScreen } from '../tires/TiresScreen'
 import { RenewalsScreen } from '../renewals/RenewalsScreen'
 import { YourDataScreen } from '../your-data/YourDataScreen'
 import { askModelFor } from '../../models/askModels'
@@ -47,7 +48,7 @@ const TABS: TabBarItem<AppTab>[] = [
   { key: 'car', label: 'Car', symbol: 'car' },
 ]
 
-const CAR_PAGES = new Set<AppTab>(['warranty', 'fuel', 'driving', 'renewals'])
+const CAR_PAGES = new Set<AppTab>(['warranty', 'fuel', 'driving', 'tires', 'renewals'])
 
 // Ask, the quote checker and the code lookup fill the screen with their own back button.
 const FULL_SCREEN = new Set<AppTab>(['ask', 'quote', 'codes'])
@@ -82,7 +83,7 @@ function SessionScreen(props: Props) {
         {FULL_SCREEN.has(props.tab) ? null : (
           <TabBar
             tabs={TABS}
-            // The car's own pages (warranty, fuel, driving, renewals) keep its tab selected.
+            // The car's own pages (warranty, fuel, driving, tires, renewals) keep its tab selected.
             selected={CAR_PAGES.has(props.tab) ? 'car' : props.tab}
             onSelect={props.openTab}
             action={{
@@ -182,6 +183,7 @@ function TabContent(props: Props & { vehicle: Vehicle }) {
           onTroubleCodes={() => props.openTab('codes')}
           onWarranty={() => props.openTab('warranty')}
           onFuel={() => props.openTab('fuel')}
+          onTires={() => props.openTab('tires')}
           onDriving={() => props.openTab('driving')}
           onRenewals={() => props.openTab('renewals')}
         />
@@ -190,6 +192,8 @@ function TabContent(props: Props & { vehicle: Vehicle }) {
       return <RenewalsScreen vehicle={vehicle} onBack={() => props.openTab('car')} />
     case 'fuel':
       return <FuelScreen vehicle={vehicle} onBack={() => props.openTab('car')} />
+    case 'tires':
+      return <TiresScreen vehicle={vehicle} onBack={() => props.openTab('car')} />
     case 'driving':
       return <DrivingScreen vehicle={vehicle} onBack={() => props.openTab('car')} />
     case 'warranty':

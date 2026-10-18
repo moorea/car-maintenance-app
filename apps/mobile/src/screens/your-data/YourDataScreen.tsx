@@ -15,6 +15,7 @@ export function YourDataScreen(props: { onBack: () => void }) {
       attachments: deps.attachments,
       warranties: deps.warranties,
       fillUps: deps.fillUps,
+      tireSets: deps.tireSets,
       renewals: deps.renewals,
       customItems: deps.customItems,
       schedule: deps.schedule,

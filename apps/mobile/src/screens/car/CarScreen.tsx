@@ -23,6 +23,7 @@ export function CarScreen({
   onTroubleCodes,
   onWarranty,
   onFuel,
+  onTires,
   onDriving,
   onRenewals,
 }: {
@@ -35,6 +36,7 @@ export function CarScreen({
   onTroubleCodes: () => void
   onWarranty: () => void
   onFuel: () => void
+  onTires: () => void
   onDriving: () => void
   onRenewals: () => void
 }) {
@@ -72,6 +74,7 @@ export function CarScreen({
       onTroubleCodes={onTroubleCodes}
       onWarranty={onWarranty}
       onFuel={onFuel}
+      onTires={onTires}
       onDriving={onDriving}
       onRenewals={onRenewals}
       onPrivacyPolicy={openPrivacyPolicy}

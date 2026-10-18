@@ -11,6 +11,7 @@ import type {
   CustomItemRepo,
   DataFiles,
   FillUpRepo,
+  TireSetRepo,
   RenewalRepo,
   IdGenerator,
   OdometerRepo,
@@ -50,6 +51,7 @@ export interface ExportDeps {
   attachments: Pick<AttachmentRepo, 'watchForVehicle' | 'open'>
   warranties: Pick<WarrantyRepo, 'listForVehicle'>
   fillUps: Pick<FillUpRepo, 'listForVehicle'>
+  tireSets: Pick<TireSetRepo, 'listForVehicle'>
   renewals: Pick<RenewalRepo, 'listForVehicle'>
   customItems: Pick<CustomItemRepo, 'listForVehicle'>
   schedule: Pick<ScheduleRepo, 'itemsForVehicle'>
@@ -62,6 +64,7 @@ export interface ExportResult {
   services: number
   warranties: number
   fillUps: number
+  tireSets: number
   renewals: number
   documents: number
   /** Documents left out because their file could not be read, usually offline. */
@@ -80,17 +83,27 @@ export const exportData = async (deps: ExportDeps, ownerId: string): Promise<Exp
   const cars: CarData[] = []
   const files = new Map<string, Uint8Array>()
   for (const vehicle of vehicles) {
-    const [allReadings, services, attachments, warranties, fillUps, renewals, customItems, items] =
-      await Promise.all([
-        deps.odometer.listForVehicle(vehicle.id),
-        deps.services.listForVehicle(vehicle.id),
-        firstValue<Attachment[]>((cb) => deps.attachments.watchForVehicle(vehicle.id, cb)),
-        deps.warranties.listForVehicle(vehicle.id),
-        deps.fillUps.listForVehicle(vehicle.id),
-        deps.renewals.listForVehicle(vehicle.id),
-        deps.customItems.listForVehicle(vehicle.id),
-        deps.schedule.itemsForVehicle(vehicle),
-      ])
+    const [
+      allReadings,
+      services,
+      attachments,
+      warranties,
+      fillUps,
+      tireSets,
+      renewals,
+      customItems,
+      items,
+    ] = await Promise.all([
+      deps.odometer.listForVehicle(vehicle.id),
+      deps.services.listForVehicle(vehicle.id),
+      firstValue<Attachment[]>((cb) => deps.attachments.watchForVehicle(vehicle.id, cb)),
+      deps.warranties.listForVehicle(vehicle.id),
+      deps.fillUps.listForVehicle(vehicle.id),
+      deps.tireSets.listForVehicle(vehicle.id),
+      deps.renewals.listForVehicle(vehicle.id),
+      deps.customItems.listForVehicle(vehicle.id),
+      deps.schedule.itemsForVehicle(vehicle),
+    ])
     // One at a time, so a garage of large files is never all downloading at once.
     for (const attachment of attachments) {
       try {
@@ -110,6 +123,7 @@ export const exportData = async (deps: ExportDeps, ownerId: string): Promise<Exp
       attachments,
       warranties,
       fillUps,
+      tireSets,
       renewals,
       customItems,
       items,
@@ -123,6 +137,7 @@ export const exportData = async (deps: ExportDeps, ownerId: string): Promise<Exp
     services: cars.reduce((n, c) => n + c.services.length, 0),
     warranties: cars.reduce((n, c) => n + c.warranties.length, 0),
     fillUps: cars.reduce((n, c) => n + c.fillUps.length, 0),
+    tireSets: cars.reduce((n, c) => n + c.tireSets.length, 0),
     renewals: cars.reduce((n, c) => n + c.renewals.length, 0),
     documents: cars.reduce((n, c) => n + c.attachments.length, 0),
     missing: archive.missing.length,
@@ -183,6 +198,7 @@ export interface ImportDeps {
   attachments: Pick<AttachmentRepo, 'add'>
   warranties: Pick<WarrantyRepo, 'save'>
   fillUps: Pick<FillUpRepo, 'save'>
+  tireSets: Pick<TireSetRepo, 'save'>
   renewals: Pick<RenewalRepo, 'save'>
   customItems: Pick<CustomItemRepo, 'save'>
   files: Pick<DataFiles, 'stage'>
@@ -194,6 +210,7 @@ export interface ImportResult {
   services: number
   warranties: number
   fillUps: number
+  tireSets: number
   renewals: number
   documents: number
   /** Cars left out because they were already in the garage. */
@@ -204,8 +221,9 @@ export interface ImportResult {
 
 /**
  * Adds the export's cars that are not already in the garage, with their odometer readings,
- * services, warranties, fill-ups, renewals and documents, under new ids: the originals may still
- * exist in another account. Works offline; everything uploads like anything the owner adds.
+ * services, warranties, fill-ups, tire sets, renewals and documents, under new ids: the originals
+ * may still exist in another account. Works offline; everything uploads like anything the owner
+ * adds.
  */
 export const importData = async (
   deps: ImportDeps,
@@ -219,6 +237,7 @@ export const importData = async (
     services: 0,
     warranties: 0,
     fillUps: 0,
+    tireSets: 0,
     renewals: 0,
     documents: 0,
     skipped: plan.skipping.length,
@@ -314,6 +333,34 @@ export const importData = async (
         ...(f.notes && { notes: f.notes }),
       })
       result.fillUps++
+    }
+
+    // Only one set can be on the car, even if a hand-edited export says otherwise.
+    const mounted = car.tireSets.find((t) => t.mounted)
+    for (const t of car.tireSets) {
+      const onCar = t === mounted
+      await deps.tireSets.save({
+        id: deps.ids.next(),
+        vehicleId: vehicle.id,
+        name: t.name,
+        ...(t.brand && { brand: t.brand }),
+        ...(t.size && { size: t.size }),
+        ...(t.madeWeek !== undefined &&
+          t.madeYear !== undefined && {
+            madeWeek: t.madeWeek,
+            madeYear: t.madeYear,
+          }),
+        mounted: onCar,
+        ...(onCar && t.mountedAtMiles !== undefined && { mountedAtMiles: t.mountedAtMiles }),
+        priorMiles: t.priorMiles,
+        ...(t.treadDepth32nds !== undefined &&
+          t.treadCheckedOn && {
+            treadDepth32nds: t.treadDepth32nds,
+            treadCheckedOn: t.treadCheckedOn,
+          }),
+        ...(t.notes && { notes: t.notes }),
+      })
+      result.tireSets++
     }
 
     for (const r of car.renewals) {
