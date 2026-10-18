@@ -85,3 +85,24 @@ export const checkInNoticeDate = (checkIn: OdometerCheckIn, today: IsoDate): Iso
   checkIn.from > today && checkIn.from <= addDays(checkIn.dueDate, -CHECK_IN_LAST_DAYS)
     ? checkIn.from
     : undefined
+
+/** The first mileage item that waits on the car's first odometer reading, and how many more do. */
+export interface FirstReadingRequest {
+  itemId: string
+  task: string
+  /** How many other items wait on a reading. */
+  others: number
+}
+
+/**
+ * Whether to ask for the car's first odometer reading: with no reading at all, every item due by
+ * mileage has the status `unknown`, as neither its date nor its mileage can be told. Absent when
+ * no item waits on one. Shown in the app only, as a reading is wanted at once, not on a day.
+ */
+export const firstReadingRequest = (
+  due: readonly DueProjection[],
+): FirstReadingRequest | undefined => {
+  const waiting = due.filter((d) => d.status === 'unknown')
+  const [first] = waiting
+  return first && { itemId: first.itemId, task: first.task, others: waiting.length - 1 }
+}

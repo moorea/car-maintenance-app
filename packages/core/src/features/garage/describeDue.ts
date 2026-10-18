@@ -8,7 +8,10 @@ export interface DueRow {
   itemId: string
   task: string
   status: DueStatus
-  /** When it is or was due, in words: "In 1,790 mi", "Was due at 45,100 mi", "By Mar 14, 2027". */
+  /**
+   * When it is or was due, in words: "In 1,790 mi", "Was due at 45,100 mi", "By Mar 14, 2027", or
+   * "Needs your mileage" when the car has no odometer reading to tell from.
+   */
   when: string
 }
 
@@ -25,6 +28,7 @@ export const describeWhen = (
     due.dueMiles !== undefined && currentMiles !== undefined
       ? due.dueMiles - currentMiles
       : undefined
+  if (due.status === 'unknown') return 'Needs your mileage'
   if (due.status === 'overdue') {
     if (due.trigger === 'miles' && due.dueMiles !== undefined)
       return `Was due at ${formatMiles(due.dueMiles)}`
@@ -44,6 +48,7 @@ export const describeNext = (
   currentMiles: number | undefined,
   today: IsoDate,
 ): string => {
+  if (due.status === 'unknown') return 'Add your mileage to see when this is due.'
   const when = describeWhen(due, currentMiles, today)
   if (due.historyUnknown)
     return `${when}. There's no record of it yet, so this assumes it was last done on schedule.`

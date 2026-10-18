@@ -4,7 +4,13 @@ import { formatAgo, formatMiles, formatWeekday } from '../../lib/format'
 import type { OdometerReading, Vehicle } from '../../domain/types'
 import type { DevicePreferencesRepo, SafetyRepo, Unsubscribe } from '../../ports'
 import { getDueItems, type GetDueItemsDeps } from '../../reminders/getDueItems'
-import { checkInShowing, odometerCheckIn } from '../../reminders/odometerCheckIn'
+import {
+  checkInShowing,
+  firstReadingRequest,
+  odometerCheckIn,
+  type FirstReadingRequest,
+  type OdometerCheckIn,
+} from '../../reminders/odometerCheckIn'
 import { currentOdometer } from './odometer'
 import { describeNext, intervalUsed, toDueRow, type DueRow } from './describeDue'
 
@@ -50,10 +56,12 @@ export interface GarageState {
    */
   catchUp?: { itemId: string; task: string; others: number } | undefined
   /**
-   * Asks for an odometer reading when the next mileage reminder rests on an old one: "Oil change"
-   * is due "around 45,000 mi", going by a reading from "5 weeks ago". Absent otherwise.
+   * Asks for an odometer reading, under "What does the odometer say?": when the car has none and
+   * items due by mileage can't be dated without one, or when the next mileage reminder rests on
+   * an old one ("Oil change is due around 45,000 mi", going by a reading from 5 weeks ago).
+   * Absent otherwise.
    */
-  checkOdometer?: { task: string; dueMiles: string; readAgo: string } | undefined
+  checkOdometer?: { subtitle: string; detail: string } | undefined
   /** Set when the schedule could not be read. */
   error?: string | undefined
 }
@@ -81,6 +89,27 @@ const describeOdometer = (latest: OdometerReading, miles: number, today: IsoDate
   latest.date >= today
     ? formatMiles(miles)
     : `About ${formatMiles(Math.round(miles / 10) * 10)} · updated ${formatAgo(latest.date, today)}`
+
+const askForReading = (
+  first: FirstReadingRequest | undefined,
+  checkIn: OdometerCheckIn | undefined,
+  today: IsoDate,
+): GarageState['checkOdometer'] => {
+  if (first) {
+    const many = first.others > 0
+    return {
+      subtitle: many
+        ? `${first.task} and ${first.others === 1 ? '1 more' : `${first.others} more`} are due by mileage`
+        : `${first.task} is due by mileage`,
+      detail: `There's no reading for this car yet, so there's no telling when. Add one to see when ${many ? "they're" : "it's"} due.`,
+    }
+  }
+  if (!checkIn || !checkInShowing(checkIn, today)) return undefined
+  return {
+    subtitle: `${checkIn.task} is due around ${formatMiles(checkIn.dueMiles)}`,
+    detail: `The last reading was ${formatAgo(checkIn.readOn, today)}, so the due date is an estimate. A new reading keeps the reminder on the right day.`,
+  }
+}
 
 /** Screen model for the garage: the selected car's next service, what follows, and recalls. */
 export const createGarageModel = (deps: GarageDeps): GarageModel => {
@@ -169,14 +198,7 @@ export const createGarageModel = (deps: GarageDeps): GarageModel => {
               : undefined,
           nextUp,
           comingUp: rest.slice(0, COMING_UP_COUNT).map((d) => toDueRow(d, currentMiles, today)),
-          checkOdometer:
-            checkIn && checkInShowing(checkIn, today)
-              ? {
-                  task: checkIn.task,
-                  dueMiles: `around ${formatMiles(checkIn.dueMiles)}`,
-                  readAgo: formatAgo(checkIn.readOn, today),
-                }
-              : undefined,
+          checkOdometer: askForReading(firstReadingRequest(due), checkIn, today),
           error: undefined,
         })
         showCatchUp()

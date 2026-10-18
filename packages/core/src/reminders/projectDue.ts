@@ -7,14 +7,18 @@ export const DUE_SOON_DAYS = 14
 /** Projections further out than this are clamped; nobody needs a reminder 50 years away. */
 const MAX_DAYS_AHEAD = 50 * 365
 
-export type DueStatus = 'overdue' | 'due-soon' | 'upcoming'
+/**
+ * `unknown`: an item due by mileage on a car with no odometer reading at all, so neither when
+ * nor at what mileage it falls can be told until the owner adds one.
+ */
+export type DueStatus = 'overdue' | 'due-soon' | 'upcoming' | 'unknown'
 
 export interface DueProjection {
   itemId: string
   task: string
   /**
-   * When the item is due. Absent only for a mileage-only item on a car that is not being driven,
-   * where no date can be projected.
+   * When the item is due. Absent for a mileage-only item on a car that is not being driven, where
+   * no date can be projected, and for an item whose status is `unknown`.
    */
   dueDate?: IsoDate
   /** Odometer reading at which the item is due, when it has a mileage interval. */
@@ -95,9 +99,10 @@ export const projectDue = (input: ProjectionInput): DueProjection | undefined =>
   let dueMiles: number | undefined
   if (interval.miles !== undefined) {
     if (lastMiles !== undefined) dueMiles = lastMiles + interval.miles
-    // No mileage for the last service: assume it is due at the next interval boundary.
-    else if (currentMiles !== undefined)
-      dueMiles = Math.ceil(currentMiles / interval.miles) * interval.miles
+    // No mileage for the last service: assume it is due at the next interval boundary, and at
+    // least one interval in, so a new car (or one typed in at 0) is not due at 0 miles.
+    else if (currentMiles !== undefined && interval.miles > 0)
+      dueMiles = Math.max(1, Math.ceil(currentMiles / interval.miles)) * interval.miles
   }
 
   const byMiles =
@@ -135,6 +140,9 @@ export const projectDue = (input: ProjectionInput): DueProjection | undefined =>
       status: statusOn(first.date, today),
     }
   if (dueMiles !== undefined) return { ...base, trigger: 'miles', status: 'upcoming' }
-  // No history and nothing to project from: treat as due now so the owner is asked about it.
+  // Due by mileage, but with no odometer reading to measure from: say so rather than guess.
+  if (interval.miles !== undefined && currentMiles === undefined)
+    return { ...base, trigger: 'miles', status: 'unknown' }
+  // A time-only item with no history and no model year: treat as due now so the owner is asked.
   return { ...base, dueDate: today, trigger: 'time', status: 'due-soon' }
 }

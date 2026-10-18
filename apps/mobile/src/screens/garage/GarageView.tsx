@@ -112,6 +112,7 @@ const NEXT_TEXT: Record<DueStatus, ColorRole> = {
   overdue: 'warning',
   'due-soon': 'accent',
   upcoming: 'textSecondary',
+  unknown: 'textSecondary',
 }
 
 function CarCard(props: {
@@ -147,7 +148,7 @@ function CarCard(props: {
             <Text
               textStyle={{
                 fontSize: 14,
-                fontWeight: next.status === 'upcoming' ? '400' : '600',
+                fontWeight: next.status === 'upcoming' || next.status === 'unknown' ? '400' : '600',
                 color: colors[NEXT_TEXT[next.status]],
               }}
             >
@@ -207,7 +208,7 @@ function CatchUpCard(props: Props) {
   )
 }
 
-/** Asks for a reading only when the next mileage reminder rests on an old one. */
+/** Asks for a reading when the car has none, or the next mileage reminder rests on an old one. */
 function CheckOdometerCard(props: Props) {
   const colors = useColors()
   const { checkOdometer } = props
@@ -224,13 +225,11 @@ function CheckOdometerCard(props: Props) {
         <FillColumn spacing={2}>
           <Text textStyle={{ fontSize: 17, fontWeight: '600' }}>What does the odometer say?</Text>
           <Text textStyle={{ fontSize: 14, color: colors.textSecondary }}>
-            {`${checkOdometer.task} is due ${checkOdometer.dueMiles}`}
+            {checkOdometer.subtitle}
           </Text>
         </FillColumn>
       </Row>
-      <Text textStyle={{ fontSize: 15, color: colors.textSecondary }}>
-        {`The last reading was ${checkOdometer.readAgo}, so the due date is an estimate. A new reading keeps the reminder on the right day.`}
-      </Text>
+      <Text textStyle={{ fontSize: 15, color: colors.textSecondary }}>{checkOdometer.detail}</Text>
       <Row spacing={10}>
         <PillButton
           label="Update odometer"
@@ -334,6 +333,7 @@ const PILLS: Record<DueStatus, { label: string; fill: ColorRole; text: ColorRole
   overdue: { label: 'Overdue', fill: 'warningSubtle', text: 'warning' },
   'due-soon': { label: 'Soon', fill: 'accentSubtle', text: 'accent' },
   upcoming: { label: 'Later', fill: 'neutralSubtle', text: 'textSecondary' },
+  unknown: { label: 'Unknown', fill: 'neutralSubtle', text: 'textSecondary' },
 }
 
 function ComingUp(props: Props) {

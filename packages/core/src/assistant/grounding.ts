@@ -83,6 +83,7 @@ const STATUS_WORDS: Record<DueProjection['status'], string> = {
   overdue: 'overdue',
   'due-soon': 'due within two weeks',
   upcoming: 'not due yet',
+  unknown: 'unknown, as there is no odometer reading for the car',
 }
 
 const carDocument = (facts: CarFacts, currentMiles: number | undefined, estimated: boolean) => {
@@ -155,7 +156,7 @@ const scheduleText = (item: MaintenanceItem, due: DueProjection | undefined, fac
       ? `Last done on ${last.performedOn}${last.odometerMiles !== undefined ? ` at ${formatMiles(last.odometerMiles)}` : ''}, according to the owner's service log.`
       : 'The service log has no record of it being done.',
     due
-      ? `Next due${due.dueDate ? ` around ${due.dueDate}` : ''}${due.dueMiles !== undefined ? ` at ${formatMiles(Math.round(due.dueMiles / 10) * 10)}` : ''}: ${STATUS_WORDS[due.status]}${due.historyUnknown ? ' (assuming it was last done on schedule)' : ''}.`
+      ? `Next due${due.dueDate ? ` around ${due.dueDate}` : ''}${due.dueMiles !== undefined ? ` at ${formatMiles(Math.round(due.dueMiles / 10) * 10)}` : ''}: ${STATUS_WORDS[due.status]}${due.historyUnknown && due.status !== 'unknown' ? ' (assuming it was last done on schedule)' : ''}.`
       : undefined,
   ]
   return lines.filter((l) => l !== undefined).join('\n')

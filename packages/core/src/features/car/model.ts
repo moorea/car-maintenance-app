@@ -141,6 +141,7 @@ export const describeInterval = (item: MaintenanceItem, severeDuty: boolean): st
 }
 
 const describeNextDue = (due: DueProjection): string => {
+  if (due.status === 'unknown') return 'Needs your mileage'
   if (due.status === 'overdue') return 'Overdue'
   if (due.trigger === 'miles' && due.dueMiles !== undefined) return formatMiles(due.dueMiles)
   return due.dueDate ? monthYear(due.dueDate) : 'Now'

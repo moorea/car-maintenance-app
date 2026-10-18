@@ -17,6 +17,9 @@ token or Apple/Google push credentials are involved.
   the US average). It is one notification on that day, not in the last week before the item is
   due, and a garage card from then until a reading comes in. A new reading or service moves or
   drops it, and owners are never asked on a fixed schedule, which reviews of other apps call a nag.
+  A car with no reading at all (its mileage skipped when it was added) cannot date its mileage
+  items, so they are `unknown`, listed after dated ones and never reminded about, and the garage
+  card asks for a first reading from the start, with no notification.
 - `createReminderScheduler` (core) re-plans when the owner signs in or out, a car is added, a
   service is logged or the setting changes, and when the app returns to the foreground. It
   schedules or cancels only what changed, through the `Notifier` port. Signed out, switched off or
