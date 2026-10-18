@@ -50,13 +50,9 @@ appId: com.moorea.carmaintenance
     visible: 'Enter the code we sent to demo@example.com.'
     timeout: 10000
 - takeScreenshot: 7-sign-in-code
-- tapOn: 'Code'
+- tapOn: 'Code from the email'
+# A whole code signs in by itself.
 - inputText: '123456'
-- hideKeyboard
-# The page title also reads "Sign in"; the button is the second match.
-- tapOn:
-    text: 'Sign in'
-    index: 1
 - extendedWaitUntil:
     visible: 'Demo car.*'
     timeout: 10000

@@ -1,0 +1,80 @@
+# A first run on Android, as apps/mobile/e2e/onboarding.yaml does on iOS. The `demoSignedOut`
+# argument reaches the app as an intent extra (see apps/mobile/modules/launch-flags).
+appId: com.moorea.carmaintenance
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    # Written with its dash to match the iOS flow; the app checks the name with and without it.
+    arguments:
+      '-demoSignedOut': true
+- extendedWaitUntil:
+    visible: 'Your car, explained'
+    timeout: 60000
+- takeScreenshot: 20-onboarding-1
+- tapOn: 'Continue'
+- extendedWaitUntil:
+    visible: 'Answers you can check'
+    timeout: 5000
+- takeScreenshot: 21-onboarding-2
+- tapOn: 'Continue'
+- extendedWaitUntil:
+    visible: 'Walk into the shop knowing more'
+    timeout: 5000
+- takeScreenshot: 22-onboarding-3
+- tapOn: 'Continue'
+- extendedWaitUntil:
+    visible: "A heads-up when it's due"
+    timeout: 5000
+- takeScreenshot: 23-onboarding-4
+- tapOn: 'Get started'
+- extendedWaitUntil:
+    visible: 'Email me a code'
+    timeout: 5000
+- takeScreenshot: 24-sign-in
+# A new email creates the account; the demo signs it in as a new owner with no cars.
+- tapOn: 'you@example.com'
+- inputText: 'new@example.com'
+- hideKeyboard
+- tapOn: 'Email me a code'
+- extendedWaitUntil:
+    visible: 'Enter the code we sent to new@example.com.'
+    timeout: 10000
+- takeScreenshot: 25-sign-in-code
+- tapOn: 'Code from the email'
+# A whole code signs in by itself.
+- inputText: '123456'
+- extendedWaitUntil:
+    visible: 'Add your first car'
+    timeout: 10000
+- takeScreenshot: 26-first-car
+- tapOn: 'Enter year, make and model instead'
+- tapOn: 'e.g. 2019'
+- inputText: '2021'
+- tapOn: 'e.g. Toyota'
+- inputText: 'Toyota'
+- tapOn: 'e.g. RAV4'
+- inputText: 'RAV4'
+- hideKeyboard
+- scrollUntilVisible:
+    element: 'e.g. 36000'
+    centerElement: true
+- tapOn: 'e.g. 36000'
+- inputText: '35780'
+- hideKeyboard
+- takeScreenshot: 27-first-car-details
+- scrollUntilVisible:
+    element: 'Save car'
+    centerElement: true
+- tapOn: 'Save car'
+# Reminders are offered once the first car is in.
+- extendedWaitUntil:
+    visible: '2021 Toyota RAV4 is in your garage'
+    timeout: 10000
+- takeScreenshot: 28-reminder-offer
+- tapOn: 'Turn on reminders'
+- extendedWaitUntil:
+    visible: 'Garage'
+    timeout: 10000
+- takeScreenshot: 29-first-garage

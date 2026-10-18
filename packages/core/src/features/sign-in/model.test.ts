@@ -2,9 +2,13 @@ import { describe, expect, it } from 'vitest'
 import { memoryAuth } from '../../testing'
 import { createSignInModel } from './model'
 
-const setup = () => {
+const setup = (codeLength?: number) => {
   const auth = memoryAuth()
-  return { auth, model: createSignInModel({ auth }) }
+  return { auth, model: createSignInModel({ auth, ...(codeLength && { codeLength }) }) }
+}
+
+const settle = async () => {
+  for (let i = 0; i < 20; i++) await Promise.resolve()
 }
 
 describe('sign-in screen model', () => {
@@ -29,15 +33,31 @@ describe('sign-in screen model', () => {
     expect(model.getState().step).toBe('email')
   })
 
-  it('signs in with the emailed code, ignoring spaces in it', async () => {
+  it('signs in by itself once the whole code is in, ignoring spaces in it', async () => {
     const { auth, model } = setup()
     const users: unknown[] = []
     auth.watchUser((u) => users.push(u))
     model.getState().setEmail('owner@example.com')
     await model.getState().submitEmail()
+    model.getState().setCode('123 45')
+    await settle()
+    expect(users.at(-1)).toBeNull()
     model.getState().setCode('123 456')
-    expect(await model.getState().submitCode()).toBe(true)
+    expect(model.getState().busy).toBe(true)
+    await settle()
     expect(users.at(-1)).toEqual({ id: 'user-owner@example.com', email: 'owner@example.com' })
+  })
+
+  it('signs in with the button when the server sends longer codes', async () => {
+    const { auth, model } = setup(8)
+    const users: unknown[] = []
+    auth.watchUser((u) => users.push(u))
+    model.getState().setEmail('owner@example.com')
+    await model.getState().submitEmail()
+    model.getState().setCode('123456')
+    expect(model.getState().busy).toBe(false)
+    expect(await model.getState().submitCode()).toBe(true)
+    expect(users.at(-1)).toMatchObject({ email: 'owner@example.com' })
   })
 
   it('rejects a code that is not digits before asking the server', async () => {
@@ -54,11 +74,13 @@ describe('sign-in screen model', () => {
     model.getState().setEmail('owner@example.com')
     await model.getState().submitEmail()
     model.getState().setCode('000000')
-    expect(await model.getState().submitCode()).toBe(false)
+    await settle()
     expect(model.getState().error).toMatch(/wrong or has expired/)
+    expect(await model.getState().submitCode()).toBe(false)
     model.getState().setCode('123456')
     expect(model.getState().error).toBeUndefined()
-    expect(await model.getState().submitCode()).toBe(true)
+    await settle()
+    expect(model.getState()).toMatchObject({ busy: false, error: undefined })
   })
 
   it.each([
@@ -78,7 +100,7 @@ describe('sign-in screen model', () => {
     model.getState().setEmail('owner@example.com')
     await model.getState().submitEmail()
     model.getState().setCode('000000')
-    await model.getState().submitCode()
+    await settle()
     await model.getState().resend()
     expect(model.getState().error).toBeUndefined()
     expect(model.getState().fieldError).toBeUndefined()
@@ -92,6 +114,17 @@ describe('sign-in screen model', () => {
     expect(await model.getState().resend()).toBe(true)
     expect(auth.sent).toEqual(['owner@example.com', 'owner@example.com'])
     expect(model.getState()).toMatchObject({ step: 'code', code: '' })
+  })
+
+  it('says a new code was sent, until the owner types', async () => {
+    const { model } = setup()
+    model.getState().setEmail('Owner@Example.com')
+    await model.getState().submitEmail()
+    expect(model.getState().notice).toBeUndefined()
+    await model.getState().resend()
+    expect(model.getState().notice).toBe('We sent a new code to owner@example.com.')
+    model.getState().setCode('1')
+    expect(model.getState().notice).toBeUndefined()
   })
 
   it('goes back to fix the email', async () => {
