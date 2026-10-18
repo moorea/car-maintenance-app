@@ -111,7 +111,7 @@ function CatchUpCard(props: Props) {
   if (!catchUp) return null
   const more =
     catchUp.others > 0
-      ? ` There are ${plural(catchUp.others, 'other service')} to fill in after this one.`
+      ? ` ${catchUp.others === 1 ? "There's" : 'There are'} ${plural(catchUp.others, 'other service')} to fill in after this one.`
       : ''
   return (
     <Card padding={18} spacing={12}>
@@ -122,9 +122,10 @@ function CatchUpCard(props: Props) {
         >
           <Symbol name="log" size={22} color={colors.accent} />
         </Column>
-        <FillColumn>
-          <Text textStyle={{ fontSize: 17, fontWeight: '600' }}>
-            {`When was the last ${catchUp.task.toLowerCase()}?`}
+        <FillColumn spacing={2}>
+          <Text textStyle={{ fontSize: 17, fontWeight: '600' }}>{catchUp.task}</Text>
+          <Text textStyle={{ fontSize: 14, color: colors.textSecondary }}>
+            When was it last done?
           </Text>
         </FillColumn>
       </Row>
@@ -139,7 +140,7 @@ function CatchUpCard(props: Props) {
           text="onAccent"
         />
         <PillButton
-          label="Not now"
+          label="Don't ask again"
           onPress={props.dismissCatchUp}
           fill="neutralSubtle"
           text="textPrimary"

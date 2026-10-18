@@ -121,7 +121,8 @@ export const createGarageModel = (deps: GarageDeps): GarageModel => {
             (vehicle.severeDuty ? scheduled.severeMiles : undefined) ?? scheduled.intervalMiles
           const months =
             (vehicle.severeDuty ? scheduled.severeMonths : undefined) ?? scheduled.intervalMonths
-          // Counted from the start of the model year, less a year, as cars sell into it early.
+          // Whole years since the model year, less one: deliberately low, as a car can be sold
+          // late in its model year and asking about a service it never needed is worse.
           const ageMonths = (Number(today.slice(0, 4)) - vehicle.year - 1) * 12
           return (
             (miles !== undefined && currentMiles !== undefined && currentMiles >= miles) ||

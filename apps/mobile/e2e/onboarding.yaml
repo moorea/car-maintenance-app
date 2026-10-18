@@ -83,7 +83,7 @@ appId: com.moorea.carmaintenance
 - takeScreenshot: 29-first-garage
 # A new car's history is unknown, so the garage asks when each service was last done, oil first.
 - scrollUntilVisible:
-    element: 'When was the last oil & filter change\?'
+    element: 'When was it last done\?'
     centerElement: true
 - takeScreenshot: 29b-history-ask
 - tapOn: 'Add last time'

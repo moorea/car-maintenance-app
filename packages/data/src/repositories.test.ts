@@ -11,7 +11,7 @@ import type {
   Warranty,
 } from '@car/core'
 import { PowerSyncDatabase } from '@powersync/node'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PowerSyncBackendConnector } from '@powersync/common'
 import { createPowerSyncRepositories, firstSyncOf } from './repositories'
 import { powerSyncSessionDatabase } from './session'
@@ -276,10 +276,19 @@ describe('PowerSync repositories', () => {
       full: true,
       missedPrevious: false,
     }
-    await repos.fillUps.save(fillUp)
-    await repos.fillUps.save({ ...fillUp, odometerMiles: 41_100, full: false })
-    await repos.fillUps.save({ ...fillUp, odometerMiles: 41_100, full: false })
-    await repos.fillUps.remove('f1')
+    // The edit gets a later timestamp than the insert even when both land in the same
+    // millisecond, which would otherwise leave updated_at unchanged and out of the PATCH.
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      vi.setSystemTime(new Date('2026-09-01T10:00:00Z'))
+      await repos.fillUps.save(fillUp)
+      vi.setSystemTime(new Date('2026-09-01T10:00:01Z'))
+      await repos.fillUps.save({ ...fillUp, odometerMiles: 41_100, full: false })
+      await repos.fillUps.save({ ...fillUp, odometerMiles: 41_100, full: false })
+      await repos.fillUps.remove('f1')
+    } finally {
+      vi.useRealTimers()
+    }
     const ops: [string, Record<string, unknown> | undefined][] = []
     for (let tx = await db.getNextCrudTransaction(); tx; tx = await db.getNextCrudTransaction()) {
       ops.push(
