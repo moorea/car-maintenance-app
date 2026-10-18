@@ -6,8 +6,10 @@ appId: com.moorea.carmaintenance
     clearState: true
     permissions:
       all: allow
+    # Written with its dash so it reaches the app as `-demoSignedOut true` (or `--demoSignedOut`
+    # if Maestro adds one), which iOS turns into a user default either way.
     arguments:
-      demoSignedOut: true
+      '-demoSignedOut': true
 - extendedWaitUntil:
     visible: 'Your car, explained'
     timeout: 60000

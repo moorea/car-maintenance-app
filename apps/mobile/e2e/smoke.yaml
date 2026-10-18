@@ -45,7 +45,10 @@ appId: com.moorea.carmaintenance
 - tapOn:
     point: '50%,23%'
 - inputText: '123456'
-- tapOn: 'Sign in'
+# The page title also reads "Sign in"; the button is the second match.
+- tapOn:
+    text: 'Sign in'
+    index: 1
 - extendedWaitUntil:
     visible: 'Demo car'
     timeout: 10000

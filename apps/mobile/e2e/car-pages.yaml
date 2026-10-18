@@ -11,8 +11,23 @@ appId: com.moorea.carmaintenance
     timeout: 60000
 - tapOn: 'Car'
 - scrollUntilVisible:
-    element: 'Insurance card'
+    element: 'DOCUMENTS'
 - takeScreenshot: 30-car-documents
+- tapOn:
+    text: 'Add a document'
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: 30-car-documents-menu
+- tapOn:
+    text: 'Insurance card'
+    optional: true
+- waitForAnimationToEnd
+- takeScreenshot: 30-car-documents-submenu
+- launchApp
+- extendedWaitUntil:
+    visible: 'Demo car'
+    timeout: 60000
+- tapOn: 'Car'
 - scrollUntilVisible:
     element: 'Known issues'
 - tapOn: 'Known issues'

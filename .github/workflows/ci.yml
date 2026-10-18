@@ -136,7 +136,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/screenshots"
           # takeScreenshot writes to the working directory; failure screenshots go to the output dir.
           find . "$RUNNER_TEMP/maestro" -name '*.png' -newer package.json \
-            -not -path '*/node_modules/*' -not -path '*/ios/*' \
+            -not -path '*/node_modules/*' -not -path '*/ios/*' -not -name 'App-Icon*' \
             -exec cp {} "$RUNNER_TEMP/screenshots/" \; || true
           xcrun simctl io booted screenshot "$RUNNER_TEMP/screenshots/last.png" || true
       - uses: actions/upload-artifact@v4
