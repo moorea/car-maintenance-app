@@ -104,8 +104,10 @@ const openWatches = (d: ReturnType<typeof setup>) => {
 const ids = async (notifier: ReturnType<typeof memoryNotifier>) =>
   (await notifier.scheduled()).map((n) => n.id)
 
-// About 33,067 miles today at 33.3 a day: rotation is due 2026-11-28, oil 2027-04-27.
+// About 33,067 miles today at 33.3 a day: rotation is due 2026-11-28, oil 2027-04-27. The
+// rotation's date rests on a reading from 2026-09-29, so a new one is asked for three weeks ahead.
 const PLANNED = [
+  'odometer:v1',
   'reminder:v1:soon:2026-11-14',
   'reminder:v1:due:2026-11-28',
   'reminder:v1:soon:2027-04-13',
@@ -118,10 +120,16 @@ describe('createReminderScheduler', () => {
     scheduler.start()
     await scheduler.refresh()
     expect(await ids(notifier)).toEqual(PLANNED)
-    const [first] = await notifier.scheduled()
+    const [checkIn, first] = await notifier.scheduled()
     expect(first).toMatchObject({
       title: 'RAV4: service coming up',
       body: 'Tire rotation is due in about two weeks (around 35,000 mi).',
+      vehicleId: 'v1',
+    })
+    expect(checkIn).toMatchObject({
+      date: '2026-11-07',
+      title: 'RAV4: what does the odometer say?',
+      body: 'Tire rotation is due around 35,000 mi, going by a reading from 6 weeks ago. A new reading keeps the reminder on the right day.',
       vehicleId: 'v1',
     })
   })
@@ -185,6 +193,8 @@ describe('createReminderScheduler', () => {
     expect(notifier.log).toEqual([
       'cancel reminder:v1:soon:2026-11-14',
       'cancel reminder:v1:due:2026-11-28',
+      // The rotation's check-in moves with it.
+      'schedule odometer:v1',
       'schedule reminder:v1:soon:2027-02-14',
       'schedule reminder:v1:due:2027-02-28',
     ])
@@ -201,7 +211,8 @@ describe('createReminderScheduler', () => {
     })
 
     // 1,500 miles in two days: the rotation is now due in about a week, and the oil change moves
-    // forward too.
+    // forward too. The new reading is fresh for the rotation, so the next reading is asked for
+    // ahead of the oil change instead.
     await odometer.add({ vehicleId: 'v1', date: '2026-10-01', miles: 34_500 })
     await replanned
 
@@ -211,6 +222,7 @@ describe('createReminderScheduler', () => {
       'cancel reminder:v1:soon:2027-04-13',
       'cancel reminder:v1:due:2027-04-27',
       'schedule reminder:v1:due:2026-10-09',
+      'schedule odometer:v1',
       'schedule reminder:v1:soon:2026-12-10',
       'schedule reminder:v1:due:2026-12-24',
     ])
@@ -347,10 +359,10 @@ describe('createReminderScheduler', () => {
     })
     await scheduler.refresh()
     expect(await ids(notifier)).toEqual([
-      ...PLANNED.slice(0, 2),
+      ...PLANNED.slice(0, 3),
       'warranty:v1:w1:30',
       'warranty:v1:w1:7',
-      ...PLANNED.slice(2),
+      ...PLANNED.slice(3),
     ])
     const notice = (await notifier.scheduled()).find((n) => n.id === 'warranty:v1:w1:30')
     expect(notice).toMatchObject({

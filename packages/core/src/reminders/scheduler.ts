@@ -10,6 +10,7 @@ import type {
 } from '../ports'
 import { upcomingWarrantyEnds } from '../features/warranty/coverage'
 import { getDueSummary, type GetDueItemsDeps } from './getDueItems'
+import { odometerCheckIn } from './odometerCheckIn'
 import { planNotifications } from './planNotifications'
 
 export interface ReminderSchedulerDeps extends GetDueItemsDeps {
@@ -88,6 +89,7 @@ export const createReminderScheduler = (deps: ReminderSchedulerDeps): ReminderSc
           due: summary.items,
           warranties: upcomingWarrantyEnds(warranties, { mileage, currentMiles, today }),
           renewals,
+          checkIn: odometerCheckIn(summary.items, mileage),
         }
       }),
     )

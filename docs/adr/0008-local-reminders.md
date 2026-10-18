@@ -11,6 +11,12 @@ token or Apple/Google push credentials are involved.
   ahead (when it turns "due soon") and one on the day, at 9am local time. Items due the same day
   for the same car share one notification. Only dates after today are scheduled, so planning again
   never repeats a reminder; at most 60 are kept, under iOS's limit of 64 per app.
+- A mileage reminder is only as good as the last odometer reading, so `odometerCheckIn` (core)
+  asks for one, once per car, when it would move a reminder: the next item due by mileage is
+  three weeks off and its date rests on a reading over 30 days old (14 while the pace is still
+  the US average). It is one notification on that day, not in the last week before the item is
+  due, and a garage card from then until a reading comes in. A new reading or service moves or
+  drops it, and owners are never asked on a fixed schedule, which reviews of other apps call a nag.
 - `createReminderScheduler` (core) re-plans when the owner signs in or out, a car is added, a
   service is logged or the setting changes, and when the app returns to the foreground. It
   schedules or cancels only what changed, through the `Notifier` port. Signed out, switched off or

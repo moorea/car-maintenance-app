@@ -1,4 +1,11 @@
-import { createAttachmentsModel, createCarModel, createSafetyModel, type Vehicle } from '@car/core'
+import {
+  createAttachmentsModel,
+  createCarModel,
+  createSafetyModel,
+  type SessionState,
+  type Vehicle,
+} from '@car/core'
+import { useEffect } from 'react'
 import { useStore } from 'zustand'
 import { deps } from '../../bootstrap/deps'
 import { openPrivacyPolicy } from '../../bootstrap/links'
@@ -8,6 +15,8 @@ import { CarView } from './CarView'
 /** Wires the car, safety and documents models to the view. No state or logic lives here (ADR 0003). */
 export function CarScreen({
   vehicle,
+  odometerRequest,
+  onOdometerRequestHandled,
   onCheckQuote,
   onTroubleCodes,
   onWarranty,
@@ -16,6 +25,10 @@ export function CarScreen({
   onRenewals,
 }: {
   vehicle: Vehicle
+  /** Set when the owner asked elsewhere to update the odometer, so the editor opens. */
+  odometerRequest?: SessionState['odometerRequest']
+  /** Tells the session the editor has opened for the request. */
+  onOdometerRequestHandled: () => void
   onCheckQuote: () => void
   onTroubleCodes: () => void
   onWarranty: () => void
@@ -26,7 +39,13 @@ export function CarScreen({
   // A new car gets its configuration once it has synced back, and severe driving changes the
   // intervals, so either starts fresh models.
   const key = `${vehicle.id}:${vehicle.configId ?? ''}:${vehicle.severeDuty}`
-  const car = useStore(useScreenModel(key, () => createCarModel({ vehicle, ...deps })))
+  const carModel = useScreenModel(key, () => createCarModel({ vehicle, ...deps }))
+  useEffect(() => {
+    if (!odometerRequest) return
+    carModel.getState().editOdometer()
+    onOdometerRequestHandled()
+  }, [carModel, odometerRequest, onOdometerRequestHandled])
+  const car = useStore(carModel)
   const safety = useStore(useScreenModel(key, () => createSafetyModel({ vehicle, ...deps })))
   const documents = useStore(
     useScreenModel(vehicle.id, () => createAttachmentsModel({ vehicleId: vehicle.id, ...deps })),
