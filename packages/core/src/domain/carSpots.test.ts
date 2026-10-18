@@ -15,6 +15,12 @@ describe('spotOfItem', () => {
   it('places an item the owner added by its name', () => {
     expect(spotOfItem({ task: 'Replace brake pads' })).toBe('wheels')
     expect(spotOfItem({ task: 'Headlight restoration' })).toBe('lights')
+    expect(spotOfItem({ task: 'Brake light bulb' })).toBe('lights')
+    expect(spotOfItem({ task: 'Hybrid battery check' })).toBe('underbody')
+  })
+
+  it('places by kind before name', () => {
+    expect(spotOfItem({ kind: 'tire-rotation', task: 'Oil change and rotation' })).toBe('wheels')
   })
 
   it('leaves out an item that is nowhere in particular', () => {
@@ -34,6 +40,14 @@ describe('spotOfComponent', () => {
     ['LATCHES/LOCKS/LINKAGES:DOORS', 'body'],
   ])('places %s at %s', (component, spot) => {
     expect(spotOfComponent(component)).toBe(spot)
+  })
+
+  it("places an electric car's battery underneath and a 12-volt battery under the hood", () => {
+    expect(spotOfComponent('ELECTRICAL SYSTEM:PROPULSION SYSTEM:TRACTION BATTERY')).toBe(
+      'underbody',
+    )
+    expect(spotOfComponent('ELECTRICAL SYSTEM:12V/24V/48V BATTERY')).toBe('hood')
+    expect(spotOfComponent('ELECTRICAL SYSTEM:WIRING')).toBe('cabin')
   })
 
   it('places a recall naming several components by the first', () => {
@@ -79,6 +93,14 @@ describe('carHotspots', () => {
       recallIds: ['r1'],
       summary: '1 open recall · 1 overdue · 1 due soon',
     })
+  })
+
+  it('does not say nothing is due when an item needs the mileage to tell', () => {
+    const [wheels] = carHotspots(
+      [{ itemId: 'rotate', task: 'Rotate tires', status: 'unknown', spot: 'wheels' }],
+      [],
+    )
+    expect(wheels).toMatchObject({ attention: 'fine', summary: 'Needs your mileage' })
   })
 
   it('counts several overdue items rather than naming one', () => {

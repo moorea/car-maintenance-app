@@ -56,6 +56,13 @@ const SPOT_OF_KIND: Record<string, CarSpot> = {
   corrosion: 'body',
 }
 
+// Names the quote patterns would place wrongly: "Brake light bulb" is a light, not a brake, and
+// a hybrid's battery sits underneath, not under the hood.
+const SPOT_OF_NAME: [RegExp, CarSpot][] = [
+  [/\bhybrid\b|\btraction\b|high[\s-]?voltage/i, 'underbody'],
+  [/\bbulbs?\b|\blights?\b|\blamps?\b/i, 'lights'],
+]
+
 /**
  * Where a schedule item is on the car, from its kind, or for an item without one (such as one
  * the owner added) from its name. Undefined for one that is nowhere in particular, such as an
@@ -65,7 +72,9 @@ export const spotOfItem = (item: {
   kind?: string | undefined
   task: string
 }): CarSpot | undefined =>
-  SPOT_OF_KIND[item.kind ?? ''] ?? SPOT_OF_KIND[identifyService(item.task) ?? '']
+  SPOT_OF_KIND[item.kind ?? ''] ??
+  SPOT_OF_NAME.find(([pattern]) => pattern.test(item.task))?.[1] ??
+  SPOT_OF_KIND[identifyService(item.task) ?? '']
 
 // NHTSA's top-level components, before any ":", matched from the start.
 const SPOT_OF_COMPONENT: [RegExp, CarSpot][] = [
@@ -86,7 +95,14 @@ const SPOT_OF_COMPONENT: [RegExp, CarSpot][] = [
  * HYDRAULIC: ANTILOCK". A recall naming several components is placed by the first.
  */
 export const spotOfComponent = (component: string | undefined): CarSpot | undefined => {
-  const first = component?.split(/[;:]/)[0]?.trim().toUpperCase() ?? ''
+  const named = component?.split(';')[0]?.trim().toUpperCase() ?? ''
+  // An electric car's battery is underneath and a 12-volt one under the hood, though NHTSA files
+  // both under the electrical system.
+  if (/^ELECTRICAL/.test(named)) {
+    if (/TRACTION|PROPULSION|HIGH VOLTAGE/.test(named)) return 'underbody'
+    if (/12V|BATTERY/.test(named)) return 'hood'
+  }
+  const first = named.split(':')[0]?.trim() ?? ''
   return first ? SPOT_OF_COMPONENT.find(([pattern]) => pattern.test(first))?.[1] : undefined
 }
 
@@ -139,7 +155,13 @@ export const carHotspots = (
         attention,
         itemIds: here.map((i) => i.itemId),
         recallIds,
-        summary: summarize(recallIds.length, overdue, dueSoon, here.length),
+        summary: summarize(
+          recallIds.length,
+          overdue,
+          dueSoon,
+          here.filter((i) => i.status === 'upcoming').length,
+          here.length,
+        ),
       },
     ]
   })
@@ -150,8 +172,10 @@ const summarize = (
   recalls: number,
   overdue: readonly { task: string }[],
   dueSoon: readonly { task: string }[],
+  upcoming: number,
   items: number,
 ): string => {
+  const unknown = items - overdue.length - dueSoon.length - upcoming
   const parts = [
     recalls > 0 ? plural(recalls, 'open recall', 'open recalls') : undefined,
     overdue.length === 1 && recalls === 0 ? `Overdue: ${overdue[0]?.task}` : undefined,
@@ -166,5 +190,7 @@ const summarize = (
       : undefined,
   ].filter((p) => p !== undefined)
   if (parts.length > 0) return parts.join(' · ')
+  // An item that needs the mileage might be due; only say nothing is when the app can tell.
+  if (unknown > 0) return unknown === 1 ? 'Needs your mileage' : `${unknown} need your mileage`
   return items === 1 ? 'Nothing due' : `${items} items, none due`
 }

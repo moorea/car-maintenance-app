@@ -43,6 +43,7 @@ const tires: MaintenanceItem = {
   id: 'tires',
   configId: 'c1',
   task: 'Tire rotation',
+  kind: 'tire-rotation',
   intervalMiles: 5_000,
 }
 const brakeFluid: MaintenanceItem = {

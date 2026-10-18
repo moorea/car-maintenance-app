@@ -46,17 +46,14 @@ describe('shows3dCar', () => {
     expect(shows3dCar(null, phone)).toBe(true)
   })
 
-  it('draws the still view by default under Reduce Motion or low power', () => {
+  it('draws the still view by default under Reduce Motion, low power or on a slow phone', () => {
     expect(shows3dCar(null, { ...phone, reduceMotion: true })).toBe(false)
     expect(shows3dCar(null, { ...phone, lowPower: true })).toBe(false)
+    expect(shows3dCar(null, { ...phone, capable: false })).toBe(false)
   })
 
   it("follows the owner's choice either way", () => {
     expect(shows3dCar(false, phone)).toBe(false)
-    expect(shows3dCar(true, { ...phone, reduceMotion: true, lowPower: true })).toBe(true)
-  })
-
-  it('never draws in 3D on a phone too slow for it', () => {
-    expect(shows3dCar(true, { ...phone, capable: false })).toBe(false)
+    expect(shows3dCar(true, { reduceMotion: true, lowPower: true, capable: false })).toBe(true)
   })
 })

@@ -62,9 +62,9 @@ export interface PhoneFor3d {
 }
 
 /**
- * Whether the Car screen draws the car in 3D or as a still side view. The owner's choice wins,
- * except that a phone too slow to draw it never does; with no choice made, 3D is off under Reduce
- * Motion or low power.
+ * Whether the Car screen draws the car in 3D or as a still side view. The owner's choice wins;
+ * with no choice made, 3D is off under Reduce Motion, low power or on a phone too slow for it
+ * (ADR 0022).
  */
 export const shows3dCar = (choice: boolean | null, phone: PhoneFor3d): boolean =>
-  phone.capable && (choice ?? (!phone.reduceMotion && !phone.lowPower))
+  choice ?? (phone.capable && !phone.reduceMotion && !phone.lowPower)
