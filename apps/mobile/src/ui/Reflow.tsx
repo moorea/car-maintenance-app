@@ -1,6 +1,6 @@
 import { Column, Row } from '@expo/ui'
 import type { ReactNode } from 'react'
-import { useWindowDimensions } from 'react-native'
+import { Platform, useWindowDimensions } from 'react-native'
 import { isAccessibilityTextSize } from './dynamicType'
 
 /**
@@ -17,7 +17,8 @@ export function Reflow({
   alignment?: 'start' | 'center'
 }) {
   const { fontScale } = useWindowDimensions()
-  if (isAccessibilityTextSize(fontScale)) {
+  // Text only follows the reader's text size on iOS (see Text.ios.tsx).
+  if (Platform.OS === 'ios' && isAccessibilityTextSize(fontScale)) {
     return (
       <Column spacing={spacing} alignment="start">
         {children}
