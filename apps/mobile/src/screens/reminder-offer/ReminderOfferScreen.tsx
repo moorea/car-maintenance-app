@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { useStore } from 'zustand'
 import { deps } from '../../bootstrap/deps'
 import { useScreenModel } from '../../models/useScreenModel'
+import { BottomSafeArea } from '../../ui/BottomSafeArea'
 import { ReminderOfferView } from './ReminderOfferView'
 
 interface Props {
@@ -28,5 +29,10 @@ export function ReminderOfferGate({ carName, onDone, children }: Props) {
   )
   const state = useStore(model)
   if (state.status !== 'showing' && state.status !== 'saving') return children
-  return <ReminderOfferView {...state} carName={carName} />
+  // It replaces the garage and its tab bar, so it keeps clear of the home indicator itself.
+  return (
+    <BottomSafeArea>
+      <ReminderOfferView {...state} carName={carName} />
+    </BottomSafeArea>
+  )
 }
