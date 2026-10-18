@@ -332,7 +332,10 @@ describe('two phones signed in as one owner', () => {
 
     const onB = await eventually(
       () => b.schedule.itemsForVehicle(added),
-      (items) => items.some((i) => i.id === filter.id),
+      // Each save uploads on its own, so the two can reach the other phone in separate checkpoints.
+      (items) =>
+        items.some((i) => i.id === filter.id) &&
+        items.some((i) => i.id === oil.id && i.owner === 'changed'),
       'the custom items on the second phone',
     )
     expect(onB.find((i) => i.id === oil.id)).toMatchObject({
