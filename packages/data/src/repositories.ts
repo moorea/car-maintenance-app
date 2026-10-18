@@ -334,6 +334,12 @@ export const createPowerSyncRepositories = (db: CommonPowerSyncDatabase): PowerS
           id,
         ])
       },
+      setAppearance: async (id, look) => {
+        await db.execute(
+          'update vehicles set body_style = ?, paint = ?, updated_at = ? where id = ?',
+          [look.bodyStyle ?? null, look.paint ?? null, now(), id],
+        )
+      },
       // One transaction, so this phone applies the whole new order at once. Other phones may see part
       // of it while the uploads land one by one; ties sort by name until the rest arrive.
       reorder: async (ids) => {

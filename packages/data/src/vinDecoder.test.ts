@@ -76,6 +76,18 @@ describe('NHTSA VIN decoder', () => {
     })
   })
 
+  it('reads the body class as the shape to draw the car, and leaves out one it cannot place', async () => {
+    const bodyOf = async (BodyClass: string) =>
+      (await nhtsaVinDecoder(respond({ Results: [{ ...accord, BodyClass }] })).decode(VIN))
+        .bodyStyle
+    expect(await bodyOf('Sedan/Saloon')).toBe('sedan')
+    expect(await bodyOf('Sport Utility Vehicle (SUV)/Multi-Purpose Vehicle (MPV)')).toBe('suv')
+    expect(await bodyOf('Pickup')).toBe('pickup')
+    expect(await bodyOf('Minivan')).toBe('minivan')
+    expect(await bodyOf('Bus')).toBeUndefined()
+    expect(await bodyOf('')).toBeUndefined()
+  })
+
   it('says when the engine is a hybrid, plug-in hybrid or diesel, which changes its schedule', async () => {
     const engineOf = async (fields: Record<string, string>) =>
       (await nhtsaVinDecoder(respond({ Results: [{ ...accord, ...fields }] })).decode(VIN)).engine

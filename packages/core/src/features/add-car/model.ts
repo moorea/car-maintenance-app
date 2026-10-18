@@ -200,6 +200,7 @@ export const createAddCarModel = (deps: AddCarDeps): AddCarModel => {
         ...(decoded && { vin: decoded.vin }),
         ...(decoded?.engine !== undefined && { engine: decoded.engine }),
         ...(decoded?.drivetrain !== undefined && { drivetrain: decoded.drivetrain }),
+        ...(decoded?.bodyStyle !== undefined && { bodyStyle: decoded.bodyStyle }),
       }
       const firstReading =
         d.odometerMiles === undefined

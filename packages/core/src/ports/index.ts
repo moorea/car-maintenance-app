@@ -19,6 +19,8 @@ import type {
   TireSet,
   Vehicle,
   VehicleId,
+  BodyStyle,
+  Paint,
   Warranty,
 } from '../domain/types'
 import type { CareReport } from '../features/care-report/report'
@@ -44,6 +46,8 @@ export interface VehicleRepo {
   setValue(id: VehicleId, value: { cents: number; valuedOn: IsoDate } | undefined): Promise<void>
   /** Changes the name the garage shows for the car. */
   rename(id: VehicleId, nickname: string): Promise<void>
+  /** Changes how the app draws the car: its body style and paint. Undefined forgets either. */
+  setAppearance(id: VehicleId, look: { bodyStyle?: BodyStyle; paint?: Paint }): Promise<void>
   /** Puts the owner's cars in this order in the garage, on every phone: the first leads. */
   reorder(ids: VehicleId[]): Promise<void>
   /**

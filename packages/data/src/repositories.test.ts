@@ -577,6 +577,33 @@ describe('PowerSync repositories', () => {
     ])
   })
 
+  it('saves how the car looks, uploads only what changed, and reads a style it does not know as unset', async () => {
+    const repos = createPowerSyncRepositories(db)
+    const car: Vehicle = {
+      id: 'v-look',
+      year: 2019,
+      make: 'Ford',
+      model: 'F-150',
+      nickname: 'Truck',
+      severeDuty: false,
+      bodyStyle: 'pickup',
+    }
+    await repos.vehicles.add('u1', car)
+    expect(await repos.vehicles.get('v-look')).toStrictEqual(car)
+    await (await db.getNextCrudTransaction())?.complete()
+
+    await repos.vehicles.setAppearance('v-look', { bodyStyle: 'pickup', paint: 'blue' })
+
+    expect(await repos.vehicles.get('v-look')).toMatchObject({ bodyStyle: 'pickup', paint: 'blue' })
+    const transaction = await db.getNextCrudTransaction()
+    expect(transaction?.crud[0]).toMatchObject({ table: 'vehicles', id: 'v-look', op: 'PATCH' })
+    expect(Object.keys(transaction?.crud[0]?.opData ?? {}).sort()).toEqual(['paint', 'updated_at'])
+    await transaction?.complete()
+
+    await db.execute("update vehicles set body_style = 'hovercraft' where id = 'v-look'")
+    expect(await repos.vehicles.get('v-look')).not.toHaveProperty('bodyStyle')
+  })
+
   it('lists cars as the owner arranged them, then the rest by name, and uploads only the positions', async () => {
     const repos = createPowerSyncRepositories(db)
     const car = (id: string, nickname: string): Vehicle => ({

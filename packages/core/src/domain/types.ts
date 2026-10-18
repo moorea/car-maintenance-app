@@ -34,11 +34,25 @@ export interface Vehicle extends VehicleDescription {
    * cars; those follow the arranged ones, by name.
    */
   garagePosition?: number
+  /** The shape the app draws the car as. From the VIN when it says, else the owner picks. */
+  bodyStyle?: BodyStyle
+  /** The color the app paints the car. The owner picks it. */
+  paint?: Paint
 }
+
+/**
+ * The generic bodies the app can draw a car as (ADR 0022). Hatchbacks, coupes and wagons draw as
+ * sedans, crossovers as SUVs, and vans as minivans.
+ */
+export type BodyStyle = 'sedan' | 'suv' | 'pickup' | 'minivan'
+
+/** Paint colors the app can draw a car in, broad enough that every car is close to one. */
+export type Paint = 'white' | 'silver' | 'gray' | 'black' | 'red' | 'blue' | 'green' | 'brown'
 
 /** What a VIN decodes to. */
 export interface DecodedVin extends VehicleDescription {
   vin: string
+  bodyStyle?: BodyStyle
 }
 
 export type VinDecodeErrorKind = 'not-found' | 'network' | 'unknown'

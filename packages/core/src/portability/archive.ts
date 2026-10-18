@@ -2,9 +2,11 @@ import { strFromU8, strToU8, unzipSync, zipSync, type Zippable } from 'fflate'
 import { z } from 'zod'
 import type {
   Attachment,
+  BodyStyle,
   CustomItem,
   FillUp,
   MaintenanceItem,
+  Paint,
   Renewal,
   OdometerReading,
   ServiceRecord,
@@ -18,6 +20,7 @@ import { RENEWAL_KIND_IDS } from '../schemas/renewal'
 import { csv } from './csv'
 import { NOTES_MAX, SHORT_TEXT_MAX } from '../schemas/text'
 import { MAX_CAR_VALUE_CENTS } from '../schemas/carValue'
+import { BODY_STYLES, PAINTS } from '../domain/appearance'
 
 /**
  * A full copy of an owner's data as one zip, in open formats: `car-data.json` holds everything and
@@ -177,6 +180,15 @@ const exportedCar = z.object({
   // What the owner thinks the car is worth, and when they said. Older exports have neither.
   valueCents: z.number().int().positive().max(MAX_CAR_VALUE_CENTS).optional(),
   valuedOn: isoDate.optional(),
+  // How the app draws the car. Older exports have neither; a style from a newer app is dropped.
+  bodyStyle: z
+    .enum(BODY_STYLES.map((b) => b.id) as [BodyStyle, ...BodyStyle[]])
+    .optional()
+    .catch(undefined),
+  paint: z
+    .enum(PAINTS.map((p) => p.id) as [Paint, ...Paint[]])
+    .optional()
+    .catch(undefined),
   odometer: z.array(z.object({ date: isoDate, miles: z.number().int().nonnegative() })),
   services: z.array(exportedService),
   documents: z.array(exportedDocument),
@@ -307,6 +319,8 @@ export const buildArchive = (
         'severe_duty',
         'value_usd',
         'valued_on',
+        'body_style',
+        'paint',
       ],
     ],
     services: [['car', 'date', 'service', 'odometer_miles', 'cost_usd', 'shop', 'notes', 'files']],
@@ -502,6 +516,8 @@ export const buildArchive = (
         v.severeDuty ? 'yes' : 'no',
         dollars(v.valueCents),
         v.valuedOn ?? '',
+        v.bodyStyle ?? '',
+        v.paint ?? '',
       ])
 
       return {
@@ -517,6 +533,8 @@ export const buildArchive = (
         severeDuty: v.severeDuty,
         ...(v.valueCents !== undefined &&
           v.valuedOn !== undefined && { valueCents: v.valueCents, valuedOn: v.valuedOn }),
+        ...(v.bodyStyle && { bodyStyle: v.bodyStyle }),
+        ...(v.paint && { paint: v.paint }),
         odometer: sortedReadings.map((r) => ({ date: r.date, miles: r.miles })),
         services: sortedServices.map((s) => {
           const item = s.itemId ? itemById.get(s.itemId) : undefined

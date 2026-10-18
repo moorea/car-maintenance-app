@@ -11,6 +11,7 @@ const accord: DecodedVin = {
   model: 'Accord',
   trim: 'EX-V6',
   engine: '3.0L 6-cyl',
+  bodyStyle: 'sedan',
 }
 
 const setup = (owned: Vehicle[] = []) => {
@@ -83,7 +84,7 @@ describe('add car model', () => {
     expect(vinDecoder.looked).toEqual([])
   })
 
-  it('saves a decoded car with its VIN, engine and first odometer reading', async () => {
+  it('saves a decoded car with its VIN, engine, body style and first odometer reading', async () => {
     const { model, vehicles } = setup()
     model.getState().setVin(ACCORD_VIN)
     await model.getState().lookUpVin()
@@ -101,6 +102,7 @@ describe('add car model', () => {
           model: 'Accord',
           trim: 'EX-V6',
           engine: '3.0L 6-cyl',
+          bodyStyle: 'sedan',
           nickname: '2003 Honda Accord',
           severeDuty: true,
         },

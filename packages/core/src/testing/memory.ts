@@ -70,7 +70,7 @@ export const memoryVehicles = (
 ): VehicleRepo & {
   set: (vehicles: Vehicle[]) => void
   added: { ownerId: string; vehicle: Vehicle; firstReading?: OdometerReading }[]
-  /** Makes the next `add`, `setSevereDuty`, `setValue`, `rename`, `reorder` or `remove` throw. */
+  /** Makes the next `add`, `setSevereDuty`, `setValue`, `rename`, `setAppearance`, `reorder` or `remove` throw. */
   failNextAdd: (message: string) => void
 } => {
   let vehicles = [...initial]
@@ -132,6 +132,23 @@ export const memoryVehicles = (
         throw new Error(message)
       }
       vehicles = vehicles.map((v) => (v.id === id ? { ...v, nickname } : v))
+      notify()
+    },
+    setAppearance: async (id, look) => {
+      if (nextFailure !== undefined) {
+        const message = nextFailure
+        nextFailure = undefined
+        throw new Error(message)
+      }
+      vehicles = vehicles.map((v) => {
+        if (v.id !== id) return v
+        const { bodyStyle: _body, paint: _paint, ...rest } = v
+        return {
+          ...rest,
+          ...(look.bodyStyle && { bodyStyle: look.bodyStyle }),
+          ...(look.paint && { paint: look.paint }),
+        }
+      })
       notify()
     },
     reorder: async (ids) => {
