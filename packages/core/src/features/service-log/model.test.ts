@@ -132,6 +132,28 @@ describe('service log screen model', () => {
     expect(model.getState().latestDate).toBe('2026-10-17')
   })
 
+  it('offers the picker no day after today when a service is corrected the next day', async () => {
+    let day = '2026-10-17'
+    const model = createServiceLogModel({
+      vehicleId: 'v1',
+      configId: 'c1',
+      schedule: memorySchedule(),
+      records: memoryServiceRecords([
+        { id: 'r1', vehicleId: 'v1', performedOn: '2026-10-01', notes: 'Wipers' },
+      ]),
+      attachments: memoryAttachments(),
+      picker: memoryFilePicker(),
+      clock: { today: () => day },
+      ids: sequentialIds(),
+    })
+    model.getState().start()
+    await settle()
+    day = '2026-10-18'
+    model.getState().openEntry('r1')
+    model.getState().editEntry()
+    expect(model.getState().latestDate).toBe('2026-10-18')
+  })
+
   it('clears a field error when that field is edited', async () => {
     const { model } = setup()
     model.getState().setField('odometerMiles', 'abc')

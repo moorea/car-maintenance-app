@@ -243,6 +243,7 @@ export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => 
           deleteError: undefined,
           adding: true,
           editingId: record.id,
+          latestDate: today(),
           draft: {
             performedOn: record.performedOn,
             // Kept even when the schedule has not loaded or no longer lists it, so a correction to
