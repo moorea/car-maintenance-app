@@ -25,6 +25,10 @@ export interface Vehicle extends VehicleDescription {
   vin?: string
   nickname: string
   severeDuty: boolean
+  /** What the owner thinks the car is worth, in cents, for weighing a big repair against. */
+  valueCents?: number
+  /** When the owner said what the car is worth. Present whenever `valueCents` is. */
+  valuedOn?: IsoDate
 }
 
 /** What a VIN decodes to. */

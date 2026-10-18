@@ -89,6 +89,8 @@ export const schema = new Schema({
     drivetrain: column.text,
     nickname: column.text,
     severe_duty: column.integer,
+    value_cents: column.integer,
+    valued_on: column.text,
     updated_at: column.text,
   }),
   odometer_readings: new Table(

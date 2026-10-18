@@ -36,6 +36,8 @@ export interface VehicleRepo {
   add(ownerId: string, vehicle: Vehicle, firstReading?: OdometerReading): Promise<void>
   /** Puts the car on the severe maintenance schedule, or back on the normal one. */
   setSevereDuty(id: VehicleId, severeDuty: boolean): Promise<void>
+  /** Saves what the owner thinks the car is worth on `valuedOn`, or forgets it when undefined. */
+  setValue(id: VehicleId, value: { cents: number; valuedOn: IsoDate } | undefined): Promise<void>
 }
 
 /** Looks up what a VIN is. Needs a connection. */
@@ -267,6 +269,8 @@ export interface DevicePreferences {
   aiSharingOwner: string | null
   /** Reminders were offered after a car was added on this phone, and turned on or declined. */
   remindersOffered: boolean
+  /** Cars whose service history the owner chose not to fill in from the garage. */
+  historyDismissed: string[]
 }
 
 export interface DevicePreferencesRepo {

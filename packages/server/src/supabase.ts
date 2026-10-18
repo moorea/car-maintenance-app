@@ -44,6 +44,11 @@ const toVehicle = (r: Row): Vehicle =>
     drivetrain: text(r.drivetrain),
     nickname: text(r.nickname) ?? '',
     severeDuty: r.severe_duty === true,
+    ...(num(r.value_cents) !== undefined &&
+      text(r.valued_on) !== undefined && {
+        valueCents: num(r.value_cents),
+        valuedOn: text(r.valued_on),
+      }),
   })
 
 const toReading = (r: Row): OdometerReading => ({
