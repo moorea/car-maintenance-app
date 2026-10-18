@@ -5,7 +5,7 @@ import { useScreenModel } from '../../models/useScreenModel'
 import { RemindersView } from './RemindersView'
 
 /** Wires the reminders model to the view. No state or logic lives here (ADR 0003). */
-export function RemindersScreen() {
+export function RemindersScreen(props: { onBack: () => void }) {
   const model = useScreenModel('reminders', () =>
     createRemindersModel({
       notifier: deps.notifier,
@@ -15,5 +15,5 @@ export function RemindersScreen() {
     }),
   )
   const state = useStore(model)
-  return <RemindersView {...state} />
+  return <RemindersView {...state} onBack={props.onBack} />
 }

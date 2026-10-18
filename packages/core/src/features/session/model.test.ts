@@ -40,6 +40,22 @@ describe('session model', () => {
     expect(model.getState().vehicles.map((v) => v.nickname)).toEqual(['Accord', 'Civic'])
   })
 
+  it('lists the cars in the order the owner arranged, and starts on the first', async () => {
+    const { vehicles, model } = setup(true, [civic, accord])
+    model.getState().start()
+    await vehicles.reorder(['v-civic', 'v-accord'])
+    expect(model.getState().vehicles.map((v) => v.nickname)).toEqual(['Civic', 'Accord'])
+    // The car already open stays open; a fresh start opens the one the owner put first.
+    expect(model.getState().selectedVehicleId).toBe('v-accord')
+    const fresh = setup(true, [
+      civic,
+      { ...accord, garagePosition: 1 },
+      { ...civic, id: 'v-1', garagePosition: 0 },
+    ])
+    fresh.model.getState().start()
+    expect(fresh.model.getState().selectedVehicleId).toBe('v-1')
+  })
+
   it('asks for a car when the owner has none, then shows it once one syncs', () => {
     const { vehicles, model } = setup(true)
     model.getState().start()
@@ -400,6 +416,52 @@ describe('session model, adding a car', () => {
     expect(model.getState().tab).toBe('account')
     expect(model.getState().systemBack()).toBe(true)
     expect(model.getState().tab).toBe('garage')
+  })
+
+  it('goes back from the reminder settings to the account when opened from the account', () => {
+    const { model } = setup(true, [civic])
+    model.getState().start()
+    model.getState().openTab('account')
+    model.getState().openTab('reminders')
+    model.getState().back()
+    expect(model.getState().tab).toBe('account')
+    model.getState().back()
+    expect(model.getState().tab).toBe('garage')
+  })
+
+  it('goes back from the reminder settings to the garage when opened from the garage', () => {
+    const { model } = setup(true, [civic])
+    model.getState().start()
+    model.getState().openTab('account')
+    model.getState().openTab('garage')
+    model.getState().openTab('reminders')
+    model.getState().back()
+    expect(model.getState().tab).toBe('garage')
+  })
+
+  it('goes back from the reminder settings with the system gesture as their back button does', () => {
+    const { model } = setup(true, [civic])
+    model.getState().start()
+    model.getState().openTab('account')
+    model.getState().openTab('reminders')
+    expect(model.getState().systemBack()).toBe(true)
+    expect(model.getState().tab).toBe('account')
+    model.getState().openTab('garage')
+    model.getState().openTab('reminders')
+    expect(model.getState().systemBack()).toBe(true)
+    expect(model.getState().tab).toBe('garage')
+  })
+
+  it('returns to the reminder settings from Ask without forgetting they came from the account', () => {
+    const { model } = setup(true, [civic])
+    model.getState().start()
+    model.getState().openTab('account')
+    model.getState().openTab('reminders')
+    model.getState().openTab('ask')
+    model.getState().back()
+    expect(model.getState().tab).toBe('reminders')
+    model.getState().back()
+    expect(model.getState().tab).toBe('account')
   })
 
   it('lets the system gesture close the app from the garage', () => {

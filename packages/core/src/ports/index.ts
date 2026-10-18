@@ -43,6 +43,8 @@ export interface VehicleRepo {
   setValue(id: VehicleId, value: { cents: number; valuedOn: IsoDate } | undefined): Promise<void>
   /** Changes the name the garage shows for the car. */
   rename(id: VehicleId, nickname: string): Promise<void>
+  /** Puts the owner's cars in this order in the garage, on every phone: the first leads. */
+  reorder(ids: VehicleId[]): Promise<void>
   /**
    * Deletes the car and everything recorded for it, on every phone. The server deletes its
    * history with it; its documents' files are deleted as well.
@@ -93,6 +95,10 @@ export interface ServiceRecordRepo {
   /** Calls `onChange` with the full list now and after every change, like a live query. */
   watchForVehicle(vehicleId: VehicleId, onChange: (records: ServiceRecord[]) => void): Unsubscribe
   add(record: ServiceRecord): Promise<void>
+  /** Saves a correction to a logged service; its car stays the same. */
+  update(record: ServiceRecord): Promise<void>
+  /** Deletes a logged service and its receipts, on this phone and on the server. */
+  remove(id: string): Promise<void>
 }
 
 export interface OdometerRepo {

@@ -91,6 +91,7 @@ export const schema = new Schema({
     severe_duty: column.integer,
     value_cents: column.integer,
     valued_on: column.text,
+    garage_position: column.integer,
     updated_at: column.text,
   }),
   odometer_readings: new Table(

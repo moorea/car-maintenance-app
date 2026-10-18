@@ -110,10 +110,17 @@ interface AiServices {
 
 /**
  * Wraps the assistant, the photo readers and the price estimator so nothing reaches Anthropic
- * unless the signed-in owner allowed it, whichever screen asks. Refuses with AssistantError `not-allowed` otherwise.
- * Lives for as long as the app runs.
+ * unless the signed-in owner allowed it, whichever screen asks. Refuses with AssistantError
+ * `not-allowed` otherwise, and says whether it is allowed now, so a screen can hold a question
+ * back rather than fail. Lives for as long as the app runs.
  */
-export const guardAiSharing = (deps: AiSharingDeps, services: AiServices): AiServices => {
+export const guardAiSharing = (
+  deps: AiSharingDeps,
+  services: AiServices,
+): AiServices & {
+  /** Whether the signed-in owner allows sharing right now. */
+  aiSharingAllowed: () => boolean
+} => {
   let allowed = false
   watchAiSharing(deps, (now) => {
     allowed = now
@@ -122,6 +129,7 @@ export const guardAiSharing = (deps: AiSharingDeps, services: AiServices): AiSer
     if (!allowed) throw new AssistantError('not-allowed')
   }
   return {
+    aiSharingAllowed: () => allowed,
     assistant: {
       ask: async (request, onEvent, signal) => {
         check()

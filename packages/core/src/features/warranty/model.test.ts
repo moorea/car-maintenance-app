@@ -162,7 +162,7 @@ describe('warranty screen', () => {
     expect(model.getState().form?.fieldErrors).toEqual({
       months: 'Enter whole months, like 36',
       endMiles: 'Enter whole miles, like 36,000',
-      startsOn: 'Enter the start date as YYYY-MM-DD',
+      startsOn: 'Enter a date like 3/14/2025',
     })
   })
 

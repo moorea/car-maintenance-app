@@ -6,6 +6,7 @@ import {
   LinearProgressIndicator,
 } from '@expo/ui/jetpack-compose'
 import {
+  alpha,
   background,
   clickable,
   clip,
@@ -170,15 +171,23 @@ interface PillButtonProps {
   onPress: () => void
   fill: ColorRole
   text: ColorRole
+  /** Dims the button and ignores taps, as while the action it starts is still running. */
+  disabled?: boolean
 }
 
 /** A capsule button that shares its row's width equally with its siblings. */
-export function PillButton({ label, onPress, fill, text }: PillButtonProps) {
+export function PillButton({ label, onPress, fill, text, disabled = false }: PillButtonProps) {
   const colors = useColors()
   return (
     <Row
       alignment="center"
-      modifiers={[weight(1), height(44), ...filled(colors[fill], 22, onPress)]}
+      modifiers={[
+        weight(1),
+        height(44),
+        ...filled(colors[fill], 22, disabled ? undefined : onPress),
+        // Material fades disabled controls to 38%.
+        ...(disabled ? [alpha(0.38)] : []),
+      ]}
     >
       <Spacer flexible />
       <Text textStyle={{ fontSize: 16, fontWeight: '600', color: colors[text] }}>{label}</Text>

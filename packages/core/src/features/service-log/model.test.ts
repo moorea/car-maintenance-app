@@ -101,10 +101,57 @@ describe('service log screen model', () => {
 
     const s = model.getState()
     expect(s.fieldErrors).toEqual({
-      odometerMiles: 'Enter whole miles, digits only',
-      performedOn: 'Enter a date as YYYY-MM-DD',
+      odometerMiles: 'Enter whole miles, like 41,250',
+      performedOn: 'Enter a date like 3/14/2025',
     })
     expect(s.records).toHaveLength(1)
+  })
+
+  it('reads a date typed the US way', async () => {
+    const { model } = setup()
+    model.getState().setField('notes', 'Wipers')
+    model.getState().setField('performedOn', '3/14/2026')
+    expect(await model.getState().save()).toBe(true)
+    expect(model.getState().records[0]?.performedOn).toBe('2026-03-14')
+  })
+
+  it('refuses a service dated after today, which would push the schedule out', async () => {
+    const { model } = setup()
+    model.getState().setField('notes', 'Wipers')
+    model.getState().setField('performedOn', '2062-10-17')
+    expect(await model.getState().save()).toBe(false)
+    expect(model.getState().fieldErrors).toEqual({ performedOn: "That's in the future" })
+    expect(model.getState().records).toHaveLength(1)
+    model.getState().setField('performedOn', '2026-10-17')
+    expect(await model.getState().save()).toBe(true)
+  })
+
+  it('offers the picker no day after today', () => {
+    const { model } = setup()
+    model.getState().openForm(undefined, { earlier: true })
+    expect(model.getState().latestDate).toBe('2026-10-17')
+  })
+
+  it('offers the picker no day after today when a service is corrected the next day', async () => {
+    let day = '2026-10-17'
+    const model = createServiceLogModel({
+      vehicleId: 'v1',
+      configId: 'c1',
+      schedule: memorySchedule(),
+      records: memoryServiceRecords([
+        { id: 'r1', vehicleId: 'v1', performedOn: '2026-10-01', notes: 'Wipers' },
+      ]),
+      attachments: memoryAttachments(),
+      picker: memoryFilePicker(),
+      clock: { today: () => day },
+      ids: sequentialIds(),
+    })
+    model.getState().start()
+    await settle()
+    day = '2026-10-18'
+    model.getState().openEntry('r1')
+    model.getState().editEntry()
+    expect(model.getState().latestDate).toBe('2026-10-18')
   })
 
   it('clears a field error when that field is edited', async () => {
@@ -157,6 +204,15 @@ describe('service log screen model', () => {
     expect(Object.keys(model.getState().fieldErrors).sort()).toEqual(['cost', 'odometerMiles'])
   })
 
+  it('accepts amounts and miles written as a receipt prints them', async () => {
+    const { model } = setup()
+    model.getState().setField('notes', 'Brakes')
+    model.getState().setField('odometerMiles', '41,250')
+    model.getState().setField('cost', '$1,234.50')
+    expect(await model.getState().save()).toBe(true)
+    expect(model.getState().records[0]).toMatchObject({ odometerMiles: 41_250, costCents: 123_450 })
+  })
+
   it('stops receiving updates after dispose', async () => {
     const { model, records } = setup()
     model.getState().dispose()
@@ -206,8 +262,27 @@ describe('service log screen model', () => {
         what: 'Oil & filter change',
         where: 'Main St Auto · 41,250 mi',
         cost: '$89.95',
+        date: 'Aug 14, 2026',
+        notes: undefined,
       })
-      expect(groups[0]?.entries[0]?.what).toBe('Wipers')
+      expect(groups[0]?.entries[0]).toMatchObject({ what: 'Wipers', notes: undefined })
+    })
+
+    it('keeps the notes of a service named by its task, to show with it', async () => {
+      const { model } = setup([
+        {
+          id: 'a',
+          vehicleId: 'v1',
+          itemId: 'oil',
+          performedOn: '2026-08-14',
+          notes: '0W-20, 5 qt',
+        },
+      ])
+      await settle()
+      expect(model.getState().groups[0]?.entries[0]).toMatchObject({
+        what: 'Oil & filter change',
+        notes: '0W-20, 5 qt',
+      })
     })
 
     it('totals what was spent this year and counts every service', () => {
@@ -369,9 +444,7 @@ describe('service log screen model', () => {
       model.getState().openForm('oil', { earlier: true })
       expect(model.getState().draft).toMatchObject({ itemId: 'oil', performedOn: '' })
       expect(await model.getState().save()).toBe(false)
-      expect(model.getState().fieldErrors.performedOn).toBe(
-        'Add the date it was done, as YYYY-MM-DD',
-      )
+      expect(model.getState().fieldErrors.performedOn).toBe('Add the date it was done')
       expect(await records.listForVehicle('v1')).toHaveLength(before)
     })
 
@@ -497,6 +570,124 @@ describe('service log screen model', () => {
       expect(model.getState().records[0]?.id).toBe('rec-1')
       expect(model.getState().adding).toBe(false)
       expect(model.getState().receiptError).toMatch(/could not be attached/)
+    })
+
+    it('opens a logged service filled in, and saves the correction in its place', async () => {
+      const { model, records } = setup([
+        {
+          id: 'typo',
+          vehicleId: 'v1',
+          itemId: 'oil',
+          performedOn: '2026-08-14',
+          odometerMiles: 412_500,
+          costCents: 8_995,
+          shop: 'Main St Auto',
+        },
+      ])
+      await settle()
+      model.getState().openEntry('typo')
+      model.getState().editEntry()
+      const s = model.getState()
+      expect(s).toMatchObject({ adding: true, editingId: 'typo', openEntryId: undefined })
+      expect(s.draft).toEqual({
+        performedOn: '2026-08-14',
+        itemId: 'oil',
+        odometerMiles: '412500',
+        cost: '89.95',
+        shop: 'Main St Auto',
+        notes: '',
+      })
+      model.getState().setField('odometerMiles', '41250')
+      expect(await model.getState().save()).toBe(true)
+      expect(await records.listForVehicle('v1')).toEqual([
+        {
+          id: 'typo',
+          vehicleId: 'v1',
+          itemId: 'oil',
+          performedOn: '2026-08-14',
+          odometerMiles: 41_250,
+          costCents: 8_995,
+          shop: 'Main St Auto',
+        },
+      ])
+      expect(model.getState()).toMatchObject({ adding: false, editingId: undefined })
+    })
+
+    it('keeps the task of a service being corrected, even one the schedule no longer lists', async () => {
+      const { model } = setup([
+        { id: 'gone', vehicleId: 'v1', itemId: 'dropped', performedOn: '2026-08-14', notes: 'DIY' },
+      ])
+      await settle()
+      model.getState().openEntry('gone')
+      model.getState().editEntry()
+      expect(model.getState().draft.itemId).toBe('dropped')
+    })
+
+    it('shows a failed delete only on the service it was for', async () => {
+      const { model, records } = setup([
+        { id: 'a', vehicleId: 'v1', performedOn: '2026-08-14', notes: 'A' },
+        { id: 'b', vehicleId: 'v1', performedOn: '2026-08-15', notes: 'B' },
+      ])
+      let fail: (e: Error) => void = () => {}
+      records.remove = () => new Promise((_, reject) => (fail = reject))
+      model.getState().openEntry('a')
+      await model.getState().deleteEntry()
+      const deleting = model.getState().deleteEntry()
+      model.getState().closeEntry()
+      model.getState().openEntry('b')
+      fail(new Error('disk full'))
+      await deleting
+      expect(model.getState()).toMatchObject({ openEntryId: 'b', deleteError: undefined })
+    })
+
+    it('logs a new service after a correction, rather than correcting again', async () => {
+      const { model, records } = setup()
+      await settle()
+      model.getState().openEntry('old')
+      model.getState().editEntry()
+      model.getState().closeForm()
+      model.getState().openForm()
+      model.getState().setField('notes', 'Wipers')
+      expect(await model.getState().save()).toBe(true)
+      expect(await records.listForVehicle('v1')).toHaveLength(2)
+    })
+
+    it('asks before deleting a logged service, then deletes it', async () => {
+      const { model, records } = setup()
+      model.getState().openEntry('old')
+      await model.getState().deleteEntry()
+      expect(model.getState().deleting).toBe('confirm')
+      expect(await records.listForVehicle('v1')).toHaveLength(1)
+      await model.getState().deleteEntry()
+      expect(await records.listForVehicle('v1')).toEqual([])
+      expect(model.getState()).toMatchObject({ openEntryId: undefined, deleting: undefined })
+      expect(model.getState().summary.count).toBe(0)
+    })
+
+    it('forgets an unconfirmed delete when the service is closed', async () => {
+      const { model, records } = setup()
+      model.getState().openEntry('old')
+      await model.getState().deleteEntry()
+      model.getState().closeEntry()
+      model.getState().openEntry('old')
+      expect(model.getState().deleting).toBeUndefined()
+      await model.getState().deleteEntry()
+      expect(await records.listForVehicle('v1')).toHaveLength(1)
+    })
+
+    it('says so when a service cannot be deleted, keeping it', async () => {
+      const { model, records } = setup()
+      records.remove = async () => {
+        throw new Error('disk full')
+      }
+      model.getState().openEntry('old')
+      await model.getState().deleteEntry()
+      await model.getState().deleteEntry()
+      expect(model.getState()).toMatchObject({
+        openEntryId: 'old',
+        deleting: undefined,
+        deleteError: 'The service could not be deleted. Try again.',
+      })
     })
 
     it('opens a logged service to show its receipts', () => {

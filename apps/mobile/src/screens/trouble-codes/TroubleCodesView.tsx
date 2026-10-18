@@ -6,7 +6,7 @@ import {
   type TroubleCodesActions,
   type TroubleCodesState,
 } from '@car/core'
-import { Button, Column, Row, ScrollView, Spacer, Switch } from '@expo/ui'
+import { Column, Row, ScrollView, Spacer, Switch } from '@expo/ui'
 import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native'
 import { useColors, type ColorRole } from '../../theme'
 import { Host } from '../../ui/Host'
@@ -15,7 +15,9 @@ import { Symbol } from '../../ui/Symbol'
 import type { SymbolName } from '../../ui/symbols'
 import { TextField } from '../../ui/TextField'
 import { Card, FillColumn, GlassIconButton, PillButton } from '../../ui/surfaces'
+import { PAGE_TOP } from '../../ui/layout'
 import { Text } from '../../ui/Text'
+import { Button } from '../../ui/Button'
 
 type Props = TroubleCodesState &
   Pick<TroubleCodesActions, 'setDraft' | 'setFlashing' | 'check' | 'edit' | 'startOver'> & {
@@ -239,6 +241,6 @@ function CodeCard({
 const styles = StyleSheet.create({
   fill: { flex: 1 },
   bar: { width: '100%' },
-  header: { paddingTop: 58, paddingHorizontal: 16, paddingBottom: 8 },
+  header: { paddingTop: PAGE_TOP, paddingHorizontal: 16, paddingBottom: 8 },
   balance: { width: 44 },
 })

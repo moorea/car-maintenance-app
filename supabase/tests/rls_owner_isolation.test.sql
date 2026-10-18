@@ -1,7 +1,7 @@
 -- Run with `supabase test db`. Proves one owner can never read or write another owner's car data.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(30);
+select plan(32);
 
 insert into auth.users (id) values
   ('00000000-0000-0000-0000-00000000000a'),
@@ -72,9 +72,15 @@ select throws_ok(
   '42501', null, 'messages are written only by the server'
 );
 
+select lives_ok(
+  $$ update public.service_records set shop = 'edited', cost_cents = 8999 $$,
+  'owner can correct a service they logged'
+);
+select is((select count(*) from public.service_records where shop = 'edited')::int, 1,
+  'the correction reaches only the owner''s own service');
 select throws_ok(
-  $$ update public.service_records set shop = 'edited' $$,
-  '42501', null, 'service history is append-only'
+  $$ update public.service_records set vehicle_id = '20000000-0000-0000-0000-00000000000b' $$,
+  '42501', null, 'owner cannot move a service onto someone else''s car'
 );
 
 select is((select count(*) from public.warranties)::int, 1,

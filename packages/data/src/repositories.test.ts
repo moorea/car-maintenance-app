@@ -144,6 +144,37 @@ describe('PowerSync repositories', () => {
     expect(tx?.crud.map((c) => [c.op, c.table])).toEqual([['PUT', 'service_records']])
   })
 
+  it('saves a correction to a service, queueing only the columns that changed', async () => {
+    const repos = createPowerSyncRepositories(db)
+    await repos.records.add(oilChange)
+    await (await db.getNextCrudTransaction())?.complete()
+    const { shop: _shop, ...rest } = oilChange
+    const corrected = { ...rest, odometerMiles: 41_250, vehicleId: 'other' }
+    await repos.records.update(corrected)
+    expect(await repos.records.listForVehicle('v1')).toEqual([{ ...rest, odometerMiles: 41_250 }])
+    const tx = await db.getNextCrudTransaction()
+    expect(tx?.crud.map((c) => [c.op, c.table, c.opData])).toEqual([
+      ['PATCH', 'service_records', { odometer_miles: 41_250, shop: null }],
+    ])
+  })
+
+  it('deletes a service with its receipts, leaving the car documents', async () => {
+    const repos = createPowerSyncRepositories(db)
+    await repos.records.add(oilChange)
+    for (const [id, record] of [
+      ['a1', 'r1'],
+      ['a2', null],
+    ])
+      await db.execute(
+        "insert into attachments (id, owner_id, vehicle_id, service_record_id, kind, name, content_type, size_bytes, added_on) values (?, 'owner-a', 'v1', ?, 'receipt', 'x.jpg', 'image/jpeg', 12, '2026-09-01')",
+        [id, record],
+      )
+    await repos.records.remove('r1')
+    expect(await repos.records.listForVehicle('v1')).toEqual([])
+    const left = await db.getAll<{ id: string }>('select id from attachments')
+    expect(left.map((a) => a.id)).toEqual(['a2'])
+  })
+
   it('reads back a saved warranty, leaving optional fields absent', async () => {
     const repos = createPowerSyncRepositories(db)
     const warranty: Warranty = {
@@ -463,6 +494,38 @@ describe('PowerSync repositories', () => {
     expect(Object.keys(transaction?.crud[0]?.opData ?? {}).sort()).toEqual([
       'nickname',
       'updated_at',
+    ])
+  })
+
+  it('lists cars as the owner arranged them, then the rest by name, and uploads only the positions', async () => {
+    const repos = createPowerSyncRepositories(db)
+    const car = (id: string, nickname: string): Vehicle => ({
+      id,
+      year: 2020,
+      make: 'Honda',
+      model: 'Civic',
+      nickname,
+      severeDuty: false,
+    })
+    for (const v of [car('v-a', 'Accord'), car('v-c', 'Commuter'), car('v-f', 'Fit')])
+      await repos.vehicles.add('u1', v)
+    while (true) {
+      const pending = await db.getNextCrudTransaction()
+      if (!pending) break
+      await pending.complete()
+    }
+    const seen: string[][] = []
+    const stop = repos.vehicles.watchOwned('u1', (vs) => seen.push(vs.map((v) => v.id)))
+
+    await repos.vehicles.reorder(['v-f', 'v-a'])
+    await vi.waitFor(() => expect(seen.at(-1)).toEqual(['v-f', 'v-a', 'v-c']))
+    stop()
+    expect(await repos.vehicles.get('v-f')).toMatchObject({ garagePosition: 0 })
+    expect((await repos.vehicles.get('v-c'))?.garagePosition).toBeUndefined()
+    const transaction = await db.getNextCrudTransaction()
+    expect(transaction?.crud.map((c) => [c.id, c.op, Object.keys(c.opData ?? {}).sort()])).toEqual([
+      ['v-f', 'PATCH', ['garage_position', 'updated_at']],
+      ['v-a', 'PATCH', ['garage_position', 'updated_at']],
     ])
   })
 

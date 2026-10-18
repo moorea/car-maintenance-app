@@ -29,6 +29,11 @@ export interface Vehicle extends VehicleDescription {
   valueCents?: number
   /** When the owner said what the car is worth. Present whenever `valueCents` is. */
   valuedOn?: IsoDate
+  /**
+   * Where the owner put the car in their garage, first at 0. Absent until they arrange their
+   * cars; those follow the arranged ones, by name.
+   */
+  garagePosition?: number
 }
 
 /** What a VIN decodes to. */

@@ -1,6 +1,7 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
 import type { AuthUser, Vehicle } from '../../domain/types'
 import type { AuthPort, Notifier, SyncStatus, Unsubscribe, VehicleRepo } from '../../ports'
+import { byGarageOrder } from '../../lib/garageOrder'
 
 /**
  * What the app shows at its root: nothing yet while the stored session loads, the sign-in screen,
@@ -63,8 +64,10 @@ export interface SessionActions {
   selectVehicle: (id: string) => void
   openTab: (tab: AppTab) => void
   /**
-   * Leaves Ask, the quote checker or the code lookup for where the owner opened it from, such as the quote a
-   * question was about; the garage if there is nowhere to go back to.
+   * Leaves the open page for the one its back button goes to: Ask, the quote checker or the code
+   * lookup for where the owner opened it from, such as the quote a question was about; the
+   * reminder settings for the account or the garage, whichever opened them; a car's own pages for
+   * the car; your data for the account; anything else for the garage.
    */
   back: () => void
   /**
@@ -151,11 +154,13 @@ export const createSessionModel = (deps: {
   let justAdded: string | undefined
   // The tabs Ask, the quote checker and the code lookup were opened from, newest last, for going back.
   let openedFrom: AppTab[] = []
+  // Where the reminder settings were opened from: the account's row, or the garage's header.
+  let remindersFrom: AppTab = 'garage'
 
   return createStore<SessionState & SessionActions>()((set, get) => {
     const showVehicles = (vehicles: Vehicle[]) => {
       vehiclesLoaded = true
-      const sorted = [...vehicles].sort((a, b) => a.nickname.localeCompare(b.nickname))
+      const sorted = [...vehicles].sort(byGarageOrder)
       const opened = sorted.find((v) => v.id === tapped)
       // A tapped car not here once everything has synced is gone, or another account's.
       if (opened || synced) tapped = undefined
@@ -258,15 +263,22 @@ export const createSessionModel = (deps: {
         if (tab === 'ask' || tab === 'quote' || tab === 'codes') {
           if (tab !== get().tab) openedFrom.push(get().tab)
         } else openedFrom = []
+        if (tab === 'reminders' && get().tab !== 'reminders') {
+          remindersFrom = get().tab === 'account' ? 'account' : 'garage'
+        }
         set({ tab, logRequest: undefined, odometerRequest: undefined })
       },
 
-      back: () =>
-        set({
-          tab: openedFrom.pop() ?? 'garage',
-          logRequest: undefined,
-          odometerRequest: undefined,
-        }),
+      back: () => {
+        const { tab } = get()
+        if (tab === 'ask' || tab === 'quote' || tab === 'codes') {
+          set({
+            tab: openedFrom.pop() ?? 'garage',
+            logRequest: undefined,
+            odometerRequest: undefined,
+          })
+        } else get().openTab(tab === 'reminders' ? remindersFrom : (PARENT[tab] ?? 'garage'))
+      },
 
       systemBack: () => {
         const { status, tab, addingCar } = get()
@@ -277,8 +289,7 @@ export const createSessionModel = (deps: {
           return true
         }
         if (tab === 'garage') return false
-        if (tab === 'ask' || tab === 'quote' || tab === 'codes') get().back()
-        else get().openTab(PARENT[tab] ?? 'garage')
+        get().back()
         return true
       },
 

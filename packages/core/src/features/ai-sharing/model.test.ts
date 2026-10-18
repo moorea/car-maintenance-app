@@ -127,4 +127,12 @@ describe('guardAiSharing', () => {
     await expect(guarded.priceEstimator.estimate(request)).rejects.toBeInstanceOf(AssistantError)
     expect(s.sent).toEqual(['Due?', 'photo', 'odometer', 'prices'])
   })
+
+  it('says whether sharing is allowed right now', async () => {
+    const { preferences, auth } = setup()
+    const guarded = guardAiSharing({ preferences, auth }, services())
+    expect(guarded.aiSharingAllowed()).toBe(false)
+    await preferences.update({ aiSharingOwner: 'u1' })
+    expect(guarded.aiSharingAllowed()).toBe(true)
+  })
 })

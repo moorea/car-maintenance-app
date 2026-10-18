@@ -1,5 +1,5 @@
 import type { AppTab, SessionActions, SessionState, Vehicle } from '@car/core'
-import { Button, Row } from '@expo/ui'
+import { Row } from '@expo/ui'
 import { ActivityIndicator, StyleSheet, View } from 'react-native'
 import { AccountScreen } from '../account/AccountScreen'
 import { AddCarScreen } from '../add-car/AddCarScreen'
@@ -19,9 +19,11 @@ import { FuelScreen } from '../fuel/FuelScreen'
 import { RenewalsScreen } from '../renewals/RenewalsScreen'
 import { YourDataScreen } from '../your-data/YourDataScreen'
 import { askModelFor } from '../../models/askModels'
+import { BottomSafeArea } from '../../ui/BottomSafeArea'
 import { Host } from '../../ui/Host'
 import { TabBar, type TabBarItem } from '../../ui/TabBar'
 import { Text } from '../../ui/Text'
+import { Button } from '../../ui/Button'
 
 type Props = SessionState &
   Pick<
@@ -47,19 +49,37 @@ const TABS: TabBarItem<AppTab>[] = [
 
 const CAR_PAGES = new Set<AppTab>(['warranty', 'fuel', 'driving', 'renewals'])
 
+// Ask, the quote checker and the code lookup fill the screen with their own back button.
+const FULL_SCREEN = new Set<AppTab>(['ask', 'quote', 'codes'])
+
 /** Picks the screen for the session: sign-in, adding a car, or the tabs for the selected car. */
 export function RootView(props: Props) {
-  const { status, user, vehicles, selectedVehicleId, addingCar } = props
+  // Lists run on behind the floating tab bar; every other screen keeps clear of the home indicator.
+  // Always the same wrapper, so moving between tabs and full screens keeps the screens mounted.
+  return (
+    <BottomSafeArea inset={!(showsTabs(props) && !FULL_SCREEN.has(props.tab))}>
+      <SessionScreen {...props} />
+    </BottomSafeArea>
+  )
+}
+
+/** Whether the session shows the selected car's tabs, rather than sign-in or adding a car. */
+function showsTabs(props: Props): boolean {
+  const { status, vehicles, selectedVehicleId, addingCar } = props
+  return status === 'ready' && !addingCar && vehicles.some((v) => v.id === selectedVehicleId)
+}
+
+function SessionScreen(props: Props) {
+  const { status, user, vehicles, selectedVehicleId } = props
   if (status === 'starting') return <ActivityIndicator style={styles.fill} />
   if (status === 'signed-out' || !user) return <SignInScreen />
 
   const vehicle = vehicles.find((v) => v.id === selectedVehicleId)
-  if (status === 'ready' && vehicle && !addingCar) {
+  if (vehicle && showsTabs(props)) {
     const tabs = (
       <View style={styles.fill}>
         <TabContent {...props} vehicle={vehicle} />
-        {/* Ask, the quote checker and the code lookup fill the screen with their own back button. */}
-        {props.tab === 'ask' || props.tab === 'quote' || props.tab === 'codes' ? null : (
+        {FULL_SCREEN.has(props.tab) ? null : (
           <TabBar
             tabs={TABS}
             // The car's own pages (warranty, fuel, driving, renewals) keep its tab selected.
@@ -140,7 +160,7 @@ function TabContent(props: Props & { vehicle: Vehicle }) {
           onAddCar={props.addCar}
           onReminders={() => props.openTab('reminders')}
           onLogService={props.logService}
-          onAsk={() => props.openTab('ask')}
+          onAsk={(question) => askAbout(props, vehicle, question)}
           onAccount={() => props.openTab('account')}
         />
       )
@@ -199,10 +219,11 @@ function TabContent(props: Props & { vehicle: Vehicle }) {
         />
       )
     case 'reminders':
-      return <RemindersScreen />
+      return <RemindersScreen onBack={props.back} />
     case 'account':
       return (
         <AccountScreen
+          onBack={props.back}
           onReminders={() => props.openTab('reminders')}
           onYourData={() => props.openTab('data')}
         />
@@ -212,13 +233,13 @@ function TabContent(props: Props & { vehicle: Vehicle }) {
   }
 }
 
-/** Opens Ask with a question from another screen, such as one line of a quote. */
+/**
+ * Opens Ask with a question from another screen, such as one line of a quote or the garage's next
+ * item. It waits in the composer while Ask is answering or sharing is not yet allowed.
+ */
 function askAbout(props: Props, vehicle: Vehicle, question: string) {
   props.openTab('ask')
-  const ask = askModelFor(vehicle).getState()
-  // While Ask is still answering, the question waits in the composer to send.
-  if (ask.status === 'ready') ask.ask(question)
-  else ask.setDraft(question)
+  askModelFor(vehicle).getState().askAbout(question)
 }
 
 const styles = StyleSheet.create({
