@@ -151,10 +151,12 @@ export const createQuoteCheckModel = (deps: QuoteCheckDeps): QuoteCheckModel => 
       })
     }
 
-    const weigh = (result: QuoteCheck | undefined): RepairWeighing | undefined => {
+    // `keep` weighs a quote already being weighed even if a new value makes it small, so the card
+    // the owner is typing in does not vanish under them.
+    const weigh = (result: QuoteCheck | undefined, keep = false): RepairWeighing | undefined => {
       if (!result || !checkedWith) return undefined
       const quoteCents = result.lines.reduce((sum, l) => sum + (l.priceCents ?? 0), 0)
-      if (!worthWeighing(quoteCents, value.valueCents)) return undefined
+      if (!keep && !worthWeighing(quoteCents, value.valueCents)) return undefined
       return weighRepair({
         vehicle: { ...vehicle, ...value },
         ...checkedWith,
@@ -317,7 +319,7 @@ export const createQuoteCheckModel = (deps: QuoteCheckDeps): QuoteCheckModel => 
         set({
           valueDraft: parsed.cents === undefined ? '' : formatCarValue(parsed.cents),
           valueError: undefined,
-          weighing: weigh(get().result),
+          weighing: weigh(get().result, get().weighing !== undefined),
         })
       },
 

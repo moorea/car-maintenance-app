@@ -69,7 +69,8 @@ const percent = (share: number) => `${Math.round(share * 100)}%`
 export const weighRepair = (input: WeighInput): RepairWeighing => {
   const { vehicle, quoteCents, today } = input
   const value = vehicle.valueCents !== undefined && vehicle.valueCents > 0 ? vehicle.valueCents : 0
-  const ratio = value > 0 ? quoteCents / value : undefined
+  // Rounded as the headline shows it, so the words never contradict the percentage.
+  const ratio = value > 0 ? Math.round((quoteCents / value) * 100) / 100 : undefined
   const share: RepairShare | undefined =
     ratio === undefined
       ? undefined
@@ -101,7 +102,7 @@ export const weighRepair = (input: WeighInput): RepairWeighing => {
   const points: string[] = []
   if (share === 'small')
     points.push(
-      'That is well under the quarter of a car’s value where owners usually start to think about replacing it.',
+      'That is under the quarter of a car’s value where owners usually start to think about replacing it.',
     )
   else if (share !== undefined)
     points.push(

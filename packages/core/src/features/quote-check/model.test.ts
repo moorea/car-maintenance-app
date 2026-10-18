@@ -345,6 +345,15 @@ describe('quote check model', () => {
       expect(state().weighing?.share).toBeUndefined()
     })
 
+    it('keeps weighing a quote after a new value makes it small, until the lines change', async () => {
+      const { state } = setup({ ...vehicle, valueCents: 300_000, valuedOn: '2026-09-01' })
+      state().setDraft('Brake pads and rotors $900')
+      await state().check()
+      state().setValueDraft('5,000')
+      await state().saveValue()
+      expect(state().weighing).toMatchObject({ share: 'small' })
+    })
+
     it('stops weighing when the owner goes back to edit the lines', async () => {
       const { state } = setup()
       state().setDraft(BIG)

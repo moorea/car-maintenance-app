@@ -46,7 +46,9 @@ describe('weighing a repair against the car', () => {
     expect(weighRepair(input({ quoteCents: 400_000 })).points[0]).toBe(
       'Many owners start to think about replacing a car when one repair costs more than about a quarter of its value.',
     )
-    expect(weighRepair(input()).points[0]).toContain('well under the quarter')
+    expect(weighRepair(input()).points[0]).toContain('under the quarter')
+    // 24.95% shows as 25%, so it is not called under a quarter.
+    expect(weighRepair(input({ quoteCents: 249_500 })).share).toBe('large')
   })
 
   it('asks the question plainly when the car’s value is unknown', () => {
