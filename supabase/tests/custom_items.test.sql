@@ -17,13 +17,12 @@ insert into public.vehicles (id, owner_id, config_id, year, make, model, nicknam
    '10000000-0000-0000-0000-000000000001', 2021, 'Toyota', 'RAV4', 'A car'),
   ('20000000-0000-0000-0000-00000000000b', '00000000-0000-0000-0000-00000000000b',
    '10000000-0000-0000-0000-000000000001', 2021, 'Toyota', 'RAV4', 'B car');
-insert into public.custom_items (id, vehicle_id, replaces_item_id, task, interval_miles) values
+insert into public.custom_items
+  (id, vehicle_id, replaces_item_id, task, interval_miles, interval_months) values
   ('70000000-0000-0000-0000-00000000000a', '20000000-0000-0000-0000-00000000000a',
-   '30000000-0000-0000-0000-000000000001', 'Oil change', 5000),
+   '30000000-0000-0000-0000-000000000001', 'Oil change', 5000, null),
   ('70000000-0000-0000-0000-00000000000b', '20000000-0000-0000-0000-00000000000b',
-   null, 'Wiper blades', null);
-update public.custom_items set interval_months = 12
-  where id = '70000000-0000-0000-0000-00000000000b';
+   null, 'Wiper blades', null, 12);
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', true);
