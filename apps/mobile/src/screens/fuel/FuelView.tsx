@@ -26,6 +26,7 @@ type Props = FuelState &
   Pick<
     FuelActions,
     | 'showSection'
+    | 'showMoreRows'
     | 'openNew'
     | 'openEdit'
     | 'setField'
@@ -148,7 +149,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 }
 
 /** The economy charts and the fill-up log, newest first. */
-function FillUps({ rows, economy, openEdit }: Props) {
+function FillUps({ rows, hiddenRows, economy, openEdit, showMoreRows }: Props) {
   if (rows.length === 0) {
     return (
       <Card>
@@ -173,6 +174,13 @@ function FillUps({ rows, economy, openEdit }: Props) {
             </Fragment>
           ))}
         </Card>
+        {hiddenRows > 0 ? (
+          <Button
+            variant="text"
+            label={`Show earlier fill-ups (${hiddenRows})`}
+            onPress={showMoreRows}
+          />
+        ) : null}
       </Section>
     </Column>
   )

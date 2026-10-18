@@ -13,7 +13,14 @@ import type {
 } from '../../ports'
 import { serviceRecordDraftSchema, type ServiceRecordDraft } from '../../schemas/serviceRecord'
 import { pickAttachable, saveAttachment } from '../attachments/model'
-import { groupHistory, summarizeHistory, type LogGroup, type LogSummary } from './history'
+import {
+  firstEntries,
+  groupHistory,
+  LIST_PAGE,
+  summarizeHistory,
+  type LogGroup,
+  type LogSummary,
+} from './history'
 
 export type ServiceLogStatus = 'loading' | 'ready' | 'saving' | 'error'
 export type DraftField = keyof ServiceRecordDraft
@@ -38,8 +45,12 @@ export interface ServiceLogState {
   tasks: { id: string; task: string }[]
   /** What the owner typed in the search field. */
   query: string
-  /** The records matching `query`, by month, newest first. */
+  /** The newest records matching `query`, by month, newest first: at most `limit` of them. */
   groups: LogGroup[]
+  /** How many entries `groups` may hold; grows with "Show earlier". */
+  limit: number
+  /** How many matching records are left out of `groups`. */
+  hidden: number
   summary: LogSummary
 }
 
@@ -54,6 +65,8 @@ export interface ServiceLogActions {
   /** Follows the schedule of the car's configuration once it has synced or changed. */
   setConfig: (configId: string | undefined) => void
   setQuery: (query: string) => void
+  /** Shows another page of older services. */
+  showMore: () => void
   /** Asks the system for a photo or PDF of the receipt, to attach when the service is saved. */
   addReceipt: (source: FileSource) => Promise<void>
   removeReceipt: (index: number) => void
@@ -112,11 +125,12 @@ export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => 
   const draftFor = (itemId?: string) => ({ ...emptyDraft(today()), itemId: itemId ?? '' })
 
   return createStore<ServiceLogState & ServiceLogActions>()((set, get) => {
-    /** Recomputes what the history shows from the records and the search. */
-    const show = (records: ServiceRecord[], query: string) => ({
+    /** Recomputes what the history shows from the records, the search and how much is shown. */
+    const show = (records: ServiceRecord[], query: string, limit: number) => ({
       records,
       query,
-      groups: groupHistory(records, taskNames, query, today()),
+      limit,
+      ...firstEntries(groupHistory(records, taskNames, query, today()), limit),
       summary: summarizeHistory(records, today()),
     })
 
@@ -130,7 +144,7 @@ export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => 
           tasks: items
             .map((i) => ({ id: i.id, task: i.task }))
             .sort((a, b) => a.task.localeCompare(b.task)),
-          ...show(s.records, s.query),
+          ...show(s.records, s.query, s.limit),
         }))
       })
     }
@@ -145,6 +159,8 @@ export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => 
       tasks: [],
       query: '',
       groups: [],
+      limit: LIST_PAGE,
+      hidden: 0,
       summary: summarizeHistory([], today()),
 
       setField: (field, value) =>
@@ -171,7 +187,10 @@ export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => 
         if (unsubscribe) followSchedule()
       },
 
-      setQuery: (query) => set((s) => show(s.records, query)),
+      // A new search starts from the newest matches again.
+      setQuery: (query) => set((s) => show(s.records, query, LIST_PAGE)),
+
+      showMore: () => set((s) => show(s.records, s.query, s.limit + LIST_PAGE)),
 
       addReceipt: async (source) => {
         set({ receiptError: undefined })
@@ -251,7 +270,7 @@ export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => 
         if (unsubscribe) return
         unsubscribe = deps.records.watchForVehicle(deps.vehicleId, (records) =>
           set((s) => ({
-            ...show([...records].sort(newestFirst), s.query),
+            ...show([...records].sort(newestFirst), s.query, s.limit),
             status: s.status === 'loading' ? 'ready' : s.status,
           })),
         )

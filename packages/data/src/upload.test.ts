@@ -1,7 +1,8 @@
-import { UpdateType, type CrudEntry, type CrudTransaction } from '@powersync/common'
+import { UpdateType, type CrudEntry } from '@powersync/common'
 import { describe, expect, it } from 'vitest'
 import {
   applyCrud,
+  BATCH_SIZE,
   isPermanent,
   uploadPending,
   type BackendError,
@@ -19,6 +20,8 @@ const fakeBackend = (errors: (BackendError | null)[] = []) => {
   const backend: CrudBackend = {
     insert: (...args) => (calls.push(['insert', ...args]), next()),
     upsert: (...args) => (calls.push(['upsert', ...args]), next()),
+    insertMany: (...args) => (calls.push(['insertMany', ...args]), next()),
+    upsertMany: (...args) => (calls.push(['upsertMany', ...args]), next()),
     update: (...args) => (calls.push(['update', ...args]), next()),
     remove: (...args) => (calls.push(['remove', ...args]), next()),
     putFile: (path, bytes, contentType) => (
@@ -288,37 +291,147 @@ describe('isPermanent', () => {
 })
 
 describe('uploadPending', () => {
-  const queue = (...transactions: CrudEntry[][]) => {
-    const completed: number[] = []
-    const pending = transactions.map((crud, i) => ({
-      crud,
-      complete: async () => void completed.push(i),
-    })) as unknown as CrudTransaction[]
-    return { db: { getNextCrudTransaction: async () => pending.shift() ?? null }, completed }
+  const put = (table: string, id: string, opData: Record<string, unknown> = { miles: 1 }) => ({
+    ...entry(UpdateType.PUT, table, opData),
+    id,
+  })
+
+  /** A local queue handed out in batches, recording the limit asked for and what completed. */
+  const queue = (...crud: CrudEntry[]) => {
+    const completed: string[] = []
+    const limits: (number | undefined)[] = []
+    const db = {
+      getCrudBatch: async (limit?: number) => {
+        limits.push(limit)
+        const taken = crud.slice(0, limit)
+        if (taken.length === 0) return null
+        return {
+          crud: taken,
+          haveMore: crud.length > taken.length,
+          complete: async () => {
+            crud.splice(0, taken.length)
+            completed.push(...taken.map((e) => e.id))
+          },
+        }
+      },
+    }
+    return { db, completed, limits }
   }
 
-  it('uploads every transaction in order and marks each complete', async () => {
-    const { db, completed } = queue(
-      [entry(UpdateType.PUT, 'vehicles', {})],
-      [entry(UpdateType.PUT, 'service_records', {}), entry(UpdateType.DELETE, 'service_records')],
-    )
+  it('uploads every change in order and marks each complete', async () => {
+    const { db, completed } = queue(put('vehicles', 'v1', {}), put('service_records', 'r1', {}), {
+      ...entry(UpdateType.DELETE, 'service_records'),
+      id: 'r0',
+    })
     const { backend, calls } = fakeBackend()
     await uploadPending(db, backend, () => {}, context())
     expect(calls.map((c) => c[0])).toEqual(['upsert', 'insert', 'remove'])
-    expect(completed).toEqual([0, 1])
+    expect(completed).toEqual(['v1', 'r1', 'r0'])
   })
 
-  it('completes a transaction past a dropped change and reports it', async () => {
-    const { db, completed } = queue([entry(UpdateType.PATCH, 'vehicles', {})])
+  it('sends a backlog of inserts into one table in one request, in batches', async () => {
+    const readings = Array.from({ length: BATCH_SIZE + 5 }, (_, i) =>
+      put('odometer_readings', `o${i}`),
+    )
+    const { db, completed, limits } = queue(...readings)
+    const { backend, calls } = fakeBackend()
+    await uploadPending(db, backend, () => {}, context())
+    expect(calls.map((c) => [c[0], (c[2] as unknown[]).length])).toEqual([
+      ['insertMany', BATCH_SIZE],
+      ['insertMany', 5],
+    ])
+    expect(calls[0]?.[2]).toContainEqual({ miles: 1, id: 'o0' })
+    expect(completed).toHaveLength(BATCH_SIZE + 5)
+    expect(limits).toEqual([BATCH_SIZE, BATCH_SIZE, BATCH_SIZE])
+  })
+
+  it('upserts a backlog into an editable table, and keeps runs of different tables in order', async () => {
+    const { db } = queue(
+      put('vehicles', 'v1', { nickname: 'A' }),
+      put('fill_ups', 'f1'),
+      put('fill_ups', 'f2'),
+      put('odometer_readings', 'o1'),
+      put('odometer_readings', 'o2'),
+    )
+    const { backend, calls } = fakeBackend()
+    await uploadPending(db, backend, () => {}, context())
+    expect(calls.map((c) => [c[0], c[1]])).toEqual([
+      ['upsert', 'vehicles'],
+      ['upsertMany', 'fill_ups'],
+      ['insertMany', 'odometer_readings'],
+    ])
+  })
+
+  it('only sends rows together when each would have been sent the same on its own', async () => {
+    const { db } = queue(
+      put('fill_ups', 'f1', { miles: 1 }),
+      // Different columns: a missing column must not be written as null or a default.
+      put('fill_ups', 'f2', { miles: 1, notes: 'x' }),
+      // The same row again: one statement cannot upsert a row twice.
+      put('fill_ups', 'f2', { miles: 1, notes: 'y' }),
+      { ...entry(UpdateType.PATCH, 'fill_ups', { notes: 'z' }), id: 'f2' },
+      put('attachments', 'row1', { owner_id: 'user-a', content_type: 'image/jpeg' }),
+      put('attachments', 'row1', { owner_id: 'user-a', content_type: 'image/jpeg' }),
+    )
+    const { backend, calls } = fakeBackend()
+    await uploadPending(db, backend, () => {}, context())
+    expect(calls.map((c) => c[0])).toEqual([
+      'upsert',
+      'upsert',
+      'upsert',
+      'update',
+      'putFile',
+      'insert',
+      'putFile',
+      'insert',
+    ])
+  })
+
+  it('sends a refused run again row by row, dropping only the bad row', async () => {
+    const { db, completed } = queue(
+      put('service_records', 'r1', { item_id: 'oil' }),
+      put('service_records', 'r2', { item_id: 'oil' }),
+    )
+    const missingItem = { code: '23503', status: 409, message: 'item_id fkey' }
+    const missingCar = { code: '23503', status: 409, message: 'vehicle_id fkey' }
+    // The run, then r1 alone (fine), then r2 alone and without its item: its car is gone.
+    const { backend, calls } = fakeBackend([missingItem, null, missingCar, missingCar])
+    const dropped: string[] = []
+    await uploadPending(db, backend, (e) => dropped.push(e.id), context())
+    expect(calls.map((c) => c[0])).toEqual(['insertMany', 'insert', 'insert', 'insert'])
+    expect(dropped).toEqual(['r2'])
+    expect(completed).toEqual(['r1', 'r2'])
+  })
+
+  it('keeps what was sent when a later run fails for now, so the retry does not replay it', async () => {
+    const { db, completed } = queue(
+      put('vehicles', 'v1', {}),
+      put('fill_ups', 'f1'),
+      put('fill_ups', 'f2'),
+      put('odometer_readings', 'o1'),
+    )
+    const { backend, calls } = fakeBackend([null, null, { status: 0, message: 'timeout' }])
+    await expect(uploadPending(db, backend, () => {}, context())).rejects.toThrow(/timeout/)
+    expect(completed).toEqual(['v1', 'f1', 'f2'])
+
+    // The retry starts at the reading.
+    calls.length = 0
+    await uploadPending(db, backend, () => {}, context())
+    expect(calls.map((c) => c[1])).toEqual(['odometer_readings'])
+    expect(completed).toEqual(['v1', 'f1', 'f2', 'o1'])
+  })
+
+  it('completes a batch past a dropped change and reports it', async () => {
+    const { db, completed } = queue(entry(UpdateType.PATCH, 'vehicles', {}))
     const { backend } = fakeBackend([{ status: 404, message: 'no row updated' }])
     const dropped: string[] = []
     await uploadPending(db, backend, (_, error) => dropped.push(error.message), context())
     expect(dropped).toEqual(['no row updated'])
-    expect(completed).toEqual([0])
+    expect(completed).toEqual(['row1'])
   })
 
-  it('leaves a transaction pending when the server is unreachable', async () => {
-    const { db, completed } = queue([entry(UpdateType.PUT, 'vehicles', {})])
+  it('leaves the batch pending when the server is unreachable', async () => {
+    const { db, completed } = queue(put('fill_ups', 'f1'), put('fill_ups', 'f2'))
     const { backend } = fakeBackend([{ status: 0, message: 'Failed to fetch' }])
     await expect(uploadPending(db, backend, () => {}, context())).rejects.toThrow()
     expect(completed).toEqual([])
