@@ -19,19 +19,18 @@ adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS > /dev/null
 maestro test --test-output-dir "$out/maestro" --debug-output "$out/maestro/debug" --flatten-debug-output apps/mobile/e2e/android
 status=$?
 # The emulator sometimes drops off adb for a moment while the first flow launches the app
-# ("device offline"), which fails that flow before it has tested anything. When that is the only
-# kind of failure, run those flows again once, after the device is back.
+# ("device offline"), which fails that flow before it has tested anything. When every failed flow
+# lost the device that way, run all the flows again once, after the device is back, so a failure
+# Maestro did not log against a flow still counts.
 if [ "$status" != 0 ]; then
   failed=$(grep -l 'onCommandFinished: .* FAILED$' "$out"/maestro/debug/*/logs/maestro.log 2> /dev/null)
   # shellcheck disable=SC2086 # One log path per word.
   lost=$(grep -l 'device offline' $failed /dev/null)
   if [ -n "$failed" ] && [ "$failed" = "$lost" ]; then
-    flows=$(sed -E 's|.*/debug/([^/]+)/logs/maestro.log|apps/mobile/e2e/android/\1.yaml|' <<< "$lost")
-    echo "The device went offline during $(tr '\n' ' ' <<< "$flows"); running them again."
-    adb wait-for-device
-    # shellcheck disable=SC2086 # One flow path per word.
+    echo "The device went offline during $(sed -E 's|.*/debug/([^/]+)/logs/.*|\1|' <<< "$lost" | paste -sd " " -). Running every flow again."
+    timeout 120 adb wait-for-device || exit 1
     maestro test --test-output-dir "$out/maestro/retry" --debug-output "$out/maestro/retry/debug" \
-      --flatten-debug-output $flows
+      --flatten-debug-output apps/mobile/e2e/android
     status=$?
   fi
 fi
