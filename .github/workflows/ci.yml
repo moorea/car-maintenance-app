@@ -434,14 +434,14 @@ jobs:
           "$HOME/.maestro/bin/maestro" --version
       - name: UI flows (smoke test and screen sweep)
         run: |
-          maestro test --test-output-dir "$RUNNER_TEMP/maestro" --debug-output "$RUNNER_TEMP/maestro/debug" \
+          maestro test --test-output-dir "$RUNNER_TEMP/maestro" --debug-output "$RUNNER_TEMP/maestro/debug" --flatten-debug-output \
             apps/mobile/e2e
       # Screens again at the largest accessibility text size, to see Dynamic Type at its limit.
       - name: Largest text size
         run: |
           xcrun simctl ui booted content_size accessibility-extra-extra-extra-large
           maestro test --test-output-dir "$RUNNER_TEMP/maestro/large-text" \
-            --debug-output "$RUNNER_TEMP/maestro/large-text/debug" apps/mobile/e2e-large-text
+            --debug-output "$RUNNER_TEMP/maestro/large-text/debug" --flatten-debug-output apps/mobile/e2e-large-text
       - name: Explain failed flows
         if: failure()
         run: scripts/maestro-report.sh "$RUNNER_TEMP/maestro"

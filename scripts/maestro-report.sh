@@ -10,7 +10,7 @@ for dir in "$@"; do
   [ -d "$dir" ] || continue
   # Each flow's commands-<flow>.json lists its steps with a status and, for the failed one, the error.
   find "$dir" -name 'commands-*.json' -print0 | while IFS= read -r -d '' file; do
-    jq -r --arg flow "$(basename "$file" .json | sed 's/^commands-//')" '
+    jq -r --arg flow "$(basename "$file" .json | sed -E 's/^commands-\(?//; s/\)$//')" '
       .[]? | select(.metadata.status? == "FAILED")
       | "\($flow): \(.command | tostring | .[:300])\n  \(.metadata.error.message? // "no message")"
     ' "$file" 2> /dev/null
