@@ -322,6 +322,16 @@ describe('service log screen model', () => {
       expect(model.getState().adding).toBe(false)
     })
 
+    it('leaves the date empty for a service done earlier, and asks for it on saving', async () => {
+      const { model, records } = setup()
+      const before = (await records.listForVehicle('v1')).length
+      model.getState().openForm('oil', { earlier: true })
+      expect(model.getState().draft).toMatchObject({ itemId: 'oil', performedOn: '' })
+      expect(await model.getState().save()).toBe(false)
+      expect(model.getState().fieldErrors.performedOn).toBe('Add when it was done, even roughly')
+      expect(await records.listForVehicle('v1')).toHaveLength(before)
+    })
+
     it('opens with an empty draft, clearing errors from before', async () => {
       const { model, records } = setup()
       model.getState().openForm('oil')

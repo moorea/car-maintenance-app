@@ -22,7 +22,7 @@ export interface GarageNavigation {
   onAddCar: () => void
   onReminders: () => void
   /** Opens the service log form, for a scheduled task if given. */
-  onLogService: (itemId?: string) => void
+  onLogService: (itemId?: string, options?: { earlier?: boolean }) => void
   onAsk: () => void
   /** Opens the owner's account: sign out, delete the account, reminder settings. */
   onAccount: () => void
@@ -135,7 +135,7 @@ function CatchUpCard(props: Props) {
       <Row spacing={10}>
         <PillButton
           label="Add last time"
-          onPress={() => props.onLogService(catchUp.itemId)}
+          onPress={() => props.onLogService(catchUp.itemId, { earlier: true })}
           fill="accent"
           text="onAccent"
         />

@@ -28,7 +28,7 @@ export function ServiceLogScreen({ vehicle, request, onRequestHandled }: Props) 
   useEffect(() => model.getState().setConfig(vehicle.configId), [model, vehicle.configId])
   useEffect(() => {
     if (!request) return
-    model.getState().openForm(request.itemId)
+    model.getState().openForm(request.itemId, { earlier: request.earlier === true })
     onRequestHandled()
   }, [model, request, onRequestHandled])
   const state = useStore(model)
