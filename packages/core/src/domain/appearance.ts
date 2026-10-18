@@ -50,3 +50,21 @@ export const DEFAULT_BODY_STYLE: BodyStyle = 'suv'
 
 /** The paint to draw before the owner picks one: the commonest car color that reads as no color. */
 export const DEFAULT_PAINT: Paint = 'silver'
+
+/** What the phone says about drawing in 3D, read by the app at the moment it asks. */
+export interface PhoneFor3d {
+  /** Reduce Motion is on in the system's accessibility settings. */
+  reduceMotion: boolean
+  /** Low Power Mode, or Android's battery saver, is on. */
+  lowPower: boolean
+  /** The phone is fast enough to turn the car smoothly. */
+  capable: boolean
+}
+
+/**
+ * Whether the Car screen draws the car in 3D or as a still side view. The owner's choice wins,
+ * except that a phone too slow to draw it never does; with no choice made, 3D is off under Reduce
+ * Motion or low power.
+ */
+export const shows3dCar = (choice: boolean | null, phone: PhoneFor3d): boolean =>
+  phone.capable && (choice ?? (!phone.reduceMotion && !phone.lowPower))

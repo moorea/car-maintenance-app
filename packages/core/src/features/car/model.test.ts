@@ -187,6 +187,17 @@ describe('car model', () => {
     ])
   })
 
+  it('places each schedule item on the car, by its kind or else its name', async () => {
+    const { model } = setup()
+    model.getState().start()
+    await settle()
+    expect(model.getState().schedule.map((r) => [r.task, r.spot])).toEqual([
+      ['Tire rotation', 'wheels'],
+      ['Oil & filter change', 'hood'],
+      ['Brake fluid', 'hood'],
+    ])
+  })
+
   it('says a mileage-only item needs the mileage, last, when the car has no reading', async () => {
     const { model } = setup({ odometer: [], records: [] })
     model.getState().start()

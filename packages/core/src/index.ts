@@ -1,5 +1,6 @@
 export * from './domain/types'
 export * from './domain/appearance'
+export * from './domain/carSpots'
 export * from './lib/date'
 export * from './lib/vin'
 export * from './lib/nhtsa'

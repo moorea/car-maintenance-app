@@ -6,6 +6,7 @@ const DEFAULTS: DevicePreferences = {
   remindersOffered: false,
   historyDismissed: [],
   zip: null,
+  car3d: null,
 }
 
 const parse = (raw: string | null): DevicePreferences => {
@@ -23,6 +24,7 @@ const parse = (raw: string | null): DevicePreferences => {
           ? v.historyDismissed.filter((id): id is string => typeof id === 'string')
           : [],
         zip: typeof v.zip === 'string' && ZIP_PATTERN.test(v.zip) ? v.zip : null,
+        car3d: typeof v.car3d === 'boolean' ? v.car3d : null,
       }
     }
   } catch {
@@ -34,8 +36,8 @@ const parse = (raw: string | null): DevicePreferences => {
 /**
  * Device preferences kept on this phone under `key`, such as in AsyncStorage: whether the
  * introduction was seen, who allowed sharing with the assistant's model, whether reminders
- * were offered, which cars' history the owner chose not to fill in, and the ZIP code last used
- * for fair prices.
+ * were offered, which cars' history the owner chose not to fill in, the ZIP code last used
+ * for fair prices, and whether to draw the car in 3D.
  */
 export const storedDevicePreferences = (
   storage: {
