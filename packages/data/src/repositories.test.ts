@@ -201,11 +201,20 @@ describe('PowerSync repositories', () => {
       months: 36,
       endMiles: 36_000,
     }
-    await repos.warranties.save(warranty)
-    await repos.warranties.save({ ...warranty, months: 30 })
-    // Saving it unchanged queues nothing.
-    await repos.warranties.save({ ...warranty, months: 30 })
-    await repos.warranties.remove('w1')
+    // The edit gets a later timestamp than the insert even when both land in the same
+    // millisecond, which would otherwise leave updated_at unchanged and out of the PATCH.
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      vi.setSystemTime(new Date('2026-09-01T10:00:00Z'))
+      await repos.warranties.save(warranty)
+      vi.setSystemTime(new Date('2026-09-01T10:00:01Z'))
+      await repos.warranties.save({ ...warranty, months: 30 })
+      // Saving it unchanged queues nothing.
+      await repos.warranties.save({ ...warranty, months: 30 })
+      await repos.warranties.remove('w1')
+    } finally {
+      vi.useRealTimers()
+    }
     const ops: [string, Record<string, unknown> | undefined][] = []
     for (let tx = await db.getNextCrudTransaction(); tx; tx = await db.getNextCrudTransaction()) {
       ops.push(
