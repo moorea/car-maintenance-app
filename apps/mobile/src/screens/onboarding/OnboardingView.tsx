@@ -1,10 +1,11 @@
 import type { OnboardingActions, OnboardingState } from '@car/core'
-import { Button, Column, Row, ScrollView, Spacer, Text, type UniversalStyle } from '@expo/ui'
+import { Button, Column, Row, ScrollView, Spacer, type UniversalStyle } from '@expo/ui'
 import { StyleSheet } from 'react-native'
 import { useColors } from '../../theme'
 import { Host } from '../../ui/Host'
 import { PillButton } from '../../ui/surfaces'
 import { Symbol } from '../../ui/Symbol'
+import { Text } from '../../ui/Text'
 
 type Props = OnboardingState & Pick<OnboardingActions, 'next' | 'back' | 'skip'>
 

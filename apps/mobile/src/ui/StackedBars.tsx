@@ -1,5 +1,6 @@
-import { Column, Row, Spacer, Text, type UniversalStyle } from '@expo/ui'
+import { Column, Row, Spacer, type UniversalStyle } from '@expo/ui'
 import { useColors, type ColorRole } from '../theme'
+import { Text } from './Text'
 
 export interface StackedBar {
   /** Under the bar, such as "Oct". */

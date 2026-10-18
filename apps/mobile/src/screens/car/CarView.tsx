@@ -7,7 +7,7 @@ import type {
   SafetyState,
   ScheduleRow,
 } from '@car/core'
-import { Button, Column, Row, ScrollView, Text } from '@expo/ui'
+import { Button, Column, Row, ScrollView } from '@expo/ui'
 import { Fragment } from 'react'
 import { ActivityIndicator, StyleSheet } from 'react-native'
 import { useColors, type ColorRole } from '../../theme'
@@ -21,6 +21,7 @@ import { Card, Dot, FillColumn, Separator } from '../../ui/surfaces'
 import type { AttachmentsProps } from '../attachments/AttachmentList'
 import { DocumentsSection } from '../attachments/DocumentsSection'
 import { ComplaintsSection, RecallsSection } from './SafetySections'
+import { Text } from '../../ui/Text'
 
 interface Props {
   car: CarState & CarActions
@@ -216,6 +217,13 @@ const DOT: Record<DueStatus, ColorRole> = {
   upcoming: 'textSecondary',
 }
 
+// What the dot's colour says, for VoiceOver.
+const STATUS_LABEL: Record<DueStatus, string> = {
+  overdue: 'Overdue',
+  'due-soon': 'Due soon',
+  upcoming: 'Upcoming',
+}
+
 function Schedule(car: CarState) {
   const colors = useColors()
   if (car.status === 'unmatched')
@@ -248,7 +256,7 @@ function ScheduleRowView({ row }: { row: ScheduleRow }) {
   const overdue = row.status === 'overdue'
   return (
     <Row alignment="center" spacing={12} style={{ paddingHorizontal: 16, paddingVertical: 11 }}>
-      <Dot color={DOT[row.status]} />
+      <Dot color={DOT[row.status]} label={STATUS_LABEL[row.status]} />
       <FillColumn spacing={1}>
         <Text textStyle={{ fontSize: 16, fontWeight: '500' }}>{row.task}</Text>
         {row.interval ? (

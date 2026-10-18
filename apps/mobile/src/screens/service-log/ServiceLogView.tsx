@@ -1,5 +1,5 @@
 import type { LogEntry, LogGroup, ServiceLogActions, ServiceLogState } from '@car/core'
-import { BottomSheet, Button, Column, Picker, Row, ScrollView, Spacer, Text } from '@expo/ui'
+import { BottomSheet, Button, Column, Picker, Row, ScrollView, Spacer } from '@expo/ui'
 import { Fragment } from 'react'
 import { ActivityIndicator, StyleSheet } from 'react-native'
 import { useColors } from '../../theme'
@@ -18,6 +18,7 @@ import {
   sourceActions,
   type AttachmentsProps,
 } from '../attachments/AttachmentList'
+import { Text } from '../../ui/Text'
 
 type Props = ServiceLogState &
   Pick<
@@ -53,7 +54,7 @@ export function ServiceLogView(props: Props) {
         <Column spacing={16} style={{ padding: 16, paddingBottom: TAB_BAR_CLEARANCE }}>
           <Row alignment="center">
             <Spacer flexible />
-            <GlassIconButton symbol="plus" onPress={() => props.openForm()} />
+            <GlassIconButton symbol="plus" label="Log service" onPress={() => props.openForm()} />
           </Row>
           <Column spacing={2}>
             <Text textStyle={{ ...OVERLINE, color: colors.textSecondary }}>

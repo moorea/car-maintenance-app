@@ -6,8 +6,9 @@ appId: com.moorea.carmaintenance
     clearState: true
     permissions:
       all: allow
+# Tappable cards are one accessibility element, so the car card reads "Demo car, …".
 - extendedWaitUntil:
-    visible: 'Demo car'
+    visible: 'Demo car.*'
     timeout: 60000
 - takeScreenshot: 1-garage
 - tapOn: 'Log'
@@ -20,12 +21,9 @@ appId: com.moorea.carmaintenance
 - takeScreenshot: 3-car
 - tapOn: 'Garage'
 - extendedWaitUntil:
-    visible: 'Demo car'
+    visible: 'Demo car.*'
     timeout: 10000
-# The account button is the first round button at the top right. It has no text, so tap by
-# position until it carries an accessibility label to match on.
-- tapOn:
-    point: '59%,11%'
+- tapOn: 'Account'
 - scrollUntilVisible:
     element: 'Sign out'
 - takeScreenshot: 4-account

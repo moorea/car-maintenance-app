@@ -130,6 +130,11 @@ jobs:
           "$HOME/.maestro/bin/maestro" --version
       - name: Smoke test
         run: maestro test --test-output-dir "$RUNNER_TEMP/maestro" apps/mobile/e2e
+      # Screens again at the largest accessibility text size, to see Dynamic Type at its limit.
+      - name: Largest text size
+        run: |
+          xcrun simctl ui booted content_size accessibility-extra-extra-extra-large
+          maestro test --test-output-dir "$RUNNER_TEMP/maestro/large-text" apps/mobile/e2e-large-text
       - name: Collect screenshots
         if: ${{ !cancelled() }}
         run: |

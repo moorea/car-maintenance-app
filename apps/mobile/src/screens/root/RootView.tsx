@@ -1,5 +1,5 @@
 import type { AppTab, SessionActions, SessionState, Vehicle } from '@car/core'
-import { Button, Row, Text } from '@expo/ui'
+import { Button, Row } from '@expo/ui'
 import { ActivityIndicator, StyleSheet, View } from 'react-native'
 import { AccountScreen } from '../account/AccountScreen'
 import { AddCarScreen } from '../add-car/AddCarScreen'
@@ -18,6 +18,7 @@ import { YourDataScreen } from '../your-data/YourDataScreen'
 import { askModelFor } from '../../models/askModels'
 import { Host } from '../../ui/Host'
 import { TabBar, type TabBarItem } from '../../ui/TabBar'
+import { Text } from '../../ui/Text'
 
 type Props = SessionState &
   Pick<
@@ -56,7 +57,12 @@ export function RootView(props: Props) {
             // The warranty and fuel pages belong to the car, so the car's tab stays selected there.
             selected={props.tab === 'warranty' || props.tab === 'fuel' ? 'car' : props.tab}
             onSelect={props.openTab}
-            action={{ symbol: 'ask', onPress: () => props.openTab('ask'), selected: false }}
+            action={{
+              symbol: 'ask',
+              label: 'Ask',
+              onPress: () => props.openTab('ask'),
+              selected: false,
+            }}
           />
         )}
       </View>

@@ -1,5 +1,5 @@
 import type { AiSharingState } from '@car/core'
-import { Button, Column, Row, ScrollView, Text } from '@expo/ui'
+import { Button, Column, Row, ScrollView } from '@expo/ui'
 import { StyleSheet } from 'react-native'
 import { useColors } from '../../theme'
 import { Host } from '../../ui/Host'
@@ -7,6 +7,7 @@ import { ErrorText, Note } from '../../ui/Note'
 import { Card, FillColumn, GlassIconButton, PillButton } from '../../ui/surfaces'
 import { Symbol } from '../../ui/Symbol'
 import type { SymbolName } from '../../ui/symbols'
+import { Text } from '../../ui/Text'
 
 type Props = AiSharingState & {
   /** Which screen asked, so the copy names what it sends. */
@@ -34,7 +35,7 @@ export function AiSharingView(props: Props) {
       <ScrollView>
         <Column spacing={16} style={{ padding: 16, paddingTop: 60 }}>
           <Row>
-            <GlassIconButton symbol="back" onPress={props.onBack} />
+            <GlassIconButton symbol="back" label="Back" onPress={props.onBack} />
           </Row>
           <Text textStyle={{ fontSize: 34, fontWeight: '700' }}>
             {props.feature === 'ask' ? 'Before you ask' : 'Before you check a quote'}

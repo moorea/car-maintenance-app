@@ -1,9 +1,10 @@
-import { Button, Column, Row, Text, type UniversalStyle } from '@expo/ui'
+import { Button, Column, Row, type UniversalStyle } from '@expo/ui'
 import type { ReactNode } from 'react'
 import { Platform } from 'react-native'
 import { useColors, type ColorRole } from '../theme'
 import { Symbol } from './Symbol'
 import type { SymbolName } from './symbols'
+import { Text } from './Text'
 
 // The web preview has no native Liquid Glass, so glass is a blurred translucent fill. These CSS
 // properties are not in the universal style type but react-native-web passes them through.
@@ -59,6 +60,8 @@ export function GlassBar({ children }: { children: ReactNode }) {
 
 interface GlassButtonProps {
   symbol: SymbolName
+  /** What VoiceOver reads for the button, such as "Add car". */
+  label: string
   onPress: () => void
   /** Icon colour. Defaults to `textPrimary`. */
   tint?: ColorRole
@@ -125,6 +128,8 @@ export function ProgressBar({
 
 interface SegmentProps {
   children: ReactNode
+  /** What VoiceOver reads for the choice. */
+  label: string
   selected: boolean
   onPress: () => void
 }
@@ -221,8 +226,15 @@ export function FillRow({ children, spacing, onPress }: FillRowProps) {
   )
 }
 
+interface DotProps {
+  color: ColorRole
+  /** What the colour means, such as "Overdue", for VoiceOver. Without it the dot is skipped. */
+  label?: string
+  size?: number
+}
+
 /** A small filled circle, such as a status dot beside a row. */
-export function Dot({ color, size = 10 }: { color: ColorRole; size?: number }) {
+export function Dot({ color, size = 10 }: DotProps) {
   const colors = useColors()
   return (
     <Row
@@ -303,6 +315,8 @@ export function GlassPill({ label, onPress }: { label: string; onPress: () => vo
 
 interface FilledIconButtonProps {
   symbol: SymbolName
+  /** What VoiceOver reads for the button, such as "Send". */
+  label: string
   onPress: () => void
   disabled?: boolean
   size?: number
