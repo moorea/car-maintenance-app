@@ -181,7 +181,7 @@ function SettingRow({ symbol, label, value, tint, chevron }: SettingRowProps) {
   const colors = useColors()
   return (
     <Row alignment="center" spacing={12} style={{ paddingHorizontal: 16, paddingVertical: 14 }}>
-      <Symbol name={symbol} size={20} color={colors[tint ?? 'accent']} />
+      <Symbol name={symbol} size={20} color={colors[tint ?? 'accent']} leading />
       <FillColumn>
         <Text textStyle={{ fontSize: 17, color: colors[tint ?? 'textPrimary'] }}>{label}</Text>
       </FillColumn>

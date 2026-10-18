@@ -344,6 +344,7 @@ function LogForm({
                 name={r.contentType === 'application/pdf' ? 'document' : 'photo'}
                 size={16}
                 color={colors.accent}
+                leading
               />
               <FillColumn>
                 <Text textStyle={{ fontSize: 15 }}>{r.name}</Text>
