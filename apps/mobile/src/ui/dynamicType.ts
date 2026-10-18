@@ -36,3 +36,13 @@ export function dynamicTypeStyle(fontSize: number): TextStyleName {
   }
   return best[0]
 }
+
+// React Native's iOS font scale for the largest standard size (xxxLarge). The accessibility
+// sizes start at about 1.79.
+const LARGEST_STANDARD_SCALE = 1.353
+
+/** Whether the reader picked one of the larger accessibility text sizes, where rows of text
+ * no longer fit side by side. */
+export function isAccessibilityTextSize(fontScale: number): boolean {
+  return fontScale > LARGEST_STANDARD_SCALE
+}

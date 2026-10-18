@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dynamicTypeStyle } from './dynamicType'
+import { dynamicTypeStyle, isAccessibilityTextSize } from './dynamicType'
 
 describe('dynamicTypeStyle', () => {
   it.each([
@@ -25,5 +25,17 @@ describe('dynamicTypeStyle', () => {
   it('maps sizes outside the scale to its ends', () => {
     expect(dynamicTypeStyle(8)).toBe('caption2')
     expect(dynamicTypeStyle(48)).toBe('largeTitle')
+  })
+})
+
+describe('isAccessibilityTextSize', () => {
+  it('is false at the default and the largest standard sizes', () => {
+    expect(isAccessibilityTextSize(1)).toBe(false)
+    expect(isAccessibilityTextSize(1.353)).toBe(false)
+  })
+
+  it('is true from the first accessibility size up', () => {
+    expect(isAccessibilityTextSize(1.786)).toBe(true)
+    expect(isAccessibilityTextSize(3.571)).toBe(true)
   })
 })
