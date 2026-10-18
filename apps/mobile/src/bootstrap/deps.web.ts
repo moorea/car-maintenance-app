@@ -6,6 +6,7 @@ import {
 } from '@car/core'
 import {
   demoOdometerReader,
+  demoPriceEstimator,
   demoQuoteReader,
   memoryNotifier,
   memoryPhotoPicker,
@@ -51,6 +52,7 @@ const ai = guardAiSharing(
     assistant: createDemoAssistant(repositories, clock),
     quoteReader: demoQuoteReader({ delayMs: 1_500 }),
     odometerReader: demoOdometerReader({ miles: DEMO_ODOMETER_PHOTO_MILES, delayMs: 1_500 }),
+    priceEstimator: demoPriceEstimator({ delayMs: 1_500 }),
   },
 )
 

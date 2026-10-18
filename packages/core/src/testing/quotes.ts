@@ -1,5 +1,11 @@
-import type { QuoteLine, QuotePhoto } from '../domain/types'
-import type { CancelSignal, OdometerReader, PhotoPicker, QuoteReader } from '../ports'
+import type { PriceEstimate, PriceEstimateRequest, QuoteLine, QuotePhoto } from '../domain/types'
+import type {
+  CancelSignal,
+  OdometerReader,
+  PhotoPicker,
+  PriceEstimator,
+  QuoteReader,
+} from '../ports'
 
 declare const setTimeout: (callback: () => void, ms: number) => unknown
 
@@ -106,6 +112,60 @@ export const demoOdometerReader = (options: {
       // An aborted read never settles, as a cancelled request would not.
       setTimeout(() => {
         if (!signal?.aborted) resolve(options.miles)
+      }, options.delayMs ?? 0)
+    }),
+})
+
+/** One call to a `controlledPriceEstimator`, which the test settles by hand. */
+export interface PriceEstimatorCall {
+  request: PriceEstimateRequest
+  signal: CancelSignal | undefined
+  resolve: (estimate: PriceEstimate) => void
+  reject: (error: unknown) => void
+}
+
+/** A price estimator whose calls the test answers through `calls`. */
+export const controlledPriceEstimator = (): PriceEstimator & { calls: PriceEstimatorCall[] } => {
+  const calls: PriceEstimatorCall[] = []
+  return {
+    calls,
+    estimate: (request, signal) =>
+      new Promise((resolve, reject) => calls.push({ request, signal, resolve, reject })),
+  }
+}
+
+/** Made-up but typical labor-guide hours and parts costs, by a word in the line. */
+const DEMO_JOBS: [
+  RegExp,
+  PriceEstimate['lines'][number]['laborHours'],
+  PriceEstimate['lines'][number]['partsCents'],
+][] = [
+  [/oil/i, { low: 0.4, high: 0.5 }, { low: 3_500, high: 6_500 }],
+  [/rotat/i, { low: 0.3, high: 0.5 }, { low: 0, high: 0 }],
+  [/cabin/i, { low: 0.2, high: 0.3 }, { low: 1_500, high: 4_000 }],
+  [/air filter/i, { low: 0.2, high: 0.3 }, { low: 1_500, high: 4_000 }],
+  [/transmission/i, { low: 0.8, high: 1.2 }, { low: 5_000, high: 10_000 }],
+  [/fuel|induction/i, { low: 0.5, high: 1 }, { low: 2_000, high: 4_000 }],
+  [/brake/i, { low: 1.2, high: 1.8 }, { low: 5_000, high: 15_000 }],
+]
+
+/**
+ * Estimates the lines it recognizes from DEMO_JOBS at a typical city labor rate after `delayMs`,
+ * so the demo and web preview show the whole flow without a server.
+ */
+export const demoPriceEstimator = (options: { delayMs?: number } = {}): PriceEstimator => ({
+  estimate: (request, signal) =>
+    new Promise((resolve) => {
+      // An aborted estimate never settles, as a cancelled request would not.
+      setTimeout(() => {
+        if (signal?.aborted) return
+        resolve({
+          laborRateCents: { low: 13_500, high: 19_500 },
+          lines: request.lines.flatMap(({ index, text }) => {
+            const job = DEMO_JOBS.find(([pattern]) => pattern.test(text))
+            return job ? [{ index, laborHours: job[1], partsCents: job[2] }] : []
+          }),
+        })
       }, options.delayMs ?? 0)
     }),
 })

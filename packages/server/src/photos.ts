@@ -26,10 +26,33 @@ export interface PhotoPrompt {
  * Sends one photo to Claude with structured output, so the reply is always the expected JSON, and
  * returns that JSON unchecked. Transcription needs care more than depth, so effort stays low.
  */
-export const readPhotoWithClaude = async (
+export const readPhotoWithClaude = (
   client: Anthropic,
   prompt: PhotoPrompt,
   photo: QuotePhoto,
+  signal?: CancelSignal,
+): Promise<unknown> =>
+  askClaudeForJson(
+    client,
+    { ...prompt, effort: 'low' },
+    [
+      {
+        type: 'image',
+        source: { type: 'base64', media_type: photo.mediaType, data: photo.base64 },
+      },
+      { type: 'text', text: prompt.ask },
+    ],
+    signal,
+  )
+
+/**
+ * Sends one message to Claude with structured output, so the reply is always the expected JSON,
+ * and returns that JSON unchecked.
+ */
+export const askClaudeForJson = async (
+  client: Anthropic,
+  prompt: Omit<PhotoPrompt, 'ask'> & { effort: 'low' | 'medium' | 'high' },
+  content: Anthropic.Beta.Messages.BetaContentBlockParam[],
   signal?: CancelSignal,
 ): Promise<unknown> => {
   const controller = new AbortController()
@@ -42,19 +65,11 @@ export const readPhotoWithClaude = async (
         model: prompt.model,
         max_tokens: prompt.maxTokens,
         system: prompt.system,
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'image',
-                source: { type: 'base64', media_type: photo.mediaType, data: photo.base64 },
-              },
-              { type: 'text', text: prompt.ask },
-            ],
-          },
-        ],
-        output_config: { effort: 'low', format: { type: 'json_schema', schema: prompt.schema } },
+        messages: [{ role: 'user', content }],
+        output_config: {
+          effort: prompt.effort,
+          format: { type: 'json_schema', schema: prompt.schema },
+        },
         // On a safety decline the API retries on Anthropic's recommended fallback model.
         betas: ['server-side-fallback-2026-07-01'],
         fallbacks: 'default',
@@ -62,7 +77,7 @@ export const readPhotoWithClaude = async (
       { signal: controller.signal },
     )
     if (message.stop_reason === 'refusal') throw new AssistantError('declined')
-    // Cut off mid-reply, the JSON is incomplete. Unlikely, since what is read is short.
+    // Cut off mid-reply, the JSON is incomplete. Unlikely, since the replies are short.
     if (message.stop_reason === 'max_tokens')
       throw new AssistantError('unknown', `The ${prompt.what} reply was cut off`)
     const text = message.content.flatMap((b) => (b.type === 'text' ? [b.text] : [])).join('')
@@ -74,14 +89,14 @@ export const readPhotoWithClaude = async (
   }
 }
 
-export interface PhotoHandlerDeps<Reader> {
+export interface JsonHandlerDeps<Reader> {
   /** The signed-in user an access token belongs to, or undefined if it is not valid. */
   userFor(token: string): Promise<string | undefined>
   /** Records a use against the owner's daily assistant limit; see AssistantStore. */
   storeFor(token: string, userId: string): Pick<AssistantStore, 'claimQuestion'>
   /** Undefined until the model's API key is configured. */
   reader: Reader | undefined
-  /** Shared with questions to Ask: reading a photo costs about as much as an answer. */
+  /** Shared with questions to Ask: each request costs about as much as an answer. */
   dailyLimit: number
   log(message: string, error?: unknown): void
 }
@@ -103,6 +118,8 @@ const STATUS: Record<AssistantErrorKind, number> = {
 
 const failure = (kind: AssistantErrorKind) => json(STATUS[kind], { error: kind })
 
+export type PhotoHandlerDeps<Reader> = JsonHandlerDeps<Reader>
+
 /**
  * A POST endpoint that reads one photo for the signed-in owner. Body: `{ photo: { mediaType,
  * base64 } }`. Answers what `read` returns, or `{ error }` with a status code. The photo is not
@@ -112,7 +129,24 @@ export const createPhotoHandler = <Reader>(
   deps: PhotoHandlerDeps<Reader>,
   what: string,
   read: (reader: Reader, photo: QuotePhoto, signal: AbortSignal) => Promise<unknown>,
+) =>
+  createJsonHandler(deps, `reading ${what}`, readQuoteRequestSchema, (reader, body, signal) =>
+    read(reader, body.photo, signal),
+  )
+
+/**
+ * A POST endpoint that runs one model request for the signed-in owner, counted against the daily
+ * limit. The body must match `schema`, checked before anything is spent. Answers what `run`
+ * returns, or `{ error }` with a status code. `doing` names the request in logs, such as
+ * "reading a quote".
+ */
+export const createJsonHandler = <Reader, Body>(
+  deps: JsonHandlerDeps<Reader>,
+  doing: string,
+  schema: { safeParse(value: unknown): { success: true; data: Body } | { success: false } },
+  run: (reader: Reader, body: Body, signal: AbortSignal) => Promise<unknown>,
 ) => {
+  const what = doing.charAt(0).toUpperCase() + doing.slice(1)
   const handle = async (request: Request): Promise<Response> => {
     if (request.method !== 'POST') return failure('unknown')
 
@@ -120,7 +154,7 @@ export const createPhotoHandler = <Reader>(
     const userId = token ? await deps.userFor(token) : undefined
     if (!token || !userId) return failure('signed-out')
 
-    const parsed = readQuoteRequestSchema.safeParse(await request.json().catch(() => undefined))
+    const parsed = schema.safeParse(await request.json().catch(() => undefined))
     if (!parsed.success) return json(400, { error: 'unknown' })
 
     const reader = deps.reader
@@ -129,13 +163,13 @@ export const createPhotoHandler = <Reader>(
       return failure('rate-limited')
 
     try {
-      return json(200, await read(reader, parsed.data.photo, request.signal))
+      return json(200, await run(reader, parsed.data, request.signal))
     } catch (error) {
       if (error instanceof AssistantError) {
-        if (error.kind === 'unavailable') deps.log(`Reading ${what} failed`, error)
+        if (error.kind === 'unavailable') deps.log(`${what} failed`, error)
         return failure(error.kind)
       }
-      deps.log(`Reading ${what} failed`, error)
+      deps.log(`${what} failed`, error)
       return failure('unknown')
     }
   }
@@ -144,7 +178,7 @@ export const createPhotoHandler = <Reader>(
     try {
       return await handle(request)
     } catch (error) {
-      deps.log(`Request to read ${what} failed`, error)
+      deps.log(`Request for ${doing} failed`, error)
       return failure('unknown')
     }
   }

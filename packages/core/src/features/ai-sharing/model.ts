@@ -5,6 +5,7 @@ import type {
   AuthPort,
   DevicePreferencesRepo,
   OdometerReader,
+  PriceEstimator,
   QuoteReader,
   Unsubscribe,
 } from '../../ports'
@@ -100,19 +101,23 @@ export const createAiSharingModel = (deps: AiSharingDeps): AiSharingModel => {
   }))
 }
 
-/**
- * Wraps the assistant and the photo readers so nothing reaches Anthropic unless the signed-in
- * owner allowed it, whichever screen asks. Refuses with AssistantError `not-allowed` otherwise,
- * and says whether it is allowed now, so a screen can hold a question back rather than fail.
- * Lives for as long as the app runs.
- */
-export const guardAiSharing = (
-  deps: AiSharingDeps,
-  services: { assistant: Assistant; quoteReader: QuoteReader; odometerReader: OdometerReader },
-): {
+interface AiServices {
   assistant: Assistant
   quoteReader: QuoteReader
   odometerReader: OdometerReader
+  priceEstimator: PriceEstimator
+}
+
+/**
+ * Wraps the assistant, the photo readers and the price estimator so nothing reaches Anthropic
+ * unless the signed-in owner allowed it, whichever screen asks. Refuses with AssistantError
+ * `not-allowed` otherwise, and says whether it is allowed now, so a screen can hold a question
+ * back rather than fail. Lives for as long as the app runs.
+ */
+export const guardAiSharing = (
+  deps: AiSharingDeps,
+  services: AiServices,
+): AiServices & {
   /** Whether the signed-in owner allows sharing right now. */
   aiSharingAllowed: () => boolean
 } => {
@@ -141,6 +146,12 @@ export const guardAiSharing = (
       read: async (photo, signal) => {
         check()
         return services.odometerReader.read(photo, signal)
+      },
+    },
+    priceEstimator: {
+      estimate: async (request, signal) => {
+        check()
+        return services.priceEstimator.estimate(request, signal)
       },
     },
   }

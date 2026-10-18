@@ -25,6 +25,8 @@ export function quoteModelFor(vehicle: Vehicle): QuoteCheckModel {
     clock: deps.clock,
     photos: deps.photos,
     reader: deps.quoteReader,
+    estimator: deps.priceEstimator,
+    preferences: deps.preferences,
   })
   model.getState().start()
   models.set(vehicle.id, { key, model })

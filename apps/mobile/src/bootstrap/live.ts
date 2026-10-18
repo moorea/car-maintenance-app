@@ -13,6 +13,7 @@ import {
   SupabaseConnector,
   remoteAssistant,
   remoteOdometerReader,
+  remotePriceEstimator,
   remoteQuoteReader,
 } from '@car/data'
 import { PowerSyncDatabase } from '@powersync/react-native'
@@ -80,8 +81,8 @@ export const createLiveRepositories = (config: BackendConfig) => {
     fetch: streamingFetch,
   })
 
-  // Reading a quote or odometer photo runs in the same function; it answers with JSON, so no
-  // streaming.
+  // Reading a quote or odometer photo, and estimating a quote's fair prices, run in the same
+  // function; they answer with JSON, so no streaming.
   const quoteReader = remoteQuoteReader({
     url: `${config.supabaseUrl}/functions/v1/assistant/read-quote`,
     accessToken,
@@ -89,6 +90,12 @@ export const createLiveRepositories = (config: BackendConfig) => {
   })
   const odometerReader = remoteOdometerReader({
     url: `${config.supabaseUrl}/functions/v1/assistant/read-odometer`,
+    accessToken,
+    fetch,
+  })
+
+  const priceEstimator = remotePriceEstimator({
+    url: `${config.supabaseUrl}/functions/v1/assistant/estimate-prices`,
     accessToken,
     fetch,
   })
@@ -107,6 +114,7 @@ export const createLiveRepositories = (config: BackendConfig) => {
     assistant,
     quoteReader,
     odometerReader,
+    priceEstimator,
     attachments,
     ...createPowerSyncRepositories(db),
   }

@@ -24,7 +24,13 @@ describe('storedDevicePreferences', () => {
     const seen = watchAll(storedDevicePreferences(memoryStorage(), 'prefs'))
     await settle()
     expect(seen).toEqual([
-      { onboarded: false, aiSharingOwner: null, remindersOffered: false, historyDismissed: [] },
+      {
+        onboarded: false,
+        aiSharingOwner: null,
+        remindersOffered: false,
+        historyDismissed: [],
+        zip: null,
+      },
     ])
   })
 
@@ -37,7 +43,13 @@ describe('storedDevicePreferences', () => {
     const seen = watchAll(storedDevicePreferences(storage, 'prefs'))
     await settle()
     expect(seen).toEqual([
-      { onboarded: true, aiSharingOwner: null, remindersOffered: false, historyDismissed: [] },
+      {
+        onboarded: true,
+        aiSharingOwner: null,
+        remindersOffered: false,
+        historyDismissed: [],
+        zip: null,
+      },
     ])
   })
 
@@ -52,6 +64,7 @@ describe('storedDevicePreferences', () => {
       aiSharingOwner: null,
       remindersOffered: false,
       historyDismissed: [],
+      zip: null,
     })
   })
 
@@ -62,7 +75,13 @@ describe('storedDevicePreferences', () => {
     const seen = watchAll(storedDevicePreferences(storage, 'prefs'))
     await settle()
     expect(seen).toEqual([
-      { onboarded: false, aiSharingOwner: null, remindersOffered: true, historyDismissed: [] },
+      {
+        onboarded: false,
+        aiSharingOwner: null,
+        remindersOffered: true,
+        historyDismissed: [],
+        zip: null,
+      },
     ])
   })
 
@@ -75,12 +94,32 @@ describe('storedDevicePreferences', () => {
     expect(seen[0]?.historyDismissed).toEqual(['v1', 'v2'])
   })
 
+  it('remembers a five-digit ZIP code and forgets anything else', async () => {
+    for (const [zip, expected] of [
+      ['94110', '94110'],
+      ['9411', null],
+      [94110, null],
+    ] as const) {
+      const seen = watchAll(
+        storedDevicePreferences(memoryStorage({ prefs: JSON.stringify({ zip }) }), 'prefs'),
+      )
+      await settle()
+      expect(seen[0]?.zip).toBe(expected)
+    }
+  })
+
   it('never reads a damaged value as permission to share', async () => {
     const storage = memoryStorage({ prefs: '{"aiSharingOwner":true' })
     const seen = watchAll(storedDevicePreferences(storage, 'prefs'))
     await settle()
     expect(seen).toEqual([
-      { onboarded: false, aiSharingOwner: null, remindersOffered: false, historyDismissed: [] },
+      {
+        onboarded: false,
+        aiSharingOwner: null,
+        remindersOffered: false,
+        historyDismissed: [],
+        zip: null,
+      },
     ])
   })
 
@@ -95,6 +134,7 @@ describe('storedDevicePreferences', () => {
       aiSharingOwner: null,
       remindersOffered: false,
       historyDismissed: [],
+      zip: null,
     })
   })
 
@@ -133,7 +173,13 @@ describe('storedDevicePreferences', () => {
     const seen = watchAll(repo)
     await expect(repo.update({ aiSharingOwner: 'u1' })).rejects.toThrow('disk full')
     expect(seen).toEqual([
-      { onboarded: false, aiSharingOwner: null, remindersOffered: false, historyDismissed: [] },
+      {
+        onboarded: false,
+        aiSharingOwner: null,
+        remindersOffered: false,
+        historyDismissed: [],
+        zip: null,
+      },
     ])
   })
 })

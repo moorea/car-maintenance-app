@@ -98,6 +98,14 @@ export const SYMBOLS = {
   },
   archive: { ios: 'archivebox', paths: ['M3 4h18v4H3z', 'M5 8v12h14V8', 'M10 12h4'] },
   checkmark: { ios: 'checkmark.circle', paths: ['M12 3a9 9 0 1 0 0.01 0', 'M8 12l3 3 5-6'] },
+  price: {
+    ios: 'dollarsign.circle',
+    paths: [
+      'M12 3a9 9 0 1 0 0.01 0',
+      'M15 9.5c-.5-1-1.6-1.5-3-1.5-1.7 0-3 .8-3 2s1.3 1.7 3 2 3 .8 3 2-1.3 2-3 2c-1.4 0-2.5-.5-3-1.5',
+      'M12 6.5v11',
+    ],
+  },
   ellipsis: { ios: 'ellipsis', paths: ['M6 12h.01M12 12h.01M18 12h.01'] },
 } satisfies Record<string, { ios: SFSymbol; paths: string[] }>
 

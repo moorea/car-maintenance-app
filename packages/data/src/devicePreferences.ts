@@ -1,10 +1,11 @@
-import type { DevicePreferences, DevicePreferencesRepo } from '@car/core'
+import { ZIP_PATTERN, type DevicePreferences, type DevicePreferencesRepo } from '@car/core'
 
 const DEFAULTS: DevicePreferences = {
   onboarded: false,
   aiSharingOwner: null,
   remindersOffered: false,
   historyDismissed: [],
+  zip: null,
 }
 
 const parse = (raw: string | null): DevicePreferences => {
@@ -21,6 +22,7 @@ const parse = (raw: string | null): DevicePreferences => {
         historyDismissed: Array.isArray(v.historyDismissed)
           ? v.historyDismissed.filter((id): id is string => typeof id === 'string')
           : [],
+        zip: typeof v.zip === 'string' && ZIP_PATTERN.test(v.zip) ? v.zip : null,
       }
     }
   } catch {
@@ -32,7 +34,8 @@ const parse = (raw: string | null): DevicePreferences => {
 /**
  * Device preferences kept on this phone under `key`, such as in AsyncStorage: whether the
  * introduction was seen, who allowed sharing with the assistant's model, whether reminders
- * were offered, and which cars' history the owner chose not to fill in.
+ * were offered, which cars' history the owner chose not to fill in, and the ZIP code last used
+ * for fair prices.
  */
 export const storedDevicePreferences = (
   storage: {
