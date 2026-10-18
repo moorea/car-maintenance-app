@@ -11,7 +11,9 @@ appId: com.moorea.carmaintenance
     timeout: 60000
 - tapOn: 'Car'
 - scrollUntilVisible:
-    element: 'DOCUMENTS'
+    element: 'Add a document'
+    centerElement: true
+    timeout: 30000
 - takeScreenshot: 30-car-documents
 - tapOn: 'Add a document'
 - extendedWaitUntil:
@@ -32,6 +34,7 @@ appId: com.moorea.carmaintenance
 - scrollUntilVisible:
     element: 'Known issues'
     centerElement: true
+    timeout: 30000
 - tapOn: 'Known issues'
 - waitForAnimationToEnd
 - takeScreenshot: 31-car-known-issues
@@ -44,6 +47,7 @@ appId: com.moorea.carmaintenance
 - scrollUntilVisible:
     element: 'Recalls · 2'
     centerElement: true
+    timeout: 30000
 - tapOn: 'Recalls · 2'
 - waitForAnimationToEnd
 - takeScreenshot: 32-car-recalls
@@ -55,6 +59,8 @@ appId: com.moorea.carmaintenance
 - tapOn: 'Car'
 - scrollUntilVisible:
     element: 'Fuel & costs'
+    centerElement: true
+    timeout: 30000
 - tapOn: 'Fuel & costs'
 - waitForAnimationToEnd
 - takeScreenshot: 33-fuel
@@ -64,6 +70,8 @@ appId: com.moorea.carmaintenance
 - tapOn: 'Car'
 - scrollUntilVisible:
     element: 'Warranty & care report'
+    centerElement: true
+    timeout: 30000
 - tapOn: 'Warranty & care report'
 - extendedWaitUntil:
     visible: 'Care report'
@@ -76,6 +84,8 @@ appId: com.moorea.carmaintenance
 - tapOn: 'Car'
 - scrollUntilVisible:
     element: 'Check a shop.s quote'
+    centerElement: true
+    timeout: 30000
 - tapOn: 'Check a shop.s quote'
 - extendedWaitUntil:
     visible: 'Before you check a quote'
@@ -89,6 +99,8 @@ appId: com.moorea.carmaintenance
 - tapOn: 'Car'
 - scrollUntilVisible:
     element: 'Check-engine light on.'
+    centerElement: true
+    timeout: 30000
 - tapOn: 'Check-engine light on.'
 - extendedWaitUntil:
     visible: 'Check-engine light'

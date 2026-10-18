@@ -14,6 +14,8 @@ appId: com.moorea.carmaintenance
     point: '59%,11%'
 - scrollUntilVisible:
     element: 'Export or import data'
+    centerElement: true
+    timeout: 30000
 - tapOn: 'Export or import data'
 - extendedWaitUntil:
     visible: 'Your data'

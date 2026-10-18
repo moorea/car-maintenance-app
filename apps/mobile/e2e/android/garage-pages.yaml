@@ -13,6 +13,7 @@ appId: com.moorea.carmaintenance
 - scrollUntilVisible:
     element: 'Export or import data'
     centerElement: true
+    timeout: 30000
 - tapOn: 'Export or import data'
 - extendedWaitUntil:
     visible: 'Your data'

@@ -26,6 +26,8 @@ appId: com.moorea.carmaintenance
 - tapOn: 'Account'
 - scrollUntilVisible:
     element: 'Sign out'
+    centerElement: true
+    timeout: 30000
 - takeScreenshot: 4-account
 - tapOn: 'Sign out'
 - extendedWaitUntil:

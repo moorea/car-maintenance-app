@@ -23,6 +23,7 @@ appId: com.moorea.carmaintenance
     element: 'Recalls.*'
     direction: DOWN
     timeout: 30000
+    centerElement: true
 - tapOn: 'Recalls.*'
 - waitForAnimationToEnd
 - scrollUntilVisible:
