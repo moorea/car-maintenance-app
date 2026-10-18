@@ -167,8 +167,9 @@ export const createCarModel = (deps: CarDeps): CarModel => {
   let photoRead: { cancel: () => void } | undefined
   // True while the camera or photo picker is open, so a second tap does not open another.
   let picking = false
-  // Whether the signed-in owner allowed sharing with Anthropic, and who that owner is.
-  let sharing: { allowed: boolean; userId: string | null } = { allowed: false, userId: null }
+  // Whether the signed-in owner allowed sharing with Anthropic, and who that owner is; undefined
+  // until both are known.
+  let sharing: { allowed: boolean; userId: string | null } | undefined
   let stopSharing: Unsubscribe | undefined
 
   return createStore<CarState & CarActions>()((set, get) => {
@@ -251,7 +252,12 @@ export const createCarModel = (deps: CarDeps): CarModel => {
 
     const readPhoto = async (source: PhotoSource) => {
       const idle = idleEditor()
-      if (picking || !idle || idle.allowing) return
+      // Until the owner's choice has loaded, asking could ask someone who already said yes.
+      if (disposed || picking || !idle || idle.allowing || !sharing) return
+      if (sharing.userId === null) {
+        set({ editingOdometer: { ...idle, error: READ_ERRORS['signed-out'] } })
+        return
+      }
       if (!sharing.allowed) {
         set({ editingOdometer: { ...idle, asking: source, error: undefined } })
         return
@@ -340,10 +346,11 @@ export const createCarModel = (deps: CarDeps): CarModel => {
       allowPhotoReading: async () => {
         const editing = get().editingOdometer
         const source = editing?.asking
-        if (!editing || !source || editing.allowing || sharing.userId === null) return
-        set({ editingOdometer: { ...editing, allowing: true } })
+        const userId = sharing?.userId
+        if (!editing || !source || editing.allowing || !userId) return
+        set({ editingOdometer: { ...editing, allowing: true, error: undefined } })
         try {
-          await deps.preferences.update({ aiSharingOwner: sharing.userId })
+          await deps.preferences.update({ aiSharingOwner: userId })
         } catch {
           const now = get().editingOdometer
           if (now)
@@ -356,9 +363,10 @@ export const createCarModel = (deps: CarDeps): CarModel => {
             })
           return
         }
-        sharing = { ...sharing, allowed: true }
+        sharing = { userId, allowed: true }
         const now = get().editingOdometer
-        if (!now) return
+        // The owner may have closed the editor or left the page while the choice was saved.
+        if (!now || disposed) return
         set({ editingOdometer: { ...now, asking: undefined, allowing: false } })
         await readPhoto(source)
       },

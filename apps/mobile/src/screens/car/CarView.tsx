@@ -185,13 +185,14 @@ function PhotoPermission(
         <Text textStyle={{ fontSize: 17, fontWeight: '600' }}>Read the miles with Claude?</Text>
       </Row>
       <Text>
-        Photos are read by Claude, an AI model made by Anthropic. Only the photo is sent, once, to
-        read the odometer, and it isn’t kept. Under its commercial terms, Anthropic doesn’t use it
-        to train its models.
+        Photos are read by Claude, an AI model made by Anthropic. Only the photo is sent, to read
+        the odometer, and we don’t store it. Under its commercial terms, Anthropic doesn’t use it to
+        train its models and generally deletes it within 30 days.
       </Text>
       <Note>
-        This also lets Ask and the quote checker share with Anthropic. You can turn it off in
-        Account at any time.
+        This is the same choice Ask and the quote checker use: Ask sends your question with this
+        car’s details (including its VIN), odometer readings and service log with costs, shops and
+        notes, and the quote checker sends quote photos. You can turn it off in Account at any time.
       </Note>
       {car.editingOdometer?.error ? <ErrorText>{car.editingOdometer.error}</ErrorText> : null}
       <Row spacing={10}>

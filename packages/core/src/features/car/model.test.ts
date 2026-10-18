@@ -73,6 +73,7 @@ const setup = (
     schedule?: MaintenanceItem[]
     /** Who allowed sharing with Anthropic on this phone; the signed-in owner by default. */
     aiSharingOwner?: string | null | undefined
+    signedOut?: boolean
   } = {},
 ) => {
   const vehicle = options.vehicle ?? car
@@ -99,13 +100,16 @@ const setup = (
     photos,
     odometerReader: reader,
     preferences,
-    auth: sharingAuth(),
+    auth: sharingAuth(options.signedOut),
   })
   return { model, odometer, records, photos, reader, preferences }
 }
 
-const sharingAuth = () =>
-  memoryAuth({ user: { id: 'u1', email: 'a@example.com' }, userIdFor: (e) => `user-${e}` })
+const sharingAuth = (signedOut = false) =>
+  memoryAuth({
+    ...(!signedOut && { user: { id: 'u1', email: 'a@example.com' } }),
+    userIdFor: (e) => `user-${e}`,
+  })
 
 // The in-memory repos resolve at once, so a few microtask turns let a refresh finish.
 const settle = async () => {
@@ -563,5 +567,61 @@ describe('reading the odometer from a photo', () => {
     await model.getState().takeOdometerPhoto()
     expect(model.getState().editingOdometer?.asking).toBe('camera')
     expect(photos.picks).toEqual([])
+  })
+
+  it('keeps asking, with the reason, when the choice cannot be saved', async () => {
+    const { model, photos, preferences } = await started(null)
+    preferences.update = () => Promise.reject(new Error('disk full'))
+    await model.getState().takeOdometerPhoto()
+    await model.getState().allowPhotoReading()
+    expect(model.getState().editingOdometer).toMatchObject({
+      asking: 'camera',
+      allowing: false,
+      error: "Couldn't save that choice. Try again.",
+    })
+    expect(photos.picks).toEqual([])
+  })
+
+  it('does not open the camera when the page closes while the choice is saved', async () => {
+    const { model, photos, preferences } = await started(null)
+    let saved: (() => void) | undefined
+    const update = preferences.update
+    preferences.update = (patch) =>
+      new Promise((resolve) => (saved = () => void update(patch).then(resolve)))
+    await model.getState().takeOdometerPhoto()
+    const allowing = model.getState().allowPhotoReading()
+    model.getState().dispose()
+    saved?.()
+    await allowing
+    expect(photos.picks).toEqual([])
+  })
+
+  it('asks again once the owner turns sharing off in Account', async () => {
+    const { model, photos, preferences } = await started()
+    await preferences.update({ aiSharingOwner: null })
+    await model.getState().takeOdometerPhoto()
+    expect(model.getState().editingOdometer?.asking).toBe('camera')
+    expect(photos.picks).toEqual([])
+  })
+
+  it('says to sign in again rather than asking when nobody is signed in', async () => {
+    const s = setup({ aiSharingOwner: null, signedOut: true })
+    s.model.getState().start()
+    await settle()
+    await s.model.getState().takeOdometerPhoto()
+    expect(s.model.getState().editingOdometer).toMatchObject({
+      error: 'Sign in again to read photos.',
+    })
+    expect(s.model.getState().editingOdometer?.asking).toBeUndefined()
+  })
+
+  it('says how to fix a camera that cannot be opened', async () => {
+    const { model, photos, reader } = await started()
+    photos.take = () => Promise.reject(new Error('denied'))
+    await model.getState().takeOdometerPhoto()
+    expect(reader.calls).toHaveLength(0)
+    expect(model.getState().editingOdometer?.error).toBe(
+      "Couldn't open the photo. Check that the app may use your camera and photos.",
+    )
   })
 })
