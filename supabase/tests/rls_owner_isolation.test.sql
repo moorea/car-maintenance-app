@@ -1,7 +1,7 @@
 -- Run with `supabase test db`. Proves one owner can never read or write another owner's car data.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(24);
+select plan(30);
 
 insert into auth.users (id) values
   ('00000000-0000-0000-0000-00000000000a'),
@@ -22,13 +22,19 @@ insert into public.fill_ups (id, vehicle_id, filled_on, odometer_miles, energy, 
 insert into public.renewals (id, vehicle_id, kind, due_on, every_months) values
   ('60000000-0000-0000-0000-00000000000a', '20000000-0000-0000-0000-00000000000a', 'registration', '2026-11-01', 12),
   ('60000000-0000-0000-0000-00000000000b', '20000000-0000-0000-0000-00000000000b', 'registration', '2026-11-01', 12);
+-- A car only B has, typed with text B would not want strangers to read.
+insert into public.vehicles (owner_id, year, make, model, trim, nickname) values
+  ('00000000-0000-0000-0000-00000000000b', 2014, 'Ford', 'Focus', 'Plate 7ABC123', 'Other B car');
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', true);
 
 select is((select count(*) from public.vehicles)::int, 1, 'owner sees only their own vehicle');
 select is((select count(*) from public.service_records)::int, 0, 'owner cannot read another owner''s records');
-select is((select count(*) from public.vehicle_configs)::int, 1, 'shared vehicle knowledge is readable');
+select is((select count(*) from public.vehicle_configs)::int, 1,
+  'owner reads the config their car uses, which other owners share');
+select is((select count(*) from public.vehicle_configs where make = 'Ford')::int, 0,
+  'owner cannot read configs, and the text typed into them, that only other owners use');
 
 select lives_ok(
   $$ insert into public.service_records (vehicle_id, performed_on)
@@ -128,6 +134,33 @@ select throws_ok(
   $$ insert into public.renewals (vehicle_id, kind, due_on)
      values ('20000000-0000-0000-0000-00000000000b', 'insurance', '2027-01-01') $$,
   '42501', null, 'owner cannot add a renewal date to someone else''s car'
+);
+
+-- Free text is capped, so one account cannot fill the database.
+select lives_ok(
+  $$ insert into public.service_records (vehicle_id, performed_on, shop, notes)
+     values ('20000000-0000-0000-0000-00000000000a', '2026-03-01', repeat('s', 200), repeat('n', 10000)) $$,
+  'owner can store notes and a shop name up to the limits'
+);
+select throws_ok(
+  $$ insert into public.service_records (vehicle_id, performed_on, notes)
+     values ('20000000-0000-0000-0000-00000000000a', '2026-03-01', repeat('n', 10001)) $$,
+  '23514', null, 'service notes past the limit are refused'
+);
+select throws_ok(
+  $$ update public.warranties set policy_number = repeat('p', 201)
+     where id = '40000000-0000-0000-0000-00000000000a' $$,
+  '23514', null, 'a warranty''s policy number past the limit is refused'
+);
+select throws_ok(
+  $$ update public.fill_ups set station = repeat('s', 201)
+     where id = '50000000-0000-0000-0000-00000000000a' $$,
+  '23514', null, 'a fill-up''s station past the limit is refused'
+);
+select throws_ok(
+  $$ update public.renewals set notes = repeat('n', 10001)
+     where id = '60000000-0000-0000-0000-00000000000a' $$,
+  '23514', null, 'a renewal''s notes past the limit are refused'
 );
 
 select * from finish();

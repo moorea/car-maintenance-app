@@ -1,5 +1,6 @@
 import {
   componentLabel,
+  peakMileage,
   type ComplaintSummary,
   type Recall,
   type SafetyActions,
@@ -147,6 +148,7 @@ function ComplaintItem(props: { summary: ComplaintSummary; open: boolean; onTogg
     c.injuries > 0 ? plural(c.injuries, 'injury', 'injuries') : null,
     c.deaths > 0 ? plural(c.deaths, 'death') : null,
   ].filter(Boolean)
+  const peak = peakMileage(c)
   return (
     <Collapsible
       isOpen={props.open}
@@ -155,6 +157,7 @@ function ComplaintItem(props: { summary: ComplaintSummary; open: boolean; onTogg
       labelStyle={{ fontSize: 16, fontWeight: '600' }}
     >
       <Column spacing={8}>
+        {peak ? <Note>{`Reported most often at ${peak}`}</Note> : null}
         {severity.length > 0 ? (
           <Text textStyle={{ ...LABEL, color: colors.danger }}>{severity.join(' · ')}</Text>
         ) : null}

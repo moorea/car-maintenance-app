@@ -81,6 +81,8 @@ export type SessionModel = StoreApi<SessionState & SessionActions>
 const PARENT: Partial<Record<AppTab, AppTab>> = {
   fuel: 'car',
   warranty: 'car',
+  driving: 'car',
+  renewals: 'car',
   data: 'account',
 }
 

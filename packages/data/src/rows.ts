@@ -1,6 +1,8 @@
 import type {
   Attachment,
   AttachmentKind,
+  Bulletin,
+  BulletinKind,
   ComplaintSummary,
   EnergyKind,
   FillUp,
@@ -278,8 +280,31 @@ const recentComplaints = (json: unknown): ComplaintSummary['recent'] => {
   })
 }
 
+const parseJson = (json: unknown): unknown => {
+  try {
+    return typeof json === 'string' ? JSON.parse(json) : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/** `by_mileage` is JSON text; bands that are not whole numbers are left out. */
+const mileageBands = (json: unknown): ComplaintSummary['byMileage'] => {
+  const parsed = parseJson(json)
+  if (!Array.isArray(parsed)) return undefined
+  const bands = parsed.flatMap((item: unknown) => {
+    if (typeof item !== 'object' || item === null) return []
+    const { from, complaints } = item as Record<string, unknown>
+    return Number.isInteger(from) && Number.isInteger(complaints)
+      ? [{ from: from as number, complaints: complaints as number }]
+      : []
+  })
+  return bands.length > 0 ? bands.sort((a, b) => a.from - b.from) : undefined
+}
+
 export const toComplaintSummary = (r: Row): ComplaintSummary =>
   defined({
+    byMileage: mileageBands(r.by_mileage),
     id: required(text(r.id), 'id'),
     configId: required(text(r.config_id), 'config_id'),
     component: text(r.component) ?? '',
@@ -292,15 +317,47 @@ export const toComplaintSummary = (r: Row): ComplaintSummary =>
     recent: recentComplaints(r.recent),
   })
 
-/** A configuration's report from its row (for the check times) and its recalls and complaints. */
+const BULLETIN_KINDS = new Set<BulletinKind>([
+  'bulletin',
+  'warranty',
+  'campaign',
+  'software',
+  'emissions',
+])
+
+/** `components` is JSON text, as PowerSync sends Postgres arrays. */
+const strings = (json: unknown): string[] => {
+  const parsed = parseJson(json)
+  return Array.isArray(parsed) ? parsed.filter((c): c is string => typeof c === 'string') : []
+}
+
+export const toBulletin = (r: Row): Bulletin => {
+  const kind = text(r.kind) as BulletinKind | undefined
+  return defined({
+    id: required(text(r.id), 'id'),
+    configId: required(text(r.config_id), 'config_id'),
+    nhtsaId: num(r.nhtsa_id) ?? 0,
+    documentId: text(r.document_id),
+    kind: kind && BULLETIN_KINDS.has(kind) ? kind : 'other',
+    issuedOn: text(r.issued_on),
+    components: strings(r.components),
+    system: text(r.system),
+    summary: text(r.summary) ?? '',
+  })
+}
+
+/** A configuration's report from its row (for the check times), recalls, complaints and bulletins. */
 export const toSafetyReport = (
   config: Row,
   recalls: Recall[],
   complaints: ComplaintSummary[],
+  bulletins: Bulletin[],
 ): SafetyReport =>
   defined({
     recallsCheckedAt: text(config.recalls_checked_at),
     complaintsCheckedAt: text(config.complaints_checked_at),
+    bulletinsCheckedAt: text(config.bulletins_checked_at),
     recalls,
     complaints,
+    bulletins,
   })

@@ -11,6 +11,7 @@ import signOutIcon from '@expo/material-symbols/logout.xml'
 import trashIcon from '@expo/material-symbols/delete.xml'
 import plusIcon from '@expo/material-symbols/add.xml'
 import chevronIcon from '@expo/material-symbols/chevron_right.xml'
+import dropdownIcon from '@expo/material-symbols/arrow_drop_down.xml'
 import backIcon from '@expo/material-symbols/chevron_left.xml'
 import clockIcon from '@expo/material-symbols/schedule.xml'
 import warningIcon from '@expo/material-symbols/warning.xml'
@@ -34,6 +35,8 @@ import archiveIcon from '@expo/material-symbols/inventory_2.xml'
 import checkmarkIcon from '@expo/material-symbols/check_circle.xml'
 import ellipsisIcon from '@expo/material-symbols/more_horiz.xml'
 import calendarIcon from '@expo/material-symbols/calendar_month.xml'
+import bulletinIcon from '@expo/material-symbols/build.xml'
+import gaugeIcon from '@expo/material-symbols/speed.xml'
 
 interface Props {
   name: SymbolName
@@ -54,6 +57,7 @@ const MATERIAL: Record<SymbolName, ImageSourcePropType> = {
   trash: trashIcon,
   plus: plusIcon,
   chevron: chevronIcon,
+  dropdown: dropdownIcon,
   back: backIcon,
   clock: clockIcon,
   warning: warningIcon,
@@ -77,6 +81,8 @@ const MATERIAL: Record<SymbolName, ImageSourcePropType> = {
   checkmark: checkmarkIcon,
   ellipsis: ellipsisIcon,
   calendar: calendarIcon,
+  bulletin: bulletinIcon,
+  gauge: gaugeIcon,
 }
 
 /**

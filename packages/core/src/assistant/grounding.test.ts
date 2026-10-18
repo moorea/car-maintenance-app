@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import type { Complaint, MaintenanceItem, Vehicle } from '../domain/types'
+import type { Bulletin, Complaint, MaintenanceItem, Vehicle } from '../domain/types'
 import {
   ASSISTANT_SYSTEM_PROMPT,
+  complaintSample,
   groundingDocuments,
+  MAX_BULLETINS,
   MAX_COMPLAINTS,
+  MAX_NEARBY_COMPLAINTS,
   type CarFacts,
 } from './grounding'
 
@@ -158,5 +161,127 @@ describe('groundingDocuments', () => {
     const many = Array.from({ length: MAX_COMPLAINTS + 5 }, (_, i) => complaint(i + 1))
     const docs = groundingDocuments(facts({ complaints: many }))
     expect(docs.filter((d) => d.source.kind === 'complaint')).toHaveLength(MAX_COMPLAINTS)
+  })
+
+  const bulletin = (nhtsaId: number, extra: Partial<Bulletin> = {}): Bulletin => ({
+    id: `b${nhtsaId}`,
+    configId: 'c1',
+    nhtsaId,
+    documentId: `T-SB-${nhtsaId}`,
+    kind: 'bulletin',
+    issuedOn: '2024-03-01',
+    components: ['POWER TRAIN'],
+    summary: 'SOME VEHICLES MAY HESITATE. UPDATE THE ECM SOFTWARE.',
+    ...extra,
+  })
+
+  const withBulletins = (bulletins: Bulletin[]) =>
+    facts({
+      safety: { ...facts().safety, bulletinsCheckedAt: '2026-10-16T12:00:00Z', bulletins },
+    })
+
+  it('gives each bulletin its number, kind and a readable summary', () => {
+    const doc = groundingDocuments(withBulletins([bulletin(7)])).find(
+      (d) => d.source.kind === 'bulletin',
+    )
+    expect(doc?.source).toEqual({ kind: 'bulletin', id: '7', label: 'Service bulletin T-SB-7' })
+    expect(doc?.text).toContain('issued 2024-03-01')
+    expect(doc?.text).toContain('Summary: Some vehicles may hesitate. Update the ECM software.')
+    expect(doc?.text).toContain('it is not a recall')
+  })
+
+  it('says a warranty extension may make the repair free', () => {
+    const doc = groundingDocuments(withBulletins([bulletin(7, { kind: 'warranty' })])).find(
+      (d) => d.source.kind === 'bulletin',
+    )
+    expect(doc?.text).toContain('A warranty extension can make this repair free')
+  })
+
+  it('keeps warranty extensions when there are too many bulletins to send', () => {
+    const many = Array.from({ length: MAX_BULLETINS + 10 }, (_, i) => bulletin(i + 1))
+    const extension = bulletin(999, { kind: 'warranty', issuedOn: '2010-01-01' })
+    const docs = groundingDocuments(withBulletins([...many, extension]))
+    const sent = docs.filter((d) => d.source.kind === 'bulletin')
+    expect(sent).toHaveLength(MAX_BULLETINS)
+    expect(sent[0]?.source.id).toBe('999')
+    expect(docs[0]?.text).toContain('the 40 most important are included here')
+  })
+
+  it('says when bulletins have not been imported yet', () => {
+    expect(groundingDocuments(facts())[0]?.text).toContain(
+      "The manufacturer's service bulletins for this model year have not been imported yet.",
+    )
+  })
+
+  it("tells the model what owners reported around the car's mileage", () => {
+    const base = facts()
+    const docs = groundingDocuments(
+      facts({
+        safety: {
+          ...base.safety,
+          complaints: base.safety.complaints.map((c) => ({
+            ...c,
+            byMileage: [
+              { from: 30_000, complaints: 5 },
+              { from: 70_000, complaints: 2 },
+            ],
+          })),
+        },
+      }),
+    )
+    expect(docs[0]?.text).toContain(
+      "Between 30,000–50,000 mi, around this car's mileage, owners of this model year most often reported: SERVICE BRAKES (5 complaints).",
+    )
+    expect(docs.find((d) => d.source.kind === 'complaints')?.text).toContain(
+      'By the mileage owners gave: 5 at 30,000–40,000 mi, 2 at 70,000–80,000 mi.',
+    )
+  })
+
+  it('says the mileage a complaint happened at', () => {
+    const docs = groundingDocuments(facts({ complaints: [{ ...complaint(1), miles: 31_000 }] }))
+    expect(docs.find((d) => d.source.kind === 'complaint')?.text).toContain(
+      'It happened at 31,000 mi, the owner says.',
+    )
+  })
+
+  it('tells the model bulletins are not recalls and to name their number', () => {
+    expect(ASSISTANT_SYSTEM_PROMPT).toContain('Service bulletins are the manufacturer')
+  })
+})
+
+describe('complaintSample', () => {
+  const at = (n: number, miles: number | undefined, filedOn = '2026-01-01'): Complaint => ({
+    ...complaint(n),
+    filedOn,
+    ...(miles !== undefined ? { miles } : {}),
+  })
+
+  it("keeps the complaints nearest the car's mileage as well as the newest", () => {
+    const newest = Array.from({ length: MAX_COMPLAINTS }, (_, i) =>
+      at(100 + i, undefined, '2026-06-01'),
+    )
+    const near = at(1, 88_500, '2015-01-01')
+    const far = at(2, 20_000, '2015-01-01')
+    const sample = complaintSample([...newest, near, far], 88_000)
+    expect(sample).toHaveLength(MAX_COMPLAINTS)
+    expect(sample.map((c) => c.odiNumber)).toContain(1)
+    expect(sample.map((c) => c.odiNumber)).not.toContain(2)
+  })
+
+  it('caps the nearby ones so the newest still get in', () => {
+    const near = Array.from({ length: MAX_COMPLAINTS }, (_, i) => at(i + 1, 88_000, '2015-01-01'))
+    const newest = Array.from({ length: MAX_COMPLAINTS }, (_, i) =>
+      at(100 + i, undefined, '2026-06-01'),
+    )
+    const sample = complaintSample([...near, ...newest], 88_000)
+    expect(sample.filter((c) => c.miles !== undefined)).toHaveLength(MAX_NEARBY_COMPLAINTS)
+  })
+
+  it('is the newest alone when the mileage is unknown', () => {
+    const sample = complaintSample(
+      [at(1, 88_000, '2015-01-01'), at(2, undefined, '2026-01-01')],
+      undefined,
+    )
+    expect(sample.map((c) => c.odiNumber)).toEqual([2, 1])
   })
 })

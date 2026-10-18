@@ -2,7 +2,15 @@ import { writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import type { Attachment, FillUp, Renewal, ServiceRecord, Vehicle, Warranty } from '@car/core'
+import type {
+  Attachment,
+  FillUp,
+  Renewal,
+  SafetyReport,
+  ServiceRecord,
+  Vehicle,
+  Warranty,
+} from '@car/core'
 import { afterEach, describe, expect, it } from 'vitest'
 import { schema, UPLOADABLE_TABLES } from '../src'
 import { attachmentPath } from '../src/upload'
@@ -495,6 +503,72 @@ describe('shared schedules', () => {
       expect(records.map((r) => r.id).sort()).toEqual([loggedOnline.id, loggedOffline.id].sort())
     }
     expect(b.dropped).toEqual([])
+  })
+})
+
+describe('service bulletins', () => {
+  it("syncs a model year's bulletins to its owner's phones, and to no other owner", async () => {
+    const [alice, bob] = [await createUser(), await createUser()]
+    const [a, b] = [await open(alice), await open(bob)]
+    const civic = await addCar(a)
+    const tesla = await addCar(b, { ...car('Bob'), make: 'Tesla', model: 'Model 3', trim: 'LR' })
+
+    // As the NHTSA importer stores them: one warranty extension for each car's model year.
+    const { error } = await admin.from('bulletins').insert([
+      {
+        config_id: civic.configId,
+        nhtsa_id: 10_181_234,
+        document_id: '19-047',
+        kind: 'warranty',
+        issued_on: '2019-05-01',
+        components: ['ENGINE'],
+        summary: 'Coverage for the water pump is extended.',
+      },
+      {
+        config_id: tesla.configId,
+        nhtsa_id: 10_181_235,
+        kind: 'bulletin',
+        components: ['ELECTRICAL SYSTEM'],
+        summary: 'Update the software.',
+      },
+    ])
+    if (error) throw error
+    const checked = await admin
+      .from('vehicle_configs')
+      .update({ bulletins_checked_at: '2026-10-18T00:00:00Z' })
+      .eq('id', civic.configId)
+    if (checked.error) throw checked.error
+
+    const report = await eventually(
+      () =>
+        new Promise<SafetyReport>((resolve) => {
+          const stop = a.safety.watchForConfig(civic.configId, (r) => {
+            stop()
+            resolve(r)
+          })
+        }),
+      (r) => r.bulletins?.length === 1 && r.bulletinsCheckedAt !== undefined,
+      "the bulletin on the owner's phone",
+    )
+    expect(report.bulletins).toEqual([
+      expect.objectContaining({
+        configId: civic.configId,
+        nhtsaId: 10_181_234,
+        documentId: '19-047',
+        kind: 'warranty',
+        issuedOn: '2019-05-01',
+        components: ['ENGINE'],
+        summary: 'Coverage for the water pump is extended.',
+      }),
+    ])
+    await eventually(
+      () => b.rows('select nhtsa_id from bulletins'),
+      (rows) => rows.length === 1,
+      "Bob's own bulletin",
+    )
+    expect(await b.rows('select config_id, nhtsa_id from bulletins')).toEqual([
+      { config_id: tesla.configId, nhtsa_id: 10_181_235 },
+    ])
   })
 })
 

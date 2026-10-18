@@ -21,8 +21,8 @@ streams:
       - SELECT * FROM renewals WHERE vehicle_id IN (SELECT id FROM vehicles WHERE owner_id = auth.user_id())
       - SELECT * FROM attachments WHERE vehicle_id IN (SELECT id FROM vehicles WHERE owner_id = auth.user_id())
 
-  # Shared reference data for the configurations the user's vehicles use: schedules, recalls and
-  # complaint summaries.
+  # Shared reference data for the configurations the user's vehicles use: schedules, recalls,
+  # complaint summaries and manufacturer bulletins.
   vehicle_configs:
     auto_subscribe: true
     queries:
@@ -30,3 +30,4 @@ streams:
       - SELECT * FROM maintenance_items WHERE config_id IN (SELECT config_id FROM vehicles WHERE owner_id = auth.user_id())
       - SELECT * FROM recalls WHERE config_id IN (SELECT config_id FROM vehicles WHERE owner_id = auth.user_id())
       - SELECT * FROM complaint_summaries WHERE config_id IN (SELECT config_id FROM vehicles WHERE owner_id = auth.user_id())
+      - SELECT * FROM bulletins WHERE config_id IN (SELECT config_id FROM vehicles WHERE owner_id = auth.user_id())

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { ComplaintSummary, Recall } from '../../domain/types'
-import { memorySafety } from '../../testing'
+import type { Bulletin, ComplaintSummary, OdometerReading, Recall } from '../../domain/types'
+import { fixedClock, memoryOdometer, memorySafety, memoryServiceRecords } from '../../testing'
 import { createSafetyModel } from './model'
 
 const recall = (campaign: string, extra: Partial<Recall> = {}): Recall => ({
@@ -28,10 +28,26 @@ const complaints = (component: string, count: number): ComplaintSummary => ({
 
 const CHECKED = '2026-10-17 12:00:00Z'
 
-const setup = (options: { unmatched?: boolean; vin?: string } = {}) => {
+const bulletin = (nhtsaId: number, extra: Partial<Bulletin> = {}): Bulletin => ({
+  id: `b-${nhtsaId}`,
+  configId: 'c1',
+  nhtsaId,
+  kind: 'bulletin',
+  components: ['ENGINE'],
+  summary: `Bulletin ${nhtsaId}.`,
+  ...extra,
+})
+
+const TODAY = '2026-10-17'
+
+const setup = (
+  options: { unmatched?: boolean; vin?: string; readings?: OdometerReading[] } = {},
+) => {
   const safety = memorySafety()
+  const odometer = memoryOdometer(options.readings ?? [])
   const model = createSafetyModel({
     vehicle: {
+      id: 'v1',
       year: 2021,
       make: 'Toyota',
       model: 'RAV4',
@@ -39,8 +55,11 @@ const setup = (options: { unmatched?: boolean; vin?: string } = {}) => {
       ...(options.vin !== undefined && { vin: options.vin }),
     },
     safety,
+    odometer,
+    records: memoryServiceRecords(),
+    clock: fixedClock(TODAY),
   })
-  return { safety, model }
+  return { safety, model, odometer }
 }
 
 describe('safety screen model', () => {
@@ -130,5 +149,104 @@ describe('safety screen model', () => {
     model.getState().dispose()
     safety.set('c1', { recallsCheckedAt: CHECKED, recalls: [recall('1')], complaints: [] })
     expect(model.getState().status).toBe('checking')
+  })
+
+  it('puts warranty extensions and campaigns apart from the other bulletins', () => {
+    const { model, safety } = setup()
+    model.getState().start()
+    safety.set('c1', {
+      recallsCheckedAt: CHECKED,
+      bulletinsCheckedAt: CHECKED,
+      recalls: [],
+      complaints: [],
+      bulletins: [
+        bulletin(1, { components: ['POWER TRAIN'], issuedOn: '2020-01-01' }),
+        bulletin(2, { kind: 'warranty', issuedOn: '2021-01-01' }),
+        bulletin(3, { components: ['POWER TRAIN'], issuedOn: '2024-01-01' }),
+        bulletin(4, { kind: 'campaign' }),
+      ],
+    })
+    const s = model.getState()
+    expect(s.bulletinsChecked).toBe(true)
+    expect(s.extensions.map((b) => b.nhtsaId)).toEqual([2, 4])
+    expect(s.bulletinGroups).toEqual([
+      {
+        component: 'POWER TRAIN',
+        bulletins: [
+          bulletin(3, { components: ['POWER TRAIN'], issuedOn: '2024-01-01' }),
+          bulletin(1, { components: ['POWER TRAIN'], issuedOn: '2020-01-01' }),
+        ],
+      },
+    ])
+  })
+
+  it('says bulletins are not imported yet rather than that there are none', () => {
+    const { model, safety } = setup()
+    model.getState().start()
+    safety.set('c1', { recallsCheckedAt: CHECKED, recalls: [], complaints: [] })
+    expect(model.getState()).toMatchObject({ bulletinsChecked: false, extensions: [] })
+  })
+
+  const withMileage = (component: string, from: number, count: number): ComplaintSummary => ({
+    ...complaints(component, count),
+    byMileage: [{ from, complaints: count }],
+  })
+
+  it("shows what owners reported around the car's mileage", () => {
+    const { model, safety } = setup({
+      readings: [{ vehicleId: 'v1', date: TODAY, miles: 88_040 }],
+    })
+    model.getState().start()
+    safety.set('c1', {
+      recallsCheckedAt: CHECKED,
+      complaintsCheckedAt: CHECKED,
+      recalls: [],
+      complaints: [withMileage('ENGINE', 90_000, 6), withMileage('STEERING', 40_000, 9)],
+      bulletins: [bulletin(1)],
+    })
+    expect(model.getState().nearby).toEqual({
+      status: 'ready',
+      window: '80,000–100,000 mi',
+      issues: [{ component: 'ENGINE', complaints: 6, bulletins: 1, covered: false }],
+    })
+  })
+
+  it('moves the window when a new odometer reading arrives', async () => {
+    const { model, safety, odometer } = setup({
+      readings: [{ vehicleId: 'v1', date: TODAY, miles: 35_000 }],
+    })
+    model.getState().start()
+    safety.set('c1', {
+      recallsCheckedAt: CHECKED,
+      recalls: [],
+      complaints: [withMileage('ENGINE', 90_000, 6), withMileage('STEERING', 40_000, 9)],
+    })
+    expect(model.getState().nearby.issues.map((i) => i.component)).toEqual(['STEERING'])
+    await odometer.add({ vehicleId: 'v1', date: TODAY, miles: 91_000 })
+    expect(model.getState().nearby.issues.map((i) => i.component)).toEqual(['ENGINE'])
+  })
+
+  it('asks for the mileage when the car has no reading', () => {
+    const { model, safety } = setup()
+    model.getState().start()
+    safety.set('c1', {
+      recallsCheckedAt: CHECKED,
+      recalls: [],
+      complaints: [withMileage('ENGINE', 90_000, 6)],
+    })
+    expect(model.getState().nearby.status).toBe('no-odometer')
+  })
+
+  it('shows no mileage card before complaint mileages are known', () => {
+    const { model, safety } = setup({
+      readings: [{ vehicleId: 'v1', date: TODAY, miles: 88_000 }],
+    })
+    model.getState().start()
+    safety.set('c1', {
+      recallsCheckedAt: CHECKED,
+      recalls: [],
+      complaints: [complaints('ENGINE', 5)],
+    })
+    expect(model.getState().nearby.status).toBe('no-data')
   })
 })

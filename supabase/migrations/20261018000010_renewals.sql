@@ -12,7 +12,7 @@ create table public.renewals (
   due_on       date not null,
   -- How often it comes round; null when it doesn't repeat.
   every_months int check (every_months between 1 and 120),
-  notes        text,
+  notes        text check (length(notes) <= 10000),
   updated_at   timestamptz not null default now()
 );
 create index on public.renewals (vehicle_id);

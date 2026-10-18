@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { fillUpDraftSchema, type FillUpDraft } from './fillUp'
+import { NOTES_MAX, SHORT_TEXT_MAX } from './text'
 
 const draft: FillUpDraft = {
   filledOn: '2026-10-17',
@@ -36,5 +37,17 @@ describe('fill-up draft', () => {
     ['energy', 'diesel'],
   ] as const)('refuses %s of %s', (field, value) => {
     expect(fillUpDraftSchema.safeParse({ ...draft, [field]: value }).success).toBe(false)
+  })
+
+  it('refuses a station or notes longer than the server keeps', () => {
+    expect(
+      fillUpDraftSchema.safeParse({ ...draft, station: 's'.repeat(SHORT_TEXT_MAX + 1) }).success,
+    ).toBe(false)
+    expect(
+      fillUpDraftSchema.safeParse({ ...draft, notes: 'n'.repeat(NOTES_MAX + 1) }).success,
+    ).toBe(false)
+    expect(fillUpDraftSchema.parse({ ...draft, notes: 'n'.repeat(NOTES_MAX) }).notes).toHaveLength(
+      NOTES_MAX,
+    )
   })
 })

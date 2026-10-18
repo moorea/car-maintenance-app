@@ -37,6 +37,7 @@ export const SYMBOLS = {
   },
   plus: { ios: 'plus', paths: ['M12 5v14M5 12h14'] },
   chevron: { ios: 'chevron.right', paths: ['M9 6l6 6-6 6'] },
+  dropdown: { ios: 'chevron.up.chevron.down', paths: ['M8 10l4 4 4-4'] },
   back: { ios: 'chevron.left', paths: ['M15 6l-6 6 6 6'] },
   calendar: {
     ios: 'calendar',
@@ -74,6 +75,14 @@ export const SYMBOLS = {
     paths: ['M6 9h9l2 2h2v6h-2l-2 2H8l-2-2H4v-6h2z', 'M9 9V6h4v3', 'M2 12v4M22 12v4'],
   },
   quote: { ios: 'list.bullet.clipboard', paths: ['M7 4h10v17H7z', 'M10 9h5M10 13h5M10 17h3'] },
+  bulletin: {
+    ios: 'wrench.and.screwdriver',
+    paths: ['M14 6a4 4 0 0 0 5 5l-9 9-3-3 9-9a4 4 0 0 0-2-2z', 'M4 4l6 6'],
+  },
+  gauge: {
+    ios: 'gauge.with.dots.needle.67percent',
+    paths: ['M4 17a8 8 0 1 1 16 0', 'M12 17l4-5', 'M12 17h.01'],
+  },
   receipt: { ios: 'receipt', paths: ['M6 3h12v18l-3-2-3 2-3-2-3 2z', 'M9 8h6M9 12h6'] },
   document: { ios: 'doc', paths: ['M6 3h8l4 4v14H6z', 'M14 3v4h4'] },
   folder: { ios: 'folder', paths: ['M3 6h6l2 2h10v11H3z'] },

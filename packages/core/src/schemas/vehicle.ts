@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { normalizeVin, vinProblem, type VinProblem } from '../lib/vin'
+import { optionalText } from './text'
 
 const VIN_MESSAGES: Record<VinProblem, string> = {
   length: 'A VIN is 17 letters and numbers',
@@ -18,12 +19,6 @@ export const vinSchema = z
 
 const requiredText = (what: string) =>
   z.string().trim().min(1, `Enter the ${what}`).max(60, `That ${what} is too long`)
-const optionalText = (max: number) =>
-  z
-    .string()
-    .trim()
-    .max(max, 'That is too long')
-    .transform((s) => (s === '' ? undefined : s))
 
 /** Matches the vehicles_nickname_check constraint in Postgres. */
 export const NICKNAME_MAX = 40

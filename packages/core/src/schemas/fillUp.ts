@@ -1,12 +1,8 @@
 import { z } from 'zod'
+import { NOTES_MAX, SHORT_TEXT_MAX, optionalText } from './text'
 import type { EnergyKind } from '../domain/types'
 
 const ENERGIES = ['fuel', 'electric'] as const satisfies readonly EnergyKind[]
-
-const optionalText = z
-  .string()
-  .trim()
-  .transform((s) => (s === '' ? undefined : s))
 
 /** Whole miles, allowing the thousands commas a pump receipt or a dashboard shows: "41,250". */
 const MILES = /^\d{1,3}(,\d{3})*$|^\d+$/
@@ -52,8 +48,8 @@ export const fillUpDraftSchema = z.object({
     ),
   full: z.boolean(),
   missedPrevious: z.boolean(),
-  station: optionalText,
-  notes: optionalText,
+  station: optionalText(SHORT_TEXT_MAX),
+  notes: optionalText(NOTES_MAX),
 })
 
 /** The form as typed: every field is text, `energy` included, apart from the two switches. */

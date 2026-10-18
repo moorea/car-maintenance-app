@@ -1,5 +1,5 @@
 import type { LogEntry, LogGroup, ServiceLogActions, ServiceLogState } from '@car/core'
-import { BottomSheet, Button, Column, Picker, Row, ScrollView, Spacer } from '@expo/ui'
+import { BottomSheet, Button, Column, Row, ScrollView, Spacer } from '@expo/ui'
 import { Fragment } from 'react'
 import { ActivityIndicator, StyleSheet } from 'react-native'
 import { useColors } from '../../theme'
@@ -11,6 +11,7 @@ import { TextField } from '../../ui/TextField'
 import { Card, FillColumn, GlassIconButton, Separator } from '../../ui/surfaces'
 import { Symbol } from '../../ui/Symbol'
 import { ActionMenu } from '../../ui/ActionMenu'
+import { ChoiceField } from '../../ui/ChoiceField'
 import {
   AttachMenu,
   AttachmentRows,
@@ -280,15 +281,14 @@ function LogForm({
         {tasks.length > 0 ? (
           <Column spacing={4}>
             <Text textStyle={{ fontSize: 13, fontWeight: '600' }}>What was done</Text>
-            <Picker
-              selectedValue={draft.itemId}
-              onValueChange={(v) => setField('itemId', String(v))}
-            >
-              {[
-                ...tasks.map((t) => <Picker.Item key={t.id} label={t.task} value={t.id} />),
-                <Picker.Item key="other" label="Something else" value={OTHER} />,
+            <ChoiceField
+              value={draft.itemId}
+              options={[
+                ...tasks.map((t) => ({ value: t.id, label: t.task })),
+                { value: OTHER, label: 'Something else' },
               ]}
-            </Picker>
+              onChange={(v) => setField('itemId', v)}
+            />
           </Column>
         ) : null}
         <TextField

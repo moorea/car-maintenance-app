@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import type { RenewalKind } from '../domain/types'
+import { NOTES_MAX, optionalText } from './text'
 
 export const RENEWAL_KIND_IDS = [
   'registration',
@@ -8,11 +9,6 @@ export const RENEWAL_KIND_IDS = [
   'insurance',
   'other',
 ] as const satisfies readonly RenewalKind[]
-
-const optionalText = z
-  .string()
-  .trim()
-  .transform((s) => (s === '' ? undefined : s))
 
 const MONTHS = /^\d+$/
 
@@ -37,7 +33,7 @@ export const renewalDraftSchema = z.object({
         .max(120, 'Choose how often it repeats')
         .optional(),
     ),
-  notes: optionalText,
+  notes: optionalText(NOTES_MAX),
 })
 
 /** The form as typed: every field is text, `kind` included, until it is parsed. */

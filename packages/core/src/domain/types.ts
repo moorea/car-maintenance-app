@@ -245,6 +245,51 @@ export interface ComplaintSummary {
   latestFiledOn?: IsoDate
   /** Up to three of the newest complaints, newest first. */
   recent: { filedOn?: IsoDate; summary: string }[]
+  /**
+   * How many of these complaints happened at each mileage, in bands of `MILEAGE_BAND` miles from
+   * `from`, lowest first. Only complaints whose owner gave a mileage count. Absent until NHTSA's
+   * complaint files have been imported for the model year.
+   */
+  byMileage?: MileageBand[]
+}
+
+/** Complaints that happened between `from` and `from + MILEAGE_BAND` miles. */
+export interface MileageBand {
+  from: number
+  complaints: number
+}
+
+/**
+ * What a manufacturer communication to its dealers is:
+ * - `bulletin`: a technical service bulletin, the repair instructions for a known problem.
+ * - `warranty`: a warranty extension or special coverage, so the repair may be free.
+ * - `campaign`: a service campaign, a fix the manufacturer offers that is not a safety recall.
+ * - `software`: a software or over-the-air update.
+ * - `emissions`: about emissions equipment, which has its own federal warranty.
+ * - `other`: anything else, such as a letter to owners or dealers.
+ */
+export type BulletinKind = 'bulletin' | 'warranty' | 'campaign' | 'software' | 'emissions' | 'other'
+
+/**
+ * A manufacturer communication (a technical service bulletin, warranty extension or similar)
+ * that the manufacturer filed with NHTSA for a configuration's model year. Like a recall it may
+ * not cover every car of that year.
+ */
+export interface Bulletin {
+  id: string
+  configId: string
+  /** NHTSA's number for it. */
+  nhtsaId: number
+  /** The manufacturer's own number, such as "19-047", which a dealer looks it up by. */
+  documentId?: string
+  kind: BulletinKind
+  /** When the manufacturer sent it to dealers. */
+  issuedOn?: IsoDate
+  /** NHTSA's top-level components, upper case, such as "ENGINE". */
+  components: string[]
+  /** The manufacturer's own name for the part of the car, such as "Engine / Cooling". */
+  system?: string
+  summary: string
 }
 
 /** What NHTSA knows about a configuration's model year. */
@@ -255,6 +300,10 @@ export interface SafetyReport {
   complaintsCheckedAt?: string
   recalls: Recall[]
   complaints: ComplaintSummary[]
+  /** When NHTSA's manufacturer communications were last imported for this model year. */
+  bulletinsCheckedAt?: string
+  /** Absent where bulletins are not stored, such as in older tests. */
+  bulletins?: Bulletin[]
 }
 
 /** The signed-in person, as far as the app needs to know. */
@@ -285,6 +334,8 @@ export interface Complaint {
   components: string[]
   summary: string
   filedOn?: IsoDate
+  /** The odometer when it happened, as the owner told NHTSA. */
+  miles?: number
   crash: boolean
   fire: boolean
   injuries: number
@@ -293,7 +344,7 @@ export interface Complaint {
 
 /** What a stored fact an answer cites is. */
 export type AnswerSourceKind =
-  'car' | 'schedule' | 'service' | 'recall' | 'complaints' | 'complaint'
+  'car' | 'schedule' | 'service' | 'recall' | 'bulletin' | 'complaints' | 'complaint'
 
 /** A stored fact about the owner's car that an assistant answer was drawn from. */
 export interface AnswerSource {
