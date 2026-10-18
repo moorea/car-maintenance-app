@@ -301,6 +301,18 @@ describe('session model, adding a car', () => {
     expect(model.getState().tab).toBe('garage')
   })
 
+  it('goes back from Ask to the code it was asked about, then to the car', () => {
+    const { model } = setup(true, [civic])
+    model.getState().start()
+    model.getState().openTab('car')
+    model.getState().openTab('codes')
+    model.getState().openTab('ask')
+    model.getState().back()
+    expect(model.getState().tab).toBe('codes')
+    model.getState().back()
+    expect(model.getState().tab).toBe('car')
+  })
+
   it('forgets where Ask was opened from once the owner switches tabs', () => {
     const { model } = setup(true, [civic])
     model.getState().start()
@@ -312,6 +324,62 @@ describe('session model, adding a car', () => {
     expect(model.getState().tab).toBe('log')
     model.getState().back()
     expect(model.getState().tab).toBe('garage')
+  })
+
+  it("goes back with the system gesture as each page's back button does", () => {
+    const { model } = setup(true, [civic])
+    model.getState().start()
+    model.getState().openTab('car')
+    model.getState().openTab('fuel')
+    expect(model.getState().systemBack()).toBe(true)
+    expect(model.getState().tab).toBe('car')
+    model.getState().openTab('quote')
+    model.getState().openTab('ask')
+    expect(model.getState().systemBack()).toBe(true)
+    expect(model.getState().tab).toBe('quote')
+    model.getState().openTab('account')
+    model.getState().openTab('data')
+    expect(model.getState().systemBack()).toBe(true)
+    expect(model.getState().tab).toBe('account')
+    expect(model.getState().systemBack()).toBe(true)
+    expect(model.getState().tab).toBe('garage')
+  })
+
+  it('lets the system gesture close the app from the garage', () => {
+    const { model } = setup(true, [civic])
+    model.getState().start()
+    expect(model.getState().systemBack()).toBe(false)
+    expect(model.getState().tab).toBe('garage')
+  })
+
+  it('closes "add your car" with the system gesture, staying on the same page', () => {
+    const { model } = setup(true, [civic])
+    model.getState().start()
+    model.getState().openTab('car')
+    model.getState().addCar()
+    expect(model.getState().systemBack()).toBe(true)
+    expect(model.getState().addingCar).toBe(false)
+    expect(model.getState().tab).toBe('car')
+  })
+
+  it('steps back from your data to the account to the first screen before any car is added', () => {
+    const { model } = setup(true, [])
+    model.getState().start()
+    expect(model.getState().status).toBe('no-vehicles')
+    model.getState().openTab('account')
+    model.getState().openTab('data')
+    expect(model.getState().systemBack()).toBe(true)
+    expect(model.getState().tab).toBe('account')
+    expect(model.getState().systemBack()).toBe(true)
+    expect(model.getState().tab).toBe('garage')
+    expect(model.getState().systemBack()).toBe(false)
+  })
+
+  it('leaves the system gesture to close the app while signed out or starting', () => {
+    const { model } = setup(false)
+    expect(model.getState().systemBack()).toBe(false)
+    model.getState().start()
+    expect(model.getState().systemBack()).toBe(false)
   })
 
   it("opens a car's page from the garage, selecting that car", () => {

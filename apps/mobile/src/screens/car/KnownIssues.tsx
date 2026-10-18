@@ -3,13 +3,15 @@ import {
   bulletinKindLabel,
   bulletinTitle,
   componentLabel,
-  formatMonth,
+  formatMonthYear,
   type Bulletin,
   type BulletinGroup,
   type SafetyActions,
   type SafetyState,
 } from '@car/core'
-import { Collapsible, Column, Row, Text } from '@expo/ui'
+import { Column, Row } from '@expo/ui'
+import { Collapsible } from '../../ui/Collapsible'
+import { Text } from '../../ui/Text'
 import { Fragment } from 'react'
 import { useColors } from '../../theme'
 import { Note } from '../../ui/Note'
@@ -111,7 +113,7 @@ function ExtensionCard({ bulletin, make }: { bulletin: Bulletin; make: string })
   const meta = [
     bulletinKindLabel(bulletin.kind).toUpperCase(),
     bulletin.documentId,
-    bulletin.issuedOn ? formatMonth(bulletin.issuedOn) : undefined,
+    bulletin.issuedOn ? formatMonthYear(bulletin.issuedOn) : undefined,
   ].filter(Boolean)
   return (
     <Card fill="accentSubtle" spacing={8}>
@@ -200,7 +202,7 @@ function BulletinGroupItem(props: { group: BulletinGroup; open: boolean; onToggl
               {[
                 bulletinKindLabel(b.kind).toUpperCase(),
                 b.documentId,
-                b.issuedOn ? formatMonth(b.issuedOn) : undefined,
+                b.issuedOn ? formatMonthYear(b.issuedOn) : undefined,
               ]
                 .filter(Boolean)
                 .join(' · ')}

@@ -1,0 +1,33 @@
+# Run by the CI job `ios` after the smoke test, with the simulator set to the largest accessibility
+# text size, so the screenshots show Dynamic Type at its limit.
+appId: com.moorea.carmaintenance
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+# Tappable cards are one accessibility element, so the car card reads "Demo car, …".
+- extendedWaitUntil:
+    visible: 'Demo car.*'
+    timeout: 60000
+- takeScreenshot: 7-large-text-garage
+- tapOn: 'Log'
+- waitForAnimationToEnd
+- takeScreenshot: 8-large-text-service-log
+- tapOn: 'Car'
+- waitForAnimationToEnd
+- takeScreenshot: 9-large-text-car
+# The demo car's recall card, whose "Risk and fix" toggle label scales too. The Car tab opens on
+# the schedule, so switch to recalls first.
+- scrollUntilVisible:
+    element: 'Recalls.*'
+    direction: DOWN
+    timeout: 30000
+- tapOn: 'Recalls.*'
+- waitForAnimationToEnd
+- scrollUntilVisible:
+    element: 'Risk and fix'
+    direction: DOWN
+    timeout: 30000
+    centerElement: true
+- takeScreenshot: 10-large-text-recall

@@ -47,6 +47,14 @@ export const SYMBOLS = {
     ios: 'checkmark.shield',
     paths: ['M12 3l8 3v6c0 4.5-3.4 8.2-8 9-4.6-.8-8-4.5-8-9V6z', 'M8.5 12l2.5 2.5 4.5-5'],
   },
+  fuel: {
+    ios: 'fuelpump',
+    paths: [
+      'M5 20V5a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v15',
+      'M4 20h11M7 8h5',
+      'M14 10h2l2 2v5a1.5 1.5 0 0 0 3 0V9l-3-3',
+    ],
+  },
   share: {
     ios: 'square.and.arrow.up',
     paths: ['M12 15V3M8 7l4-4 4 4', 'M6 11H5v10h14V11h-1'],
@@ -57,6 +65,10 @@ export const SYMBOLS = {
     paths: ['M3 8h4l2-3h6l2 3h4v11H3z', 'M12 10a3.5 3.5 0 1 0 0.01 0'],
   },
   photo: { ios: 'photo', paths: ['M3 5h18v14H3z', 'M3 16l5-5 4 4 3-3 6 6', 'M15 9h.01'] },
+  engine: {
+    ios: 'engine.combustion',
+    paths: ['M6 9h9l2 2h2v6h-2l-2 2H8l-2-2H4v-6h2z', 'M9 9V6h4v3', 'M2 12v4M22 12v4'],
+  },
   quote: { ios: 'list.bullet.clipboard', paths: ['M7 4h10v17H7z', 'M10 9h5M10 13h5M10 17h3'] },
   bulletin: {
     ios: 'wrench.and.screwdriver',
@@ -73,6 +85,12 @@ export const SYMBOLS = {
     ios: 'paperclip',
     paths: ['M16 7l-7.5 7.5a2 2 0 0 0 3 3L19 10a4 4 0 0 0-6-6l-7.5 7.5a6 6 0 0 0 8.5 8.5L20 14'],
   },
+  download: {
+    ios: 'square.and.arrow.down',
+    paths: ['M12 3v12M8 11l4 4 4-4', 'M6 11H5v10h14V11h-1'],
+  },
+  archive: { ios: 'archivebox', paths: ['M3 4h18v4H3z', 'M5 8v12h14V8', 'M10 12h4'] },
+  checkmark: { ios: 'checkmark.circle', paths: ['M12 3a9 9 0 1 0 0.01 0', 'M8 12l3 3 5-6'] },
   ellipsis: { ios: 'ellipsis', paths: ['M6 12h.01M12 12h.01M18 12h.01'] },
 } satisfies Record<string, { ios: SFSymbol; paths: string[] }>
 

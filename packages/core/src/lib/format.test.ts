@@ -4,7 +4,7 @@ import {
   formatCents,
   formatDay,
   formatMiles,
-  formatMonth,
+  formatMonthYear,
   formatWeekday,
 } from './format'
 
@@ -37,8 +37,8 @@ describe('formatting', () => {
   })
 })
 
-describe('formatMonth', () => {
+describe('formatMonthYear', () => {
   it('names the month and year', () => {
-    expect(formatMonth('2025-09-12')).toBe('Sep 2025')
+    expect(formatMonthYear('2025-09-12')).toBe('Sep 2025')
   })
 })

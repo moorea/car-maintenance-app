@@ -1,7 +1,14 @@
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { OdometerReading, SafetyReport, ServiceRecord, Vehicle, Warranty } from '@car/core'
+import type {
+  FillUp,
+  OdometerReading,
+  SafetyReport,
+  ServiceRecord,
+  Vehicle,
+  Warranty,
+} from '@car/core'
 import { PowerSyncDatabase } from '@powersync/node'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { PowerSyncBackendConnector } from '@powersync/common'
@@ -35,20 +42,35 @@ const oilChange: ServiceRecord = {
 
 const collect = <T>(subscribe: (onChange: (value: T) => void) => () => void) => {
   const values: T[] = []
-  /** Waits until `done` holds for the updates so far: a count, or a test of them. */
-  const waitFor = (done: number | ((values: T[]) => boolean)) =>
+  const waitFor = (count: number) =>
     new Promise<T[]>((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error(`Got ${values.length} updates`)), 5_000)
       const check = () => {
-        if (typeof done === 'number' ? values.length >= done : done(values)) {
+        if (values.length >= count) {
           clearTimeout(timer)
           resolve(values)
         } else setTimeout(check, 10)
       }
       check()
     })
+  /** The first value that passes, for watchers that settle over several updates. */
+  const waitUntil = (passes: (value: T) => boolean) =>
+    new Promise<T>((resolve, reject) => {
+      const timer = setTimeout(
+        () => reject(new Error(`No match in ${values.length} updates`)),
+        5_000,
+      )
+      const check = () => {
+        const match = values.find(passes)
+        if (match) {
+          clearTimeout(timer)
+          resolve(match)
+        } else setTimeout(check, 10)
+      }
+      check()
+    })
   const unsubscribe = subscribe((value) => values.push(value))
-  return { waitFor, stop: () => unsubscribe() }
+  return { waitFor, waitUntil, stop: () => unsubscribe() }
 }
 
 describe('PowerSync repositories', () => {
@@ -177,6 +199,86 @@ describe('PowerSync repositories', () => {
     updates.stop()
   })
 
+  it('reads back fill-ups newest first, with switches and decimals intact', async () => {
+    const repos = createPowerSyncRepositories(db)
+    const older: FillUp = {
+      id: 'f1',
+      vehicleId: 'v1',
+      filledOn: '2026-09-01',
+      odometerMiles: 41_000,
+      energy: 'fuel',
+      quantity: 12.481,
+      costCents: 4_820,
+      full: true,
+      missedPrevious: false,
+      station: 'Costco',
+    }
+    const newer: FillUp = {
+      id: 'f2',
+      vehicleId: 'v1',
+      filledOn: '2026-09-10',
+      odometerMiles: 41_300,
+      energy: 'electric',
+      quantity: 40,
+      full: false,
+      missedPrevious: true,
+    }
+    await repos.fillUps.save(older)
+    await repos.fillUps.save(newer)
+    expect(await repos.fillUps.listForVehicle('v1')).toStrictEqual([newer, older])
+    expect(await repos.fillUps.listForVehicle('other')).toEqual([])
+  })
+
+  it('uploads a new fill-up as an insert, an edit as only what changed, and a delete', async () => {
+    const repos = createPowerSyncRepositories(db)
+    const fillUp: FillUp = {
+      id: 'f1',
+      vehicleId: 'v1',
+      filledOn: '2026-09-01',
+      odometerMiles: 41_000,
+      energy: 'fuel',
+      quantity: 12,
+      full: true,
+      missedPrevious: false,
+    }
+    await repos.fillUps.save(fillUp)
+    await repos.fillUps.save({ ...fillUp, odometerMiles: 41_100, full: false })
+    await repos.fillUps.save({ ...fillUp, odometerMiles: 41_100, full: false })
+    await repos.fillUps.remove('f1')
+    const ops: [string, Record<string, unknown> | undefined][] = []
+    for (let tx = await db.getNextCrudTransaction(); tx; tx = await db.getNextCrudTransaction()) {
+      ops.push(
+        ...tx.crud.map((c) => [c.op, c.opData] as [string, Record<string, unknown> | undefined]),
+      )
+      await tx.complete()
+    }
+    expect(ops.map(([op]) => op)).toEqual(['PUT', 'PATCH', 'DELETE'])
+    expect(Object.keys(ops[1]?.[1] ?? {}).sort()).toEqual([
+      'full_tank',
+      'odometer_miles',
+      'updated_at',
+    ])
+  })
+
+  it("tells a watcher about the car's fill-ups after each change", async () => {
+    const repos = createPowerSyncRepositories(db)
+    const updates = collect<FillUp[]>((cb) => repos.fillUps.watchForVehicle('v1', cb))
+    await updates.waitFor(1)
+    await repos.fillUps.save({
+      id: 'f1',
+      vehicleId: 'v1',
+      filledOn: '2026-09-01',
+      odometerMiles: 41_000,
+      energy: 'fuel',
+      quantity: 12,
+      full: true,
+      missedPrevious: false,
+    })
+    const values = await updates.waitFor(2)
+    expect(values.at(-1)?.map((f) => f.odometerMiles)).toEqual([41_000])
+    updates.stop()
+  })
+
   it('remembers whose data the local copy holds, without queueing it for upload', async () => {
     const session = powerSyncSessionDatabase(db, {} as PowerSyncBackendConnector)
     expect(await session.owner()).toBeUndefined()
@@ -235,6 +337,31 @@ describe('PowerSync repositories', () => {
     expect(transaction?.crud.map((c) => c.table)).toEqual(['vehicles', 'odometer_readings'])
     expect(transaction?.crud[0]?.opData).toMatchObject({ owner_id: 'u1', severe_duty: 1 })
     expect(transaction?.crud[0]?.opData).not.toHaveProperty('config_id')
+  })
+
+  it('switches a car to the severe schedule and uploads only that change', async () => {
+    const repos = createPowerSyncRepositories(db)
+    const car: Vehicle = {
+      id: 'v-sev',
+      year: 2021,
+      make: 'Toyota',
+      model: 'RAV4',
+      nickname: 'RAV4',
+      severeDuty: false,
+    }
+    await repos.vehicles.add('u1', car)
+    await (await db.getNextCrudTransaction())?.complete()
+
+    await repos.vehicles.setSevereDuty('v-sev', true)
+
+    expect(await repos.vehicles.get('v-sev')).toMatchObject({ severeDuty: true })
+    const transaction = await db.getNextCrudTransaction()
+    expect(transaction?.crud).toHaveLength(1)
+    expect(transaction?.crud[0]).toMatchObject({ table: 'vehicles', id: 'v-sev', op: 'PATCH' })
+    expect(Object.keys(transaction?.crud[0]?.opData ?? {}).sort()).toEqual([
+      'severe_duty',
+      'updated_at',
+    ])
   })
 
   it('adds a car without a reading when the owner gives no mileage', async () => {
@@ -338,16 +465,17 @@ describe('PowerSync repositories', () => {
       )
     })
 
-    // Each table is watched on its own, so the report settles once every one has caught up.
-    const values = await reports.waitFor(
-      (v) =>
-        v.at(-1)?.bulletins?.length === 2 &&
-        v.at(-1)?.recalls.length === 1 &&
-        v.at(-1)?.complaints.length === 1 &&
-        v.at(-1)?.bulletinsCheckedAt !== undefined,
+    // Recalls, complaints, bulletins and check times are watched separately, so the report
+    // settles over a few updates.
+    const settled = await reports.waitUntil(
+      (r) =>
+        r.recalls.length > 0 &&
+        r.complaints.length > 0 &&
+        (r.bulletins?.length ?? 0) === 2 &&
+        r.bulletinsCheckedAt !== undefined,
     )
     reports.stop()
-    expect(values.at(-1)).toEqual({
+    expect(settled).toEqual({
       recallsCheckedAt: '2026-10-17 12:00:00Z',
       complaintsCheckedAt: '2026-10-17 12:01:00Z',
       bulletinsCheckedAt: '2026-10-17 12:02:00Z',

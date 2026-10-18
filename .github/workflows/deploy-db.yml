@@ -1,11 +1,13 @@
 name: Deploy database
 
-# Applies new migrations in supabase/migrations to the hosted Supabase project after they merge.
-# Migrations are checked by the CI database job (SQL lint and pgTAP) before they can merge.
+# Applies new migrations in supabase/migrations to the hosted Supabase project after they merge,
+# then deploys powersync/sync-rules.yaml to the hosted PowerSync instance. Both are checked in CI
+# (SQL lint and pgTAP; the sync rules tests and the Sync rules workflow) before they can merge.
+# Sync rules go out after every migration too, so they are never left behind the schema.
 on:
   push:
     branches: [main]
-    paths: ['supabase/migrations/**']
+    paths: ['supabase/migrations/**', 'powersync/**', '.github/workflows/deploy-db.yml']
   workflow_dispatch:
 
 permissions:
@@ -18,6 +20,8 @@ concurrency:
 
 jobs:
   migrate:
+    # A manual run from another branch must not deploy that branch.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -32,3 +36,51 @@ jobs:
       - name: Show pending migrations
         run: supabase migration list
       - run: supabase db push --yes
+
+  # Runs after the migrations, so streams never go live before the tables they read exist. Needs
+  # a PowerSync personal access token in the PS_ADMIN_TOKEN secret; skips with a warning until then.
+  sync-rules:
+    needs: migrate
+    runs-on: ubuntu-latest
+    env:
+      # The instance id is the first label of EXPO_PUBLIC_POWERSYNC_URL; it is not a secret.
+      INSTANCE_ID: 6ad3a8c62f27853eb0afd855
+    steps:
+      - name: Check for the PowerSync token
+        id: token
+        env:
+          PS_ADMIN_TOKEN: ${{ secrets.PS_ADMIN_TOKEN }}
+        run: |
+          if [ -z "$PS_ADMIN_TOKEN" ]; then
+            echo "::warning::PS_ADMIN_TOKEN is not set, so sync rules were not deployed. Add it, then run this workflow by hand."
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.token.outputs.present == 'true'
+        uses: actions/checkout@v4
+      - if: steps.token.outputs.present == 'true'
+        uses: pnpm/action-setup@v4
+      - if: steps.token.outputs.present == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - if: steps.token.outputs.present == 'true'
+        run: pnpm install --frozen-lockfile
+      # A deploy redeploys the instance even when nothing changed, so it only runs on a difference.
+      # Both commands validate first and stop on any error; the deploy waits for the instance to
+      # report it done, with room for re-provisioning an instance that was stopped.
+      - name: Deploy sync rules
+        if: steps.token.outputs.present == 'true'
+        env:
+          PS_ADMIN_TOKEN: ${{ secrets.PS_ADMIN_TOKEN }}
+        run: |
+          set -o pipefail
+          args=(--instance-id "$INSTANCE_ID" --sync-config-file-path powersync/sync-rules.yaml)
+          pnpm exec powersync deploy sync-config --dry-run "${args[@]}" | tee "$RUNNER_TEMP/dry-run.txt"
+          if grep -q 'matches the deployed sync config' "$RUNNER_TEMP/dry-run.txt"; then
+            echo "Sync rules are already deployed."
+          else
+            pnpm exec powersync deploy sync-config --deploy-timeout 900 "${args[@]}"
+          fi

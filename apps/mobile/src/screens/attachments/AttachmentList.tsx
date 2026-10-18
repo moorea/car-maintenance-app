@@ -5,7 +5,7 @@ import type {
   AttachTarget,
   FileSource,
 } from '@car/core'
-import { Column, Row, Text } from '@expo/ui'
+import { Column, Row } from '@expo/ui'
 import { Fragment } from 'react'
 import { ActivityIndicator } from 'react-native'
 import { useColors } from '../../theme'
@@ -13,6 +13,7 @@ import { ActionMenu, type MenuAction, type MenuGroup } from '../../ui/ActionMenu
 import { ErrorText, Note } from '../../ui/Note'
 import { Card, FillColumn, FillRow, PillButton, Separator } from '../../ui/surfaces'
 import { Symbol } from '../../ui/Symbol'
+import { Text } from '../../ui/Text'
 
 export type AttachmentsProps = AttachmentsState &
   Pick<AttachmentsActions, 'attach' | 'open' | 'askRemove' | 'cancelRemove' | 'remove'>

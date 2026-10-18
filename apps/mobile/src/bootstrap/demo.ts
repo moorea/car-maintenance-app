@@ -2,6 +2,7 @@ import {
   memoryAttachments,
   memoryAccount,
   memoryAuth,
+  memoryFillUps,
   memoryOdometer,
   memorySafety,
   memorySchedule,
@@ -13,7 +14,17 @@ import {
   OWNER,
 } from '@car/core/testing'
 import { demoModel, localAssistant } from '@car/core/testing'
-import type { Attachment, AttachmentRepo, Clock, MaintenanceItem, SafetyReport } from '@car/core'
+import { launchFlag } from './launchFlags'
+import {
+  addDays,
+  daysBetween,
+  type Attachment,
+  type AttachmentRepo,
+  type Clock,
+  type FillUp,
+  type MaintenanceItem,
+  type SafetyReport,
+} from '@car/core'
 
 /** A VIN the demo's offline decoder knows, for previews where the real lookup cannot run. */
 export const DEMO_VIN = '1HGCM82633A004352'
@@ -346,11 +357,71 @@ export const demoAttachments = (files?: Record<string, string>): AttachmentRepo 
 }
 
 /** Sample data for running the app without a backend, e.g. before Supabase is set up. */
+/** Where the demo car's odometer was on the days its readings and services say. */
+const DEMO_MILEAGE: [date: string, miles: number][] = [
+  ['2025-09-20', 18_200],
+  ['2026-03-14', 23_400],
+  ['2026-04-02', 24_150],
+  ['2026-07-01', 30_000],
+  ['2026-08-15', 33_400],
+  ['2026-10-10', 35_780],
+  ['2026-10-16', 36_080],
+]
+
+const demoMilesOn = (date: string): number => {
+  const after = DEMO_MILEAGE.findIndex(([d]) => d > date)
+  const last = DEMO_MILEAGE.length - 1
+  const [fromDate, fromMiles] = DEMO_MILEAGE[after < 0 ? last : Math.max(0, after - 1)] ?? ['', 0]
+  const [toDate, toMiles] = DEMO_MILEAGE[after < 0 ? last : after] ?? ['', 0]
+  const span = daysBetween(fromDate, toDate)
+  return span === 0
+    ? fromMiles
+    : Math.round(fromMiles + ((toMiles - fromMiles) * daysBetween(fromDate, date)) / span)
+}
+
+/**
+ * A year of fill-ups every tankful, at the mileage the car's readings show: better
+ * economy in summer, prices that rise into summer, one top-up that did not fill the tank, and
+ * the same two stations most of the time.
+ */
+export const demoFillUps = (): FillUp[] => {
+  const fills: FillUp[] = []
+  let date = '2025-10-04'
+  let lastMiles = demoMilesOn(date)
+  for (let i = 0; date <= '2026-10-16'; i++) {
+    const miles = demoMilesOn(date)
+    const month = Number(date.slice(5, 7))
+    const summer = Math.cos(((month - 7) / 12) * 2 * Math.PI)
+    const mpg = 29 + 2.5 * summer + Math.sin(i * 2.3) * 0.9
+    const partial = i === 21
+    const gallons = Math.round(((miles - lastMiles) / mpg) * 1000) / 1000
+    const price = 3.35 + 0.25 * summer + Math.sin(i * 1.7) * 0.08
+    fills.push({
+      id: `demo-fuel-${i}`,
+      vehicleId: 'demo',
+      filledOn: date,
+      odometerMiles: miles,
+      energy: 'fuel',
+      quantity: i === 0 ? 12.8 : gallons,
+      costCents: Math.round((i === 0 ? 12.8 : gallons) * price * 100),
+      full: !partial,
+      missedPrevious: false,
+      station: i % 3 === 2 ? 'Shell' : 'Costco',
+    })
+    lastMiles = miles
+    // About 330 to 390 miles a tank, so fill-ups come closer together while it is driven more.
+    const perDay = Math.max(1, (demoMilesOn(addDays(date, 14)) - miles) / 14)
+    date = addDays(date, Math.max(4, Math.round((360 + Math.sin(i * 1.3) * 30) / perDay)))
+  }
+  return fills
+}
+
 export const createDemoRepositories = () => {
   // Already signed in, so the demo opens on the sample car. After signing out, any email with
-  // code 123456 signs back in as the same demo owner.
+  // code 123456 signs back in as the same demo owner. UI tests can start signed out instead, to
+  // see the first-run introduction.
   const auth = memoryAuth({
-    user: { id: OWNER, email: 'demo@example.com' },
+    ...(launchFlag('demoSignedOut') ? {} : { user: { id: OWNER, email: 'demo@example.com' } }),
     userIdFor: () => OWNER,
   })
   return {
@@ -376,6 +447,7 @@ export const createDemoRepositories = () => {
       { vehicleId: 'demo', date: '2026-04-02', miles: 24_150 },
       { vehicleId: 'demo', date: '2026-10-10', miles: 35_780 },
     ]),
+    fillUps: memoryFillUps(demoFillUps()),
     schedule: memorySchedule(DEMO_SCHEDULE),
     safety: memorySafety({ demo: DEMO_SAFETY }),
     // Factory coverage as Toyota states it for a RAV4, from a sale in April 2022, plus a dealer's

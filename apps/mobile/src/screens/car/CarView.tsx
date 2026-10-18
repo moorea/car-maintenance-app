@@ -7,7 +7,7 @@ import type {
   SafetyState,
   ScheduleRow,
 } from '@car/core'
-import { Button, Column, Row, ScrollView, Text } from '@expo/ui'
+import { Button, Column, Row, ScrollView } from '@expo/ui'
 import { Fragment } from 'react'
 import { ActivityIndicator, StyleSheet } from 'react-native'
 import { useColors, type ColorRole } from '../../theme'
@@ -22,19 +22,33 @@ import type { AttachmentsProps } from '../attachments/AttachmentList'
 import { DocumentsSection } from '../attachments/DocumentsSection'
 import { KnownIssuesSection } from './KnownIssues'
 import { RecallsSection } from './SafetySections'
+import { Reflow } from '../../ui/Reflow'
+import { Text } from '../../ui/Text'
 
 interface Props {
   car: CarState & CarActions
   safety: SafetyState & Pick<SafetyActions, 'toggle'>
   documents: AttachmentsProps
   onCheckQuote: () => void
+  onTroubleCodes: () => void
   onWarranty: () => void
+  onFuel: () => void
+  onDriving: () => void
 }
 
 const OVERLINE = { fontSize: 13, fontWeight: '600', letterSpacing: 0.5 } as const
 
 /** Pure rendering of a car's page: odometer, documents, then schedule, recalls or known issues. */
-export function CarView({ car, safety, documents, onCheckQuote, onWarranty }: Props) {
+export function CarView({
+  car,
+  safety,
+  documents,
+  onCheckQuote,
+  onTroubleCodes,
+  onWarranty,
+  onFuel,
+  onDriving,
+}: Props) {
   const colors = useColors()
   if (car.status === 'loading') return <ActivityIndicator style={styles.fill} />
 
@@ -59,11 +73,13 @@ export function CarView({ car, safety, documents, onCheckQuote, onWarranty }: Pr
           </Column>
           <OdometerCard {...car} />
           <QuoteCard onPress={onCheckQuote} />
+          <TroubleCodesCard onPress={onTroubleCodes} />
+          <FuelCard onPress={onFuel} />
           <WarrantyCard onPress={onWarranty} />
           <DocumentsSection {...documents} />
           <SegmentedControl options={sections} selected={car.section} onSelect={car.showSection} />
           {car.section === 'schedule' ? (
-            <Schedule {...car} />
+            <Schedule {...car} onDriving={onDriving} />
           ) : car.section === 'recalls' ? (
             <RecallsSection {...safety} />
           ) : (
@@ -107,7 +123,7 @@ function OdometerCard(car: CarState & CarActions) {
   }
   return (
     <Card padding={14}>
-      <Row alignment="center" spacing={12}>
+      <Reflow alignment="center" spacing={12}>
         <FillColumn spacing={2}>
           <Text textStyle={{ ...OVERLINE, color: colors.textSecondary }}>ODOMETER</Text>
           <Text textStyle={{ fontSize: 26, fontWeight: '700' }}>
@@ -118,7 +134,7 @@ function OdometerCard(car: CarState & CarActions) {
           ) : null}
         </FillColumn>
         <Button variant="outlined" label="Update" onPress={car.editOdometer} />
-      </Row>
+      </Reflow>
     </Card>
   )
 }
@@ -134,6 +150,44 @@ function QuoteCard({ onPress }: { onPress: () => void }) {
           <Text textStyle={{ fontSize: 16, fontWeight: '600' }}>Check a shop’s quote</Text>
           <Text textStyle={{ fontSize: 13, color: colors.textSecondary }}>
             See which recommendations are actually due
+          </Text>
+        </FillColumn>
+        <Symbol name="chevron" size={16} color={colors.textSecondary} />
+      </Row>
+    </Card>
+  )
+}
+
+/** Opens the code lookup, for when the check-engine light comes on. */
+function TroubleCodesCard({ onPress }: { onPress: () => void }) {
+  const colors = useColors()
+  return (
+    <Card padding={14} onPress={onPress}>
+      <Row alignment="center" spacing={12}>
+        <Symbol name="engine" size={22} color={colors.accent} />
+        <FillColumn spacing={1}>
+          <Text textStyle={{ fontSize: 16, fontWeight: '600' }}>Check-engine light on?</Text>
+          <Text textStyle={{ fontSize: 13, color: colors.textSecondary }}>
+            Look up a code and see how urgent it is
+          </Text>
+        </FillColumn>
+        <Symbol name="chevron" size={16} color={colors.textSecondary} />
+      </Row>
+    </Card>
+  )
+}
+
+/** Opens the car's fill-ups and what it costs to run. */
+function FuelCard({ onPress }: { onPress: () => void }) {
+  const colors = useColors()
+  return (
+    <Card padding={14} onPress={onPress}>
+      <Row alignment="center" spacing={12}>
+        <Symbol name="fuel" size={22} color={colors.accent} />
+        <FillColumn spacing={1}>
+          <Text textStyle={{ fontSize: 16, fontWeight: '600' }}>Fuel & costs</Text>
+          <Text textStyle={{ fontSize: 13, color: colors.textSecondary }}>
+            Log fill-ups, see economy and what the car costs each month
           </Text>
         </FillColumn>
         <Symbol name="chevron" size={16} color={colors.textSecondary} />
@@ -167,7 +221,14 @@ const DOT: Record<DueStatus, ColorRole> = {
   upcoming: 'textSecondary',
 }
 
-function Schedule(car: CarState) {
+// What the dot's colour says, for VoiceOver.
+const STATUS_LABEL: Record<DueStatus, string> = {
+  overdue: 'Overdue',
+  'due-soon': 'Due soon',
+  upcoming: 'Upcoming',
+}
+
+function Schedule(car: CarState & { onDriving: () => void }) {
   const colors = useColors()
   if (car.status === 'unmatched')
     return <Note>Your schedule appears once your car has synced.</Note>
@@ -177,9 +238,14 @@ function Schedule(car: CarState) {
   return (
     <Column spacing={8}>
       <Column spacing={4} style={{ paddingHorizontal: 4 }}>
-        <Text textStyle={{ ...OVERLINE, color: colors.textSecondary }}>
-          {car.scheduleTitle.toUpperCase()}
-        </Text>
+        <Row alignment="center">
+          <FillColumn>
+            <Text textStyle={{ ...OVERLINE, color: colors.textSecondary }}>
+              {car.scheduleTitle.toUpperCase()}
+            </Text>
+          </FillColumn>
+          <Button variant="text" label="Change" onPress={car.onDriving} />
+        </Row>
         {car.scheduleNote ? <Note>{car.scheduleNote}</Note> : null}
       </Column>
       <Card padding={0}>
@@ -199,7 +265,7 @@ function ScheduleRowView({ row }: { row: ScheduleRow }) {
   const overdue = row.status === 'overdue'
   return (
     <Row alignment="center" spacing={12} style={{ paddingHorizontal: 16, paddingVertical: 11 }}>
-      <Dot color={DOT[row.status]} />
+      <Dot color={DOT[row.status]} label={STATUS_LABEL[row.status]} />
       <FillColumn spacing={1}>
         <Text textStyle={{ fontSize: 16, fontWeight: '500' }}>{row.task}</Text>
         {row.interval ? (

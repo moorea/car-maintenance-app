@@ -1,14 +1,15 @@
 import type { SignInActions, SignInState } from '@car/core'
-import { Button, Column, ScrollView, Text } from '@expo/ui'
+import { Button, Column, ScrollView } from '@expo/ui'
 import { Host } from '../../ui/Host'
 import { ErrorText } from '../../ui/Note'
 import { TextField } from '../../ui/TextField'
+import { Text } from '../../ui/Text'
 
 type Props = SignInState &
   Pick<
     SignInActions,
     'setEmail' | 'setCode' | 'submitEmail' | 'submitCode' | 'resend' | 'changeEmail'
-  >
+  > & { onPrivacyPolicy: () => void }
 
 /** Pure rendering of the sign-in model: the email step, then the code step. */
 export function SignInView(props: Props) {
@@ -21,11 +22,15 @@ export function SignInView(props: Props) {
           {step === 'email' ? (
             <>
               <Text>We'll email you a code. No password needed.</Text>
+              {/* Keyed so each step mounts a new native field: iOS keeps a focused field's keyboard,
+                  so reusing the email field left the code step with the email keyboard. */}
               <TextField
+                key="email"
                 label="Email"
                 value={email}
                 onChangeText={props.setEmail}
                 error={fieldError}
+                placeholder="you@example.com"
                 keyboardType="email-address"
                 autoComplete="email"
                 autoCapitalize="none"
@@ -41,6 +46,7 @@ export function SignInView(props: Props) {
             <>
               <Text>{`Enter the code we sent to ${email}.`}</Text>
               <TextField
+                key="code"
                 label="Code"
                 value={code}
                 onChangeText={props.setCode}
@@ -69,6 +75,7 @@ export function SignInView(props: Props) {
               />
             </>
           )}
+          <Button variant="text" label="Privacy policy" onPress={props.onPrivacyPolicy} />
         </Column>
       </ScrollView>
     </Host>

@@ -90,6 +90,7 @@ const ERROR_MESSAGES: Record<AssistantErrorKind, string> = {
   'rate-limited': "You've asked a lot of questions today. Try again tomorrow.",
   unavailable: "Ask isn't available right now. Try again later.",
   declined: "That's not something I can answer. Try asking another way.",
+  'not-allowed': 'Ask is turned off in Account. Turn on sharing with Anthropic to use it.',
   unknown: 'Something went wrong. Try again.',
 }
 

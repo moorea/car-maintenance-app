@@ -1,9 +1,15 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { createReminderScheduler, type IdGenerator } from '@car/core'
+import {
+  createReminderScheduler,
+  guardAiSharing,
+  withFillUpReadings,
+  type IdGenerator,
+} from '@car/core'
 import { demoQuoteReader } from '@car/core/testing'
-import { nhtsaVinDecoder, storedReminderSettings } from '@car/data'
+import { nhtsaVinDecoder, storedDevicePreferences, storedReminderSettings } from '@car/data'
 import { randomUUID } from 'expo-crypto'
 import { pdfReportExporter } from './careReport'
+import { appDataFiles } from './dataFiles'
 import { localClock } from './clock'
 import { backendConfig } from './config'
 import { createDemoAssistant, createDemoRepositories } from './demo'
@@ -19,13 +25,19 @@ const ids: IdGenerator = { next: () => randomUUID() }
 
 // Live when backend settings are present; otherwise the app runs on demo data.
 const config = backendConfig()
-const repositories = config ? createLiveRepositories(config) : demoRepositories()
+const chosen = config ? createLiveRepositories(config) : demoRepositories()
+// Every fill-up's mileage is an odometer reading, for every screen and for reminders.
+const repositories = { ...chosen, odometer: withFillUpReadings(chosen.odometer, chosen.fillUps) }
 
 function demoRepositories() {
   const demo = createDemoRepositories()
   return {
     ...demo,
-    assistant: createDemoAssistant(demo, clock),
+    // The assistant sees fill-up mileage too, as the live server does.
+    assistant: createDemoAssistant(
+      { ...demo, odometer: withFillUpReadings(demo.odometer, demo.fillUps) },
+      clock,
+    ),
     quoteReader: demoQuoteReader({ delayMs: 1_500 }),
   }
 }
@@ -33,6 +45,10 @@ function demoRepositories() {
 // Reminders are planned and scheduled on the phone, so they work offline and need no push server.
 const notifier = expoNotifier()
 const reminderSettings = storedReminderSettings(AsyncStorage, 'car-maintenance-reminders')
+// Seen the introduction, and allowed Ask to share with Anthropic: both belong to this phone.
+const preferences = storedDevicePreferences(AsyncStorage, 'car-maintenance-preferences')
+// Nothing reaches Anthropic unless the signed-in owner allowed it, whichever screen asks.
+const ai = guardAiSharing({ preferences, auth: repositories.auth }, repositories)
 
 export const deps = {
   clock,
@@ -40,9 +56,12 @@ export const deps = {
   // NHTSA's lookup is free and needs no account, so demo mode uses it too.
   vinDecoder: nhtsaVinDecoder(),
   ...repositories,
+  ...ai,
   notifier,
   reminderSettings,
+  preferences,
   exporter: pdfReportExporter(),
+  dataFiles: appDataFiles(),
   picker: systemFilePicker(),
   preview: systemFilePreview(),
   photos: expoPhotoPicker(),

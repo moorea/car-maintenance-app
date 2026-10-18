@@ -1,5 +1,5 @@
 import type { AnswerSourceKind, AskActions, AskState, ChatMessage } from '@car/core'
-import { Button, Column, Row, ScrollView, Spacer, Text } from '@expo/ui'
+import { Button, Column, Row, ScrollView, Spacer } from '@expo/ui'
 import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native'
 import { useColors } from '../../theme'
 import { ChatComposer } from '../../ui/ChatComposer'
@@ -8,6 +8,7 @@ import { Host } from '../../ui/Host'
 import { ErrorText, Note } from '../../ui/Note'
 import { Bubble, Card, Chip, GlassIconButton, GlassPill } from '../../ui/surfaces'
 import type { SymbolName } from '../../ui/symbols'
+import { Text } from '../../ui/Text'
 
 type Props = AskState &
   Pick<AskActions, 'setDraft' | 'send' | 'ask' | 'stop' | 'retry' | 'newConversation'> & {
@@ -37,7 +38,7 @@ export function AskView(props: Props) {
       <View style={styles.header}>
         <Host matchContents={{ vertical: true }} style={styles.bar}>
           <Row alignment="center">
-            <GlassIconButton symbol="back" onPress={props.onBack} />
+            <GlassIconButton symbol="back" label="Back" onPress={props.onBack} />
             <Spacer flexible />
             <Column alignment="center">
               <Text textStyle={{ fontSize: 17, fontWeight: '600' }}>Ask</Text>
@@ -46,7 +47,11 @@ export function AskView(props: Props) {
               </Text>
             </Column>
             <Spacer flexible />
-            <GlassIconButton symbol="compose" onPress={props.newConversation} />
+            <GlassIconButton
+              symbol="compose"
+              label="New conversation"
+              onPress={props.newConversation}
+            />
           </Row>
         </Host>
       </View>
@@ -91,8 +96,13 @@ export function AskView(props: Props) {
               placeholder={`Ask about your ${props.carName}`}
               action={
                 answering
-                  ? { symbol: 'stop', onPress: props.stop, disabled: false }
-                  : { symbol: 'send', onPress: props.send, disabled: !props.canSend }
+                  ? {
+                      symbol: 'stop',
+                      label: 'Stop answering',
+                      onPress: props.stop,
+                      disabled: false,
+                    }
+                  : { symbol: 'send', label: 'Send', onPress: props.send, disabled: !props.canSend }
               }
             />
           </Column>

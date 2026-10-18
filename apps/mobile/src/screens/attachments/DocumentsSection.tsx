@@ -1,5 +1,5 @@
 import type { AttachmentKind } from '@car/core'
-import { Column, Row, Spacer, Text } from '@expo/ui'
+import { Column, Row, Spacer } from '@expo/ui'
 import { useColors } from '../../theme'
 import { ActionMenu, type MenuGroup } from '../../ui/ActionMenu'
 import { Note } from '../../ui/Note'
@@ -10,6 +10,7 @@ import {
   sourceActions,
   type AttachmentsProps,
 } from './AttachmentList'
+import { Text } from '../../ui/Text'
 
 const OVERLINE = { fontSize: 13, fontWeight: '600', letterSpacing: 0.5 } as const
 

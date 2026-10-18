@@ -175,9 +175,16 @@ export const supabaseStore = (
     const forConfig = async (table: string) =>
       configId === undefined ? [] : rows(user.from(table).select('*').eq('config_id', configId))
 
-    const [readings, records, schedule, recalls, summaries, bulletins, configs] = await Promise.all(
-      [
+    const [readings, fillUps, records, schedule, recalls, summaries, bulletins, configs] =
+      await Promise.all([
         rows(user.from('odometer_readings').select('*').eq('vehicle_id', vehicleId)),
+        // A fill-up's mileage is one of the car's readings, as it is on the phone.
+        rows(
+          user
+            .from('fill_ups')
+            .select('vehicle_id, filled_on, odometer_miles')
+            .eq('vehicle_id', vehicleId),
+        ),
         rows(user.from('service_records').select('*').eq('vehicle_id', vehicleId)),
         forConfig('maintenance_items'),
         forConfig('recalls'),
@@ -186,8 +193,7 @@ export const supabaseStore = (
         configId === undefined
           ? []
           : rows(user.from('vehicle_configs').select('*').eq('id', configId)),
-      ],
-    )
+      ])
     // The newest complaints, and the newest of those that happened near the car's last reading,
     // from which the grounding picks its sample.
     const latest = readings.map(toReading).sort((a, b) => b.date.localeCompare(a.date))[0]?.miles
@@ -216,7 +222,10 @@ export const supabaseStore = (
     return {
       vehicle,
       today: new Date().toISOString().slice(0, 10),
-      readings: readings.map(toReading),
+      readings: [
+        ...readings.map(toReading),
+        ...fillUps.map((r) => toReading({ ...r, read_on: r.filled_on, miles: r.odometer_miles })),
+      ],
       schedule: schedule.map(toItem),
       records: records.map(toRecord),
       safety: defined({

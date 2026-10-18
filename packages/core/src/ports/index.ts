@@ -4,6 +4,7 @@ import type {
   Attachment,
   AuthUser,
   DecodedVin,
+  FillUp,
   MaintenanceItem,
   OdometerReading,
   PickedFile,
@@ -32,6 +33,8 @@ export interface VehicleRepo {
    * reading never uploads without its car.
    */
   add(ownerId: string, vehicle: Vehicle, firstReading?: OdometerReading): Promise<void>
+  /** Puts the car on the severe maintenance schedule, or back on the normal one. */
+  setSevereDuty(id: VehicleId, severeDuty: boolean): Promise<void>
 }
 
 /** Looks up what a VIN is. Needs a connection. */
@@ -99,6 +102,17 @@ export interface WarrantyRepo {
   remove(id: string): Promise<void>
 }
 
+/** The car's fill-ups and charging sessions. Editable, unlike the service history. */
+export interface FillUpRepo {
+  /** The car's fill-ups, newest first. */
+  listForVehicle(vehicleId: VehicleId): Promise<FillUp[]>
+  /** Calls `onChange` with the car's fill-ups, newest first, now and after every change. */
+  watchForVehicle(vehicleId: VehicleId, onChange: (fillUps: FillUp[]) => void): Unsubscribe
+  /** Adds the fill-up, or replaces the one with the same id. */
+  save(fillUp: FillUp): Promise<void>
+  remove(id: string): Promise<void>
+}
+
 /** Turns a care report into a file the owner can send, such as a PDF in the share sheet. */
 export interface CareReportExporter {
   /** Resolves once the owner has been offered the file, whether or not they sent it. */
@@ -147,6 +161,21 @@ export interface FilePicker {
    * AttachmentError('denied') when the owner has refused access.
    */
   pick(source: FileSource): Promise<PickedFile | undefined>
+}
+
+/** Files moving between the app and the rest of the phone, for exporting and importing data. */
+export interface DataFiles {
+  /** The bytes of a file on this phone, by a URI such as AttachmentRepo.open resolves with. */
+  read(uri: string): Promise<Uint8Array>
+  /**
+   * Saves `bytes` as a file called `name` and offers it in the share sheet (Save to Files, AirDrop,
+   * Mail). Resolves once the sheet closes, whether or not the owner sent it anywhere.
+   */
+  share(bytes: Uint8Array, name: string): Promise<void>
+  /** Opens the file picker for a zip; resolves with its bytes, or undefined if cancelled. */
+  pickArchive(): Promise<Uint8Array | undefined>
+  /** Writes `bytes` to a temporary file that AttachmentRepo.add can keep a copy of. */
+  stage(bytes: Uint8Array, file: { name: string; contentType: string }): Promise<PickedFile>
 }
 
 export interface ScheduleRepo {
@@ -211,6 +240,26 @@ export interface ReminderSettingsRepo {
   /** Calls `onChange` with the settings now and after every change. */
   watch(onChange: (settings: ReminderSettings) => void): Unsubscribe
   set(settings: ReminderSettings): Promise<void>
+}
+
+/** Choices kept on this device that belong to the person holding it, not to an account. */
+export interface DevicePreferences {
+  /** The first-run introduction has been seen or skipped on this phone. */
+  onboarded: boolean
+  /**
+   * The account id of the owner who allowed Ask and the quote checker to send their question,
+   * their car's records or a photo of a quote to Anthropic, which runs the model that answers
+   * (App Store guideline 5.1.2(i)). Null until someone says yes. Holding the id means someone
+   * else signing in on this phone is asked again.
+   */
+  aiSharingOwner: string | null
+}
+
+export interface DevicePreferencesRepo {
+  /** Calls `onChange` with the preferences once they are read, and after every change. */
+  watch(onChange: (preferences: DevicePreferences) => void): Unsubscribe
+  /** Saves the given preferences, keeping the others. */
+  update(change: Partial<DevicePreferences>): Promise<void>
 }
 
 /** The part of the platform's AbortSignal that core relies on; core has no DOM types. */

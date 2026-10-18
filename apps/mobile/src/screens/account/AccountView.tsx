@@ -1,5 +1,11 @@
-import type { AccountActions, AccountState, RemindersSummary } from '@car/core'
-import { Column, Row, ScrollView, Text } from '@expo/ui'
+import type {
+  AccountActions,
+  AccountState,
+  AiSharingActions,
+  AiSharingState,
+  RemindersSummary,
+} from '@car/core'
+import { Column, Row, ScrollView, Switch } from '@expo/ui'
 import type { ReactNode } from 'react'
 import { StyleSheet } from 'react-native'
 import { useColors, type ColorRole } from '../../theme'
@@ -9,11 +15,15 @@ import { TAB_BAR_CLEARANCE } from '../../ui/TabBar'
 import { Card, FillColumn, GlassIconButton, PillButton } from '../../ui/surfaces'
 import { Symbol } from '../../ui/Symbol'
 import type { SymbolName } from '../../ui/symbols'
+import { Text } from '../../ui/Text'
 
 type Props = AccountState &
   Pick<AccountActions, 'signOut' | 'askToDelete' | 'cancelDelete' | 'confirmDelete'> & {
     onReminders?: (() => void) | undefined
     onBack?: (() => void) | undefined
+    onYourData?: (() => void) | undefined
+    aiSharing: AiSharingState & Pick<AiSharingActions, 'setOn'>
+    onPrivacyPolicy: () => void
   }
 
 const OVERLINE = { fontSize: 13, fontWeight: '600', letterSpacing: 0.5 } as const
@@ -40,7 +50,7 @@ export function AccountView(props: Props) {
         >
           {props.onBack ? (
             <Row>
-              <GlassIconButton symbol="back" onPress={props.onBack} />
+              <GlassIconButton symbol="back" label="Back" onPress={props.onBack} />
             </Row>
           ) : null}
           <Text textStyle={{ fontSize: 34, fontWeight: '700' }}>Account</Text>
@@ -77,6 +87,16 @@ export function AccountView(props: Props) {
             </Section>
           ) : null}
 
+          {props.onYourData ? (
+            <Section title="YOUR DATA">
+              <Card padding={0} onPress={props.onYourData}>
+                <SettingRow symbol="archive" label="Export or import data" chevron />
+              </Card>
+            </Section>
+          ) : null}
+
+          <Privacy {...props} />
+
           <Column spacing={8}>
             <Card padding={0} {...(idle && { onPress: () => void props.signOut() })}>
               <SettingRow
@@ -103,6 +123,31 @@ export function AccountView(props: Props) {
         </Column>
       </ScrollView>
     </Host>
+  )
+}
+
+function Privacy({ aiSharing, onPrivacyPolicy }: Props) {
+  return (
+    <Section title="PRIVACY">
+      <Card padding={0}>
+        <Row style={{ paddingHorizontal: 16, paddingVertical: 10 }}>
+          <Switch
+            label="Share with Anthropic for Ask and quote checks"
+            value={aiSharing.on}
+            disabled={aiSharing.status !== 'ready'}
+            onValueChange={(on) => void aiSharing.setOn(on)}
+          />
+        </Row>
+      </Card>
+      {aiSharing.error ? <ErrorText>{aiSharing.error}</ErrorText> : null}
+      <Note>
+        Ask and the quote checker send your question, your car's records or a quote's photo to
+        Anthropic, whose Claude model writes the answer. Off means they ask first.
+      </Note>
+      <Card padding={0} onPress={onPrivacyPolicy}>
+        <SettingRow symbol="shield" label="Privacy policy" chevron />
+      </Card>
+    </Section>
   )
 }
 

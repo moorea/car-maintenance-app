@@ -1,5 +1,5 @@
 import type { LogEntry, LogGroup, ServiceLogActions, ServiceLogState } from '@car/core'
-import { BottomSheet, Button, Column, Picker, Row, ScrollView, Spacer, Text } from '@expo/ui'
+import { BottomSheet, Button, Column, Picker, Row, ScrollView, Spacer } from '@expo/ui'
 import { Fragment } from 'react'
 import { ActivityIndicator, StyleSheet } from 'react-native'
 import { useColors } from '../../theme'
@@ -18,6 +18,8 @@ import {
   sourceActions,
   type AttachmentsProps,
 } from '../attachments/AttachmentList'
+import { Reflow } from '../../ui/Reflow'
+import { Text } from '../../ui/Text'
 
 type Props = ServiceLogState &
   Pick<
@@ -53,7 +55,7 @@ export function ServiceLogView(props: Props) {
         <Column spacing={16} style={{ padding: 16, paddingBottom: TAB_BAR_CLEARANCE }}>
           <Row alignment="center">
             <Spacer flexible />
-            <GlassIconButton symbol="plus" onPress={() => props.openForm()} />
+            <GlassIconButton symbol="plus" label="Log service" onPress={() => props.openForm()} />
           </Row>
           <Column spacing={2}>
             <Text textStyle={{ ...OVERLINE, color: colors.textSecondary }}>
@@ -61,10 +63,10 @@ export function ServiceLogView(props: Props) {
             </Text>
             <Text textStyle={{ fontSize: 34, fontWeight: '700' }}>Service log</Text>
           </Column>
-          <Row spacing={10}>
+          <Reflow spacing={10}>
             <Stat label={props.summary.spentLabel} value={props.summary.spent} />
             <Stat label="Services logged" value={String(props.summary.count)} />
-          </Row>
+          </Reflow>
           {props.receiptError && !props.adding ? <ErrorText>{props.receiptError}</ErrorText> : null}
           {props.summary.count > 0 ? (
             <SearchField
@@ -290,7 +292,13 @@ function LogForm({
           </Column>
         ) : null}
         <TextField
-          label={draft.itemId === OTHER ? 'What was done' : 'Notes (optional)'}
+          label={
+            draft.itemId !== OTHER
+              ? 'Notes (optional)'
+              : tasks.length > 0
+                ? 'Describe it'
+                : 'What was done'
+          }
           value={draft.notes}
           onChangeText={(v) => setField('notes', v)}
           error={fieldErrors.notes}

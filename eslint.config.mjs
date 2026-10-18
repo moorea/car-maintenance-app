@@ -43,6 +43,11 @@ const themeImportBans = {
       importNames: ['Host'],
       message: 'Use Host from src/ui/Host, which tints native controls with the theme accent.',
     },
+    {
+      name: '@expo/ui',
+      importNames: ['Text', 'Collapsible'],
+      message: 'Use Text and Collapsible from src/ui, whose text scales with Dynamic Type on iOS.',
+    },
   ],
   patterns: [
     {
@@ -123,7 +128,7 @@ export default tseslint.config(
     // Data adapters run on the phone and in Node tests, so they take the database as a parameter
     // instead of importing a platform driver.
     files: ['packages/data/**/*.{ts,tsx,mts,cts}'],
-    ignores: ['packages/data/**/*.test.ts'],
+    ignores: ['packages/data/**/*.test.ts', 'packages/data/e2e/**'],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -154,7 +159,12 @@ export default tseslint.config(
   },
   {
     files: ['apps/mobile/**/*.{ts,tsx}'],
-    ignores: ['apps/mobile/src/theme/**', 'apps/mobile/src/ui/Host.tsx'],
+    ignores: [
+      'apps/mobile/src/theme/**',
+      'apps/mobile/src/ui/Host.tsx',
+      'apps/mobile/src/ui/Text*.tsx',
+      'apps/mobile/src/ui/Collapsible*.tsx',
+    ],
     rules: { '@typescript-eslint/no-restricted-imports': ['error', themeImportBans] },
   },
   {

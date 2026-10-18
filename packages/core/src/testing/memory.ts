@@ -16,14 +16,19 @@ import {
   type Vehicle,
   type VehicleId,
   type Warranty,
+  type FillUp,
 } from '../domain/types'
 import type {
   AttachmentRepo,
+  DataFiles,
+  DevicePreferences,
+  DevicePreferencesRepo,
   AccountPort,
   AuthPort,
   CareReportExporter,
   Clock,
   FilePicker,
+  FillUpRepo,
   FilePreview,
   FileSource,
   IdGenerator,
@@ -58,6 +63,7 @@ export const memoryVehicles = (
 ): VehicleRepo & {
   set: (vehicles: Vehicle[]) => void
   added: { ownerId: string; vehicle: Vehicle; firstReading?: OdometerReading }[]
+  /** Makes the next `add` or `setSevereDuty` throw. */
   failNextAdd: (message: string) => void
 } => {
   let vehicles = [...initial]
@@ -88,6 +94,15 @@ export const memoryVehicles = (
       addedOwners.set(vehicle.id, ownerId)
       vehicles = [...vehicles, vehicle]
       added.push({ ownerId, vehicle, ...(firstReading && { firstReading }) })
+      notify()
+    },
+    setSevereDuty: async (id, severeDuty) => {
+      if (nextFailure !== undefined) {
+        const message = nextFailure
+        nextFailure = undefined
+        throw new Error(message)
+      }
+      vehicles = vehicles.map((v) => (v.id === id ? { ...v, severeDuty } : v))
       notify()
     },
     /** Replaces the vehicles, as a sync would, and notifies watchers. */
@@ -400,6 +415,33 @@ export const memoryReminderSettings = (
   }
 }
 
+/** Device preferences held in memory; `failNextUpdate` makes the next save throw. */
+export const memoryPreferences = (
+  initial: Partial<DevicePreferences> = {},
+): DevicePreferencesRepo & { failNextUpdate: () => void } => {
+  let preferences: DevicePreferences = { onboarded: false, aiSharingOwner: null, ...initial }
+  let fail = false
+  const watchers = new Set<(p: DevicePreferences) => void>()
+  return {
+    watch: (onChange) => {
+      watchers.add(onChange)
+      onChange(preferences)
+      return () => watchers.delete(onChange)
+    },
+    update: async (change) => {
+      if (fail) {
+        fail = false
+        throw new Error('storage full')
+      }
+      preferences = { ...preferences, ...change }
+      for (const w of watchers) w(preferences)
+    },
+    failNextUpdate: () => {
+      fail = true
+    },
+  }
+}
+
 /**
  * Attachments with their files "on this phone" as `memory://<id>` URIs. `remote` lists ids whose
  * files are only on the server, so opening them downloads; `failNextOpen` and `failNextAdd` make
@@ -603,4 +645,107 @@ export const memoryReportExporter = () => {
     },
   }
   return exporter
+}
+
+const newestFirst = (a: FillUp, b: FillUp) =>
+  b.filledOn.localeCompare(a.filledOn) || b.odometerMiles - a.odometerMiles
+
+/** Fill-ups kept in memory, newest first. `failNext` makes the next save or removal throw. */
+export const memoryFillUps = (initial: FillUp[] = []) => {
+  let fillUps = [...initial]
+  const watchers = new Set<{ vehicleId: VehicleId; onChange: (f: FillUp[]) => void }>()
+  let nextFailure: string | undefined
+  const forVehicle = (vehicleId: VehicleId) =>
+    fillUps.filter((f) => f.vehicleId === vehicleId).sort(newestFirst)
+  const notify = () => {
+    for (const w of watchers) w.onChange(forVehicle(w.vehicleId))
+  }
+  const failIfScheduled = () => {
+    if (nextFailure === undefined) return
+    const message = nextFailure
+    nextFailure = undefined
+    throw new Error(message)
+  }
+  const repo: FillUpRepo & { failNext: (message: string) => void } = {
+    listForVehicle: async (vehicleId) => forVehicle(vehicleId),
+    watchForVehicle: (vehicleId, onChange) => {
+      const watcher = { vehicleId, onChange }
+      watchers.add(watcher)
+      onChange(forVehicle(vehicleId))
+      return () => watchers.delete(watcher)
+    },
+    save: async (fillUp) => {
+      failIfScheduled()
+      fillUps = [...fillUps.filter((f) => f.id !== fillUp.id), fillUp]
+      notify()
+    },
+    remove: async (id) => {
+      failIfScheduled()
+      fillUps = fillUps.filter((f) => f.id !== id)
+      notify()
+    },
+    failNext: (message) => {
+      nextFailure = message
+    },
+  }
+  return repo
+}
+
+/**
+ * Files moving in and out of the app. `stored` holds the bytes behind each readable URI (memory
+ * attachments open as `memory://<id>`); `shared` records every shared file; `queueArchive` sets
+ * what the next pick returns; `failNextShare` and `failNextStage` make the next one throw; `staged` keeps the bytes of each staged file by its URI.
+ */
+export const memoryDataFiles = (stored: Record<string, Uint8Array> = {}) => {
+  const queue: (Uint8Array | Error)[] = []
+  let nextShareFailure: string | undefined
+  let nextStageFailure: string | undefined
+  const files: DataFiles & {
+    stored: Record<string, Uint8Array>
+    shared: { bytes: Uint8Array; name: string }[]
+    staged: Map<string, Uint8Array>
+    queueArchive: (bytes: Uint8Array | Error) => void
+    failNextShare: (message: string) => void
+    failNextStage: (message: string) => void
+  } = {
+    stored,
+    shared: [],
+    staged: new Map(),
+    queueArchive: (bytes) => queue.push(bytes),
+    failNextShare: (message) => {
+      nextShareFailure = message
+    },
+    failNextStage: (message) => {
+      nextStageFailure = message
+    },
+    read: async (uri) => {
+      const bytes = stored[uri]
+      if (!bytes) throw new Error(`No file at ${uri}`)
+      return bytes
+    },
+    share: async (bytes, name) => {
+      if (nextShareFailure !== undefined) {
+        const message = nextShareFailure
+        nextShareFailure = undefined
+        throw new Error(message)
+      }
+      files.shared.push({ bytes, name })
+    },
+    pickArchive: async () => {
+      const next = queue.shift()
+      if (next instanceof Error) throw next
+      return next
+    },
+    stage: async (bytes, file) => {
+      if (nextStageFailure !== undefined) {
+        const message = nextStageFailure
+        nextStageFailure = undefined
+        throw new Error(message)
+      }
+      const uri = `staged://${files.staged.size + 1}/${file.name}`
+      files.staged.set(uri, bytes)
+      return { uri, name: file.name, contentType: file.contentType, sizeBytes: bytes.length }
+    },
+  }
+  return files
 }
