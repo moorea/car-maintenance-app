@@ -54,27 +54,27 @@ const FULL_SCREEN = new Set<AppTab>(['ask', 'quote', 'codes'])
 /** Picks the screen for the session: sign-in, adding a car, or the tabs for the selected car. */
 export function RootView(props: Props) {
   // Lists run on behind the floating tab bar; every other screen keeps clear of the home indicator.
-  if (showsTabBar(props)) return <SessionScreen {...props} />
+  // Always the same wrapper, so moving between tabs and full screens keeps the screens mounted.
   return (
-    <BottomSafeArea>
+    <BottomSafeArea inset={!(showsTabs(props) && !FULL_SCREEN.has(props.tab))}>
       <SessionScreen {...props} />
     </BottomSafeArea>
   )
 }
 
-function showsTabBar(props: Props): boolean {
-  const { status, vehicles, selectedVehicleId, addingCar, tab } = props
-  const hasCar = vehicles.some((v) => v.id === selectedVehicleId)
-  return status === 'ready' && hasCar && !addingCar && !FULL_SCREEN.has(tab)
+/** Whether the session shows the selected car's tabs, rather than sign-in or adding a car. */
+function showsTabs(props: Props): boolean {
+  const { status, vehicles, selectedVehicleId, addingCar } = props
+  return status === 'ready' && !addingCar && vehicles.some((v) => v.id === selectedVehicleId)
 }
 
 function SessionScreen(props: Props) {
-  const { status, user, vehicles, selectedVehicleId, addingCar } = props
+  const { status, user, vehicles, selectedVehicleId } = props
   if (status === 'starting') return <ActivityIndicator style={styles.fill} />
   if (status === 'signed-out' || !user) return <SignInScreen />
 
   const vehicle = vehicles.find((v) => v.id === selectedVehicleId)
-  if (status === 'ready' && vehicle && !addingCar) {
+  if (vehicle && showsTabs(props)) {
     const tabs = (
       <View style={styles.fill}>
         <TabContent {...props} vehicle={vehicle} />
