@@ -12,6 +12,7 @@ import {
   frame,
   glassEffect,
   onTapGesture,
+  opacity,
   padding as paddingModifier,
   shapes,
   tint as tintModifier,
@@ -27,6 +28,9 @@ import { Button } from './Button'
 // Liquid Glass arrived in iOS 26. Before that, glass modifiers do nothing, so fall back to the
 // system material and a bordered button.
 const hasGlass = Number.parseInt(String(Platform.Version), 10) >= 26
+
+/** How faint a disabled pill is, as system buttons fade while they can't be pressed. */
+const DISABLED_OPACITY = 0.4
 
 // Universal `onPress` adds its tap gesture inside the custom modifiers, so only the bare content
 // would respond. Appending it after the fill makes the whole padded shape tappable.
@@ -170,10 +174,12 @@ interface PillButtonProps {
   onPress: () => void
   fill: ColorRole
   text: ColorRole
+  /** Dims the button and ignores taps, as while the action it starts is still running. */
+  disabled?: boolean
 }
 
 /** A capsule button that shares its row's width equally with its siblings. */
-export function PillButton({ label, onPress, fill, text }: PillButtonProps) {
+export function PillButton({ label, onPress, fill, text, disabled = false }: PillButtonProps) {
   const colors = useColors()
   return (
     <Row
@@ -183,7 +189,7 @@ export function PillButton({ label, onPress, fill, text }: PillButtonProps) {
         frame({ minHeight: 44 }),
         frame({ maxWidth: Infinity }),
         background(colors[fill], shapes.capsule()),
-        ...tappable(onPress),
+        ...(disabled ? [opacity(DISABLED_OPACITY)] : tappable(onPress)),
       ]}
     >
       <Text textStyle={{ fontSize: 16, fontWeight: '600', color: colors[text] }}>{label}</Text>
