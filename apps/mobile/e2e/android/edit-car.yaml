@@ -1,0 +1,41 @@
+# Renaming a car from its page, then removing it, as apps/mobile/e2e/edit-car.yaml does on iOS.
+appId: com.moorea.carmaintenance
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+- extendedWaitUntil:
+    visible: 'Demo car.*'
+    timeout: 90000
+- tapOn: 'Car'
+- tapOn: 'Edit car'
+- extendedWaitUntil:
+    visible: 'Remove car'
+    timeout: 5000
+- takeScreenshot: 50-edit-car
+- tapOn: 'Demo car'
+- eraseText: 20
+- inputText: 'Daily'
+- hideKeyboard
+- tapOn: 'Save'
+- extendedWaitUntil:
+    notVisible: 'Remove car'
+    timeout: 5000
+- tapOn: 'Garage'
+- extendedWaitUntil:
+    visible: 'Daily.*'
+    timeout: 5000
+- takeScreenshot: 50-garage-renamed
+- tapOn: 'Daily.*'
+- tapOn: 'Edit car'
+- tapOn: 'Remove car'
+- extendedWaitUntil:
+    visible: 'Tap again to remove'
+    timeout: 5000
+- takeScreenshot: 50-remove-confirm
+- tapOn: 'Tap again to remove'
+- extendedWaitUntil:
+    visible: 'Add your first car'
+    timeout: 10000
+- takeScreenshot: 50-after-remove

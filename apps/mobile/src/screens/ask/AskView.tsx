@@ -1,5 +1,5 @@
 import type { AnswerSourceKind, AskActions, AskState, ChatMessage } from '@car/core'
-import { Button, Column, Row, ScrollView, Spacer } from '@expo/ui'
+import { Column, Row, ScrollView, Spacer } from '@expo/ui'
 import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native'
 import { useColors } from '../../theme'
 import { ChatComposer } from '../../ui/ChatComposer'
@@ -8,7 +8,9 @@ import { Host } from '../../ui/Host'
 import { ErrorText, Note } from '../../ui/Note'
 import { Bubble, Card, Chip, GlassIconButton, GlassPill } from '../../ui/surfaces'
 import type { SymbolName } from '../../ui/symbols'
+import { PAGE_TOP } from '../../ui/layout'
 import { Text } from '../../ui/Text'
+import { Button } from '../../ui/Button'
 
 type Props = AskState &
   Pick<AskActions, 'setDraft' | 'send' | 'ask' | 'stop' | 'retry' | 'newConversation'> & {
@@ -180,6 +182,6 @@ function Answer({ text, sources, state }: ChatMessage) {
 const styles = StyleSheet.create({
   fill: { flex: 1 },
   bar: { width: '100%' },
-  header: { paddingTop: 58, paddingHorizontal: 16, paddingBottom: 8 },
+  header: { paddingTop: PAGE_TOP, paddingHorizontal: 16, paddingBottom: 8 },
   dock: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 24 },
 })

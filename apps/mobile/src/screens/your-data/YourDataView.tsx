@@ -8,6 +8,7 @@ import { TAB_BAR_CLEARANCE } from '../../ui/TabBar'
 import { Card, FillColumn, GlassIconButton, PillButton } from '../../ui/surfaces'
 import { Symbol } from '../../ui/Symbol'
 import type { SymbolName } from '../../ui/symbols'
+import { PAGE_TOP } from '../../ui/layout'
 import { Text } from '../../ui/Text'
 
 type Props = YourDataState &
@@ -25,7 +26,7 @@ export function YourDataView(props: Props) {
       <ScrollView>
         <Column
           spacing={16}
-          style={{ padding: 16, paddingTop: 60, paddingBottom: TAB_BAR_CLEARANCE }}
+          style={{ padding: 16, paddingTop: PAGE_TOP, paddingBottom: TAB_BAR_CLEARANCE }}
         >
           <Row>
             <GlassIconButton symbol="back" label="Back" onPress={props.onBack} />

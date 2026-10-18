@@ -11,6 +11,8 @@ import signOutIcon from '@expo/material-symbols/logout.xml'
 import trashIcon from '@expo/material-symbols/delete.xml'
 import plusIcon from '@expo/material-symbols/add.xml'
 import chevronIcon from '@expo/material-symbols/chevron_right.xml'
+import moveUpIcon from '@expo/material-symbols/keyboard_arrow_up.xml'
+import moveDownIcon from '@expo/material-symbols/keyboard_arrow_down.xml'
 import dropdownIcon from '@expo/material-symbols/arrow_drop_down.xml'
 import backIcon from '@expo/material-symbols/chevron_left.xml'
 import clockIcon from '@expo/material-symbols/schedule.xml'
@@ -44,6 +46,8 @@ interface Props {
   name: SymbolName
   size?: number
   color: string
+  /** The icon leads a row of text. Material Symbols are square, so a leading icon already lines rows up. */
+  leading?: boolean
 }
 
 // The Material Symbol closest to each SF Symbol in `SYMBOLS`. Imported here rather than listed
@@ -59,6 +63,8 @@ const MATERIAL: Record<SymbolName, ImageSourcePropType> = {
   trash: trashIcon,
   plus: plusIcon,
   chevron: chevronIcon,
+  moveUp: moveUpIcon,
+  moveDown: moveDownIcon,
   dropdown: dropdownIcon,
   back: backIcon,
   clock: clockIcon,

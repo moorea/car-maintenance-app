@@ -108,6 +108,27 @@ describe('garage model', () => {
     ])
   })
 
+  it('asks the assistant about the next item, saying whether it is overdue', async () => {
+    const { model } = setup({
+      items: [oil, tires],
+      records: [done('r1', 'oil', '2026-07-09', 30_000), done('r2', 'tires', '2026-02-01', 25_000)],
+    })
+    model.getState().start()
+    await settle()
+    expect(model.getState().nextUp?.question).toBe(
+      'My car is overdue for tire rotation. What does it involve, and can it wait?',
+    )
+  })
+
+  it('asks about a next item that is not due yet as coming up', async () => {
+    const { model } = setup({ items: [oil], records: [done('r1', 'oil', '2026-07-09', 30_000)] })
+    model.getState().start()
+    await settle()
+    expect(model.getState().nextUp?.question).toBe(
+      'My car is due soon for oil & filter change. What does it involve, and can it wait?',
+    )
+  })
+
   it('says roughly when a mileage limit will be reached and how much of it is used', async () => {
     const { model } = setup({ items: [oil], records: [done('r1', 'oil', '2026-07-09', 30_000)] })
     model.getState().start()
@@ -294,5 +315,32 @@ describe('garage model, filling in the history', () => {
     again.getState().start()
     await settle()
     expect(again.getState().catchUp).toBeUndefined()
+  })
+
+  it('asks for a reading when the next mileage item is close and rests on an old one', async () => {
+    // Last read eight weeks ago at 60 miles a day: the tire rotation at 40,000 is about 19 days off.
+    const old: OdometerReading[] = [
+      { vehicleId: 'v1', date: '2026-05-23', miles: 30_000 },
+      { vehicleId: 'v1', date: '2026-08-21', miles: 35_400 },
+    ]
+    const { model, odometer } = setup({ items: [tires], odometer: old })
+    model.getState().start()
+    await settle()
+    expect(model.getState().checkOdometer).toEqual({
+      task: 'Tire rotation',
+      dueMiles: 'around 40,000 mi',
+      readAgo: '8 weeks ago',
+    })
+
+    await odometer.add({ vehicleId: 'v1', date: TODAY, miles: 38_900 })
+    await settle()
+    expect(model.getState().checkOdometer).toBeUndefined()
+  })
+
+  it('does not ask for a reading while the last one is recent', async () => {
+    const { model } = setup()
+    model.getState().start()
+    await settle()
+    expect(model.getState().checkOdometer).toBeUndefined()
   })
 })

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Renewal, Vehicle } from '../domain/types'
 import { addDays } from '../lib/date'
 import {
+  isPlannedNotification,
   MAX_SCHEDULED_REMINDERS,
   planNotifications,
   type WarrantyEnding,
@@ -149,6 +150,11 @@ describe('planNotifications', () => {
       'reminder:v1:due:2026-10-11',
       'reminder:v1:due:2026-10-15',
     ])
+  })
+
+  it("does not remind about a date guessed only from the car's age", () => {
+    const guessed = due({ itemId: 'battery', dueDate: '2027-01-01', historyUnknown: true })
+    expect(planNotifications([{ vehicle: rav4, due: [guessed] }], '2026-10-01')).toEqual([])
   })
 
   it('skips items with no projected date, such as a parked car reaching its mileage', () => {
@@ -335,5 +341,34 @@ describe('planNotifications', () => {
       )
       expect(plan).toEqual([])
     })
+  })
+
+  it('gives every kind of notification an id the device adapter recognises as its own', () => {
+    const plan = planNotifications(
+      [
+        {
+          vehicle: rav4,
+          due: [due({ itemId: 'oil', trigger: 'miles', dueDate: '2026-12-01', dueMiles: 45_000 })],
+          warranties: [
+            { id: 'w1', coverage: 'Basic coverage', endsOn: '2027-01-01', endsBy: 'time' },
+          ],
+          renewals: [{ id: 'r1', vehicleId: 'v1', kind: 'registration', dueOn: '2027-01-01' }],
+          tires: [{ setId: 't1', name: 'Winter', years: 6, on: '2027-06-07' }],
+          checkIn: {
+            itemId: 'oil',
+            task: 'Oil change',
+            dueMiles: 45_000,
+            dueDate: '2026-12-01',
+            readOn: '2026-09-01',
+            from: '2026-11-10',
+          },
+        },
+      ],
+      '2026-10-01',
+    )
+    const kinds = new Set(plan.map((n) => n.id.split(':')[0]))
+    expect(kinds).toEqual(new Set(['reminder', 'warranty', 'renewal', 'tires', 'odometer']))
+    expect(plan.every((n) => isPlannedNotification(n.id))).toBe(true)
+    expect(isPlannedNotification('another-app:1')).toBe(false)
   })
 })

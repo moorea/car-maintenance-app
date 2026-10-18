@@ -1,6 +1,7 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
 import type { AuthUser, Vehicle } from '../../domain/types'
 import type { AuthPort, Notifier, SyncStatus, Unsubscribe, VehicleRepo } from '../../ports'
+import { byGarageOrder } from '../../lib/garageOrder'
 
 /**
  * What the app shows at its root: nothing yet while the stored session loads, the sign-in screen,
@@ -47,9 +48,16 @@ export interface SessionState {
   tab: AppTab
   /**
    * Set when the owner asked to log a service from elsewhere (such as "Log it done"), until the
-   * log has opened its form. `seq` changes with every request.
+   * log has opened its form. `seq` changes with every request. `earlier` when the service was
+   * done some time ago, so the form asks for its date rather than assume today.
    */
-  logRequest?: { itemId?: string | undefined; seq: number } | undefined
+  logRequest?:
+    { itemId?: string | undefined; earlier?: boolean | undefined; seq: number } | undefined
+  /**
+   * Set when the owner asked to update the odometer from elsewhere (such as the garage asking for
+   * a reading), until the car's page has opened its editor. `seq` changes with every request.
+   */
+  odometerRequest?: { seq: number } | undefined
 }
 
 export interface SessionActions {
@@ -57,8 +65,10 @@ export interface SessionActions {
   selectVehicle: (id: string) => void
   openTab: (tab: AppTab) => void
   /**
-   * Leaves Ask, the quote checker or the code lookup for where the owner opened it from, such as the quote a
-   * question was about; the garage if there is nowhere to go back to.
+   * Leaves the open page for the one its back button goes to: Ask, the quote checker or the code
+   * lookup for where the owner opened it from, such as the quote a question was about; the
+   * reminder settings for the account or the garage, whichever opened them; a car's own pages for
+   * the car; your data for the account; anything else for the garage.
    */
   back: () => void
   /**
@@ -66,12 +76,19 @@ export interface SessionActions {
    * its own back button goes to. False when there is nowhere to go back to, so the app can close.
    */
   systemBack: () => boolean
-  /** Opens the service log with its form, for a scheduled task if one is given. */
-  logService: (itemId?: string) => void
+  /**
+   * Opens the service log with its form, for a scheduled task if one is given, and with no date
+   * when the service was done `earlier` (such as filling in a new car's history).
+   */
+  logService: (itemId?: string, options?: { earlier?: boolean }) => void
   /** The log has opened its form for the request, so it is not opened again. */
   logRequestHandled: () => void
   /** Selects a car and opens its page. */
   openCar: (id: string) => void
+  /** Selects a car and opens its page with the odometer editor open. */
+  updateOdometer: (id: string) => void
+  /** The car's page has opened its odometer editor for the request. */
+  odometerRequestHandled: () => void
   /** Opens "add your car" over the selected car. */
   addCar: () => void
   cancelAddCar: () => void
@@ -98,6 +115,19 @@ const PARENT: Partial<Record<AppTab, AppTab>> = {
   data: 'account',
 }
 
+/** The pages about the selected car, which would show another car's data once it is removed. */
+const CAR_PAGES = new Set<AppTab>([
+  'car',
+  'log',
+  'ask',
+  'quote',
+  'codes',
+  'warranty',
+  'fuel',
+  'driving',
+  'renewals',
+])
+
 /** Root model: follows sign-in and the owner's vehicles, and keeps one vehicle selected. */
 export const createSessionModel = (deps: {
   auth: AuthPort
@@ -121,15 +151,18 @@ export const createSessionModel = (deps: {
   let currentUserId: string | null | undefined
   // Counts requests to log a service, so each one differs from the last even once handled.
   let logRequests = 0
+  let odometerRequests = 0
   // A car just added, to select once the vehicle list includes it.
   let justAdded: string | undefined
   // The tabs Ask, the quote checker and the code lookup were opened from, newest last, for going back.
   let openedFrom: AppTab[] = []
+  // Where the reminder settings were opened from: the account's row, or the garage's header.
+  let remindersFrom: AppTab = 'garage'
 
   return createStore<SessionState & SessionActions>()((set, get) => {
     const showVehicles = (vehicles: Vehicle[]) => {
       vehiclesLoaded = true
-      const sorted = [...vehicles].sort((a, b) => a.nickname.localeCompare(b.nickname))
+      const sorted = [...vehicles].sort(byGarageOrder)
       const opened = sorted.find((v) => v.id === tapped)
       // A tapped car not here once everything has synced is gone, or another account's.
       if (opened || synced) tapped = undefined
@@ -140,15 +173,22 @@ export const createSessionModel = (deps: {
       }
       const added = sorted.find((v) => v.id === justAdded)
       if (added) justAdded = undefined
-      const kept = sorted.find((v) => v.id === get().selectedVehicleId)
+      const previous = get().selectedVehicleId
+      const kept = sorted.find((v) => v.id === previous)
       const selected = opened ?? added ?? kept ?? sorted[0]
+      // The selected car was removed (here or on another phone): its pages would show the next
+      // car instead, so the owner lands on the garage. Pages not about one car stay open.
+      const gone =
+        previous !== undefined && !kept && selected?.id !== previous && CAR_PAGES.has(get().tab)
       set({
         vehicles: sorted,
         selectedVehicleId: selected?.id,
         status: selected ? 'ready' : synced ? 'no-vehicles' : 'syncing',
+        ...(gone && !opened && { tab: 'garage' as const, logRequest: undefined }),
         // A tapped reminder opens that car's page.
         ...(opened && { addingCar: false, tab: 'car' as const }),
       })
+      if (gone && !opened) openedFrom = []
     }
 
     const onUser = (user: AuthUser | null) => {
@@ -225,10 +265,22 @@ export const createSessionModel = (deps: {
         if (tab === 'ask' || tab === 'quote' || tab === 'codes') {
           if (tab !== get().tab) openedFrom.push(get().tab)
         } else openedFrom = []
-        set({ tab, logRequest: undefined })
+        if (tab === 'reminders' && get().tab !== 'reminders') {
+          remindersFrom = get().tab === 'account' ? 'account' : 'garage'
+        }
+        set({ tab, logRequest: undefined, odometerRequest: undefined })
       },
 
-      back: () => set({ tab: openedFrom.pop() ?? 'garage', logRequest: undefined }),
+      back: () => {
+        const { tab } = get()
+        if (tab === 'ask' || tab === 'quote' || tab === 'codes') {
+          set({
+            tab: openedFrom.pop() ?? 'garage',
+            logRequest: undefined,
+            odometerRequest: undefined,
+          })
+        } else get().openTab(tab === 'reminders' ? remindersFrom : (PARENT[tab] ?? 'garage'))
+      },
 
       systemBack: () => {
         const { status, tab, addingCar } = get()
@@ -239,14 +291,16 @@ export const createSessionModel = (deps: {
           return true
         }
         if (tab === 'garage') return false
-        if (tab === 'ask' || tab === 'quote' || tab === 'codes') get().back()
-        else get().openTab(PARENT[tab] ?? 'garage')
+        get().back()
         return true
       },
 
-      logService: (itemId) => {
+      logService: (itemId, options) => {
         openedFrom = []
-        set({ tab: 'log', logRequest: { itemId, seq: ++logRequests } })
+        set({
+          tab: 'log',
+          logRequest: { itemId, earlier: options?.earlier, seq: ++logRequests },
+        })
       },
 
       logRequestHandled: () => set({ logRequest: undefined }),
@@ -258,6 +312,13 @@ export const createSessionModel = (deps: {
           set({ tab: 'car' })
         }
       },
+
+      updateOdometer: (id) => {
+        get().openCar(id)
+        if (get().selectedVehicleId === id) set({ odometerRequest: { seq: ++odometerRequests } })
+      },
+
+      odometerRequestHandled: () => set({ odometerRequest: undefined }),
 
       addCar: () => {
         if (!get().user) return

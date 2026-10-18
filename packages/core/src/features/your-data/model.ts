@@ -59,6 +59,7 @@ export interface YourDataDeps extends Omit<ExportDeps, keyof ImportDeps> {
   fillUps: ExportDeps['fillUps'] & ImportDeps['fillUps']
   tireSets: ExportDeps['tireSets'] & ImportDeps['tireSets']
   renewals: ExportDeps['renewals'] & ImportDeps['renewals']
+  customItems: ExportDeps['customItems'] & ImportDeps['customItems']
   files: DataFiles
   ids: IdGenerator
 }

@@ -7,6 +7,7 @@ import {
   memoryServiceRecords,
   sequentialIds,
 } from '../../testing'
+import { LIST_PAGE } from '../service-log/history'
 import { createFuelModel } from './model'
 import { withFillUpReadings } from './readings'
 
@@ -86,6 +87,30 @@ describe('fuel and costs screen', () => {
       ['Sep 1', '10 gal · $35.00', undefined, undefined],
     ])
     expect(rows[0]?.detail).toBe('32,900 mi · Costco · $3.500/gal')
+  })
+
+  it('lists the newest page of years of fill-ups, and older ones on request', async () => {
+    // Weekly fill-ups for about four years.
+    const weekly = Array.from({ length: 200 }, (_, i) =>
+      fill(
+        `w${i}`,
+        new Date(Date.UTC(2022, 10, 1 + i * 7)).toISOString().slice(0, 10),
+        10_000 + i * 90,
+      ),
+    )
+    const { model } = setup(weekly)
+    await settle()
+    expect(model.getState().rows.map((r) => r.id)).toEqual(
+      weekly
+        .slice(-LIST_PAGE)
+        .reverse()
+        .map((f) => f.id),
+    )
+    expect(model.getState().hiddenRows).toBe(200 - LIST_PAGE)
+
+    model.getState().showMoreRows()
+    expect(model.getState().rows).toHaveLength(2 * LIST_PAGE)
+    expect(model.getState().hiddenRows).toBe(200 - 2 * LIST_PAGE)
   })
 
   it('averages economy over every measured mile', async () => {
@@ -251,6 +276,13 @@ describe('fuel and costs screen', () => {
     )
   })
 
+  it('offers the picker no day after today', async () => {
+    const { model } = setup()
+    await settle()
+    model.getState().openNew()
+    expect(model.getState().form?.latestDate).toBe(model.getState().form?.draft.filledOn)
+  })
+
   it('refuses a fill-up dated in the future', async () => {
     const { model } = setup()
     await settle()
@@ -260,7 +292,7 @@ describe('fuel and costs screen', () => {
     s.setField('odometerMiles', '33,240')
     s.setField('quantity', '10')
     expect(await s.save()).toBe(false)
-    expect(model.getState().form?.fieldErrors).toEqual({ filledOn: "Can't be in the future" })
+    expect(model.getState().form?.fieldErrors).toEqual({ filledOn: "That's in the future" })
   })
 
   it('corrects a fill-up in place', async () => {

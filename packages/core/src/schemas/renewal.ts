@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import type { RenewalKind } from '../domain/types'
+import { dateInput } from './date'
 import { NOTES_MAX, optionalText } from './text'
 
 export const RENEWAL_KIND_IDS = [
@@ -20,7 +21,7 @@ export const renewalDraftSchema = z.object({
     .trim()
     .max(100, 'Keep the name under 100 characters')
     .transform((s) => (s === '' ? undefined : s)),
-  dueOn: z.iso.date({ error: 'Enter the date as YYYY-MM-DD' }),
+  dueOn: dateInput('Add the date it is due'),
   everyMonths: z
     .string()
     .trim()

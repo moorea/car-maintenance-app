@@ -81,6 +81,24 @@ describe('getDueItems', () => {
     expect(await getDueItems(d)('v1')).toEqual([])
   })
 
+  it("guesses an item with no record from the car's model year, unless the year is broken", async () => {
+    const d = {
+      ...deps(),
+      schedule: memorySchedule([
+        { id: 'battery', configId: 'rav4-2021', task: 'Battery test', intervalMonths: 12 },
+      ]),
+    }
+    expect((await getDueItems(d)('v1'))[0]).toMatchObject({
+      dueDate: '2027-01-01',
+      historyUnknown: true,
+    })
+    const v1 = await d.vehicles.get('v1')
+    if (!v1) throw new Error('missing fixture')
+    // A row whose year could not be read comes through as 0.
+    d.vehicles.set([{ ...v1, year: 0 }])
+    expect((await getDueItems(d)('v1'))[0]).toMatchObject({ dueDate: '2026-10-01' })
+  })
+
   it('fails loudly for an unknown vehicle', async () => {
     await expect(getDueItems(deps())('nope')).rejects.toThrow('Unknown vehicle nope')
   })

@@ -2,7 +2,9 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type {
+  CustomItem,
   FillUp,
+  MaintenanceItem,
   OdometerReading,
   Renewal,
   SafetyReport,
@@ -141,6 +143,37 @@ describe('PowerSync repositories', () => {
     await repos.odometer.add({ vehicleId: 'v1', date: '2026-09-01', miles: 42_000 })
     const tx = await db.getNextCrudTransaction()
     expect(tx?.crud.map((c) => [c.op, c.table])).toEqual([['PUT', 'service_records']])
+  })
+
+  it('saves a correction to a service, queueing only the columns that changed', async () => {
+    const repos = createPowerSyncRepositories(db)
+    await repos.records.add(oilChange)
+    await (await db.getNextCrudTransaction())?.complete()
+    const { shop: _shop, ...rest } = oilChange
+    const corrected = { ...rest, odometerMiles: 41_250, vehicleId: 'other' }
+    await repos.records.update(corrected)
+    expect(await repos.records.listForVehicle('v1')).toEqual([{ ...rest, odometerMiles: 41_250 }])
+    const tx = await db.getNextCrudTransaction()
+    expect(tx?.crud.map((c) => [c.op, c.table, c.opData])).toEqual([
+      ['PATCH', 'service_records', { odometer_miles: 41_250, shop: null }],
+    ])
+  })
+
+  it('deletes a service with its receipts, leaving the car documents', async () => {
+    const repos = createPowerSyncRepositories(db)
+    await repos.records.add(oilChange)
+    for (const [id, record] of [
+      ['a1', 'r1'],
+      ['a2', null],
+    ])
+      await db.execute(
+        "insert into attachments (id, owner_id, vehicle_id, service_record_id, kind, name, content_type, size_bytes, added_on) values (?, 'owner-a', 'v1', ?, 'receipt', 'x.jpg', 'image/jpeg', 12, '2026-09-01')",
+        [id, record],
+      )
+    await repos.records.remove('r1')
+    expect(await repos.records.listForVehicle('v1')).toEqual([])
+    const left = await db.getAll<{ id: string }>('select id from attachments')
+    expect(left.map((a) => a.id)).toEqual(['a2'])
   })
 
   it('reads back a saved warranty, leaving optional fields absent', async () => {
@@ -520,6 +553,104 @@ describe('PowerSync repositories', () => {
     expect(await repos.vehicles.get('v-val')).toStrictEqual(car)
   })
 
+  it('renames a car and uploads only the new name', async () => {
+    const repos = createPowerSyncRepositories(db)
+    const car: Vehicle = {
+      id: 'v-name',
+      year: 2021,
+      make: 'Toyota',
+      model: 'RAV4',
+      nickname: 'RAV4',
+      severeDuty: false,
+    }
+    await repos.vehicles.add('u1', car)
+    await (await db.getNextCrudTransaction())?.complete()
+
+    await repos.vehicles.rename('v-name', 'Daily')
+
+    expect(await repos.vehicles.get('v-name')).toMatchObject({ nickname: 'Daily' })
+    const transaction = await db.getNextCrudTransaction()
+    expect(transaction?.crud[0]).toMatchObject({ table: 'vehicles', id: 'v-name', op: 'PATCH' })
+    expect(Object.keys(transaction?.crud[0]?.opData ?? {}).sort()).toEqual([
+      'nickname',
+      'updated_at',
+    ])
+  })
+
+  it('lists cars as the owner arranged them, then the rest by name, and uploads only the positions', async () => {
+    const repos = createPowerSyncRepositories(db)
+    const car = (id: string, nickname: string): Vehicle => ({
+      id,
+      year: 2020,
+      make: 'Honda',
+      model: 'Civic',
+      nickname,
+      severeDuty: false,
+    })
+    for (const v of [car('v-a', 'Accord'), car('v-c', 'Commuter'), car('v-f', 'Fit')])
+      await repos.vehicles.add('u1', v)
+    while (true) {
+      const pending = await db.getNextCrudTransaction()
+      if (!pending) break
+      await pending.complete()
+    }
+    const seen: string[][] = []
+    const stop = repos.vehicles.watchOwned('u1', (vs) => seen.push(vs.map((v) => v.id)))
+
+    await repos.vehicles.reorder(['v-f', 'v-a'])
+    await vi.waitFor(() => expect(seen.at(-1)).toEqual(['v-f', 'v-a', 'v-c']))
+    stop()
+    expect(await repos.vehicles.get('v-f')).toMatchObject({ garagePosition: 0 })
+    expect((await repos.vehicles.get('v-c'))?.garagePosition).toBeUndefined()
+    const transaction = await db.getNextCrudTransaction()
+    expect(transaction?.crud.map((c) => [c.id, c.op, Object.keys(c.opData ?? {}).sort()])).toEqual([
+      ['v-f', 'PATCH', ['garage_position', 'updated_at']],
+      ['v-a', 'PATCH', ['garage_position', 'updated_at']],
+    ])
+  })
+
+  it("removes a car with its documents first, so their files leave Storage, and leaves the rest to the server's cascade", async () => {
+    const repos = createPowerSyncRepositories(db)
+    const car: Vehicle = {
+      id: 'v-gone',
+      year: 2012,
+      make: 'Honda',
+      model: 'Accord',
+      nickname: 'Accord',
+      severeDuty: false,
+    }
+    const kept: Vehicle = { ...car, id: 'v-kept', nickname: 'Civic', model: 'Civic' }
+    await repos.vehicles.add('u1', car)
+    await repos.vehicles.add('u1', kept)
+    for (const [id, vehicleId] of [
+      ['a-gone', 'v-gone'],
+      ['a-kept', 'v-kept'],
+    ])
+      await db.execute(
+        'insert into attachments (id, owner_id, vehicle_id, kind, content_type) values (?, ?, ?, ?, ?)',
+        [id, 'u1', vehicleId, 'receipt', 'image/jpeg'],
+      )
+    await repos.records.add({ ...oilChange, id: 'r-gone', vehicleId: 'v-gone' })
+    while (true) {
+      const pending = await db.getNextCrudTransaction()
+      if (!pending) break
+      await pending.complete()
+    }
+
+    await repos.vehicles.remove('v-gone')
+
+    const owned = collect<Vehicle[]>((cb) => repos.vehicles.watchOwned('u1', cb))
+    const [vehicles] = await owned.waitFor(1)
+    expect(vehicles?.map((v) => v.id)).toEqual(['v-kept'])
+    const left = await db.getAll<{ id: string }>('select id from attachments')
+    expect(left.map((r) => r.id)).toEqual(['a-kept'])
+    const transaction = await db.getNextCrudTransaction()
+    expect(transaction?.crud.map((c) => [c.table, c.id, c.op])).toEqual([
+      ['attachments', 'a-gone', 'DELETE'],
+      ['vehicles', 'v-gone', 'DELETE'],
+    ])
+  })
+
   it('adds a car without a reading when the owner gives no mileage', async () => {
     const repos = createPowerSyncRepositories(db)
     const car: Vehicle = {
@@ -578,6 +709,67 @@ describe('PowerSync repositories', () => {
         intervalMonths: 6,
       },
     ])
+  })
+
+  it("reads back custom items, applies them to the car's schedule, and uploads edits as changes", async () => {
+    await db.execute(
+      "insert into maintenance_items (id, config_id, source, task, interval_miles, interval_months, severe_miles) values ('oil', 'c1', 'baseline', 'Oil change', 10000, 12, 5000)",
+    )
+    const repos = createPowerSyncRepositories(db)
+    const own: CustomItem = {
+      id: 'own-oil',
+      vehicleId: 'v1',
+      replacesItemId: 'oil',
+      task: 'Oil change',
+      intervalMiles: 5_000,
+    }
+    const filter: CustomItem = {
+      id: 'own-filter',
+      vehicleId: 'v1',
+      task: 'Cabin air filter',
+      intervalMonths: 12,
+    }
+    const seen = collect<MaintenanceItem[]>((onChange) =>
+      repos.schedule.watchForVehicle({ id: 'v1', configId: 'c1' }, onChange),
+    )
+    await seen.waitFor(1)
+    await repos.customItems.save(own)
+    await repos.customItems.save(filter)
+    expect(await repos.customItems.listForVehicle('v1')).toStrictEqual([filter, own])
+    expect(await repos.schedule.itemsForVehicle({ id: 'v1', configId: 'c1' })).toEqual([
+      {
+        id: 'oil',
+        configId: 'c1',
+        task: 'Oil change',
+        source: 'baseline',
+        intervalMiles: 5_000,
+        owner: 'changed',
+      },
+      {
+        id: 'own-filter',
+        configId: 'c1',
+        task: 'Cabin air filter',
+        source: 'owner',
+        intervalMonths: 12,
+        owner: 'added',
+      },
+    ])
+    await seen.waitUntil((items) => items.length === 2)
+    seen.stop()
+
+    await repos.customItems.save({ ...own, intervalMiles: 7_500 })
+    await repos.customItems.remove('own-filter')
+    const ops: [string, Record<string, unknown> | undefined][] = []
+    for (let tx = await db.getNextCrudTransaction(); tx; tx = await db.getNextCrudTransaction()) {
+      ops.push(
+        ...tx.crud
+          .filter((c) => c.table === 'custom_items')
+          .map((c) => [c.op, c.opData] as [string, Record<string, unknown> | undefined]),
+      )
+      await tx.complete()
+    }
+    expect(ops.map(([op]) => op)).toEqual(['PUT', 'PUT', 'PATCH', 'DELETE'])
+    expect(Object.keys(ops[2]?.[1] ?? {}).sort()).toEqual(['interval_miles', 'updated_at'])
   })
 
   it("reads a configuration's recalls, complaint summaries and check times, and follows changes", async () => {

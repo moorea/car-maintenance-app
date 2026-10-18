@@ -19,6 +19,7 @@ import {
   type FillUp,
   type TireSet,
   type Renewal,
+  type CustomItem,
 } from '../domain/types'
 import type {
   AttachmentRepo,
@@ -49,7 +50,9 @@ import type {
   VehicleRepo,
   WarrantyRepo,
   RenewalRepo,
+  CustomItemRepo,
 } from '../ports'
+import { withCustomItems } from '../lib/customSchedule'
 import type { IsoDate } from '../lib/date'
 import type { CareReport } from '../features/care-report/report'
 
@@ -67,7 +70,7 @@ export const memoryVehicles = (
 ): VehicleRepo & {
   set: (vehicles: Vehicle[]) => void
   added: { ownerId: string; vehicle: Vehicle; firstReading?: OdometerReading }[]
-  /** Makes the next `add`, `setSevereDuty` or `setValue` throw. */
+  /** Makes the next `add`, `setSevereDuty`, `setValue`, `rename`, `reorder` or `remove` throw. */
   failNextAdd: (message: string) => void
 } => {
   let vehicles = [...initial]
@@ -120,6 +123,35 @@ export const memoryVehicles = (
         const { valueCents: _cents, valuedOn: _on, ...rest } = v
         return value ? { ...rest, valueCents: value.cents, valuedOn: value.valuedOn } : rest
       })
+      notify()
+    },
+    rename: async (id, nickname) => {
+      if (nextFailure !== undefined) {
+        const message = nextFailure
+        nextFailure = undefined
+        throw new Error(message)
+      }
+      vehicles = vehicles.map((v) => (v.id === id ? { ...v, nickname } : v))
+      notify()
+    },
+    reorder: async (ids) => {
+      if (nextFailure !== undefined) {
+        const message = nextFailure
+        nextFailure = undefined
+        throw new Error(message)
+      }
+      vehicles = vehicles.map((v) =>
+        ids.includes(v.id) ? { ...v, garagePosition: ids.indexOf(v.id) } : v,
+      )
+      notify()
+    },
+    remove: async (id) => {
+      if (nextFailure !== undefined) {
+        const message = nextFailure
+        nextFailure = undefined
+        throw new Error(message)
+      }
+      vehicles = vehicles.filter((v) => v.id !== id)
       notify()
     },
     /** Replaces the vehicles, as a sync would, and notifies watchers. */
@@ -235,9 +267,55 @@ export const memoryAccount = (auth: Pick<AuthPort, 'signOut'>) => {
   return account
 }
 
-export const memorySchedule = (items: MaintenanceItem[] = []): ScheduleRepo => ({
-  itemsForConfig: async (configId) => items.filter((i) => i.configId === configId),
-})
+/** Schedules by configuration, with the owner's changes from `custom` applied per car. */
+export const memorySchedule = (
+  items: MaintenanceItem[] = [],
+  custom: CustomItemRepo = memoryCustomItems(),
+): ScheduleRepo =>
+  withCustomItems(
+    { itemsForConfig: async (configId) => items.filter((i) => i.configId === configId) },
+    custom,
+  )
+
+/** Custom schedule items kept in memory. `failNext` makes the next save or removal throw. */
+export const memoryCustomItems = (initial: CustomItem[] = []) => {
+  let items = [...initial]
+  const watchers = new Set<{ vehicleId: VehicleId; onChange: (items: CustomItem[]) => void }>()
+  let nextFailure: string | undefined
+  const forVehicle = (vehicleId: VehicleId) => items.filter((i) => i.vehicleId === vehicleId)
+  const notify = () => {
+    for (const w of watchers) w.onChange(forVehicle(w.vehicleId))
+  }
+  const failIfScheduled = () => {
+    if (nextFailure === undefined) return
+    const message = nextFailure
+    nextFailure = undefined
+    throw new Error(message)
+  }
+  const repo: CustomItemRepo & { failNext: (message: string) => void } = {
+    listForVehicle: async (vehicleId) => forVehicle(vehicleId),
+    watchForVehicle: (vehicleId, onChange) => {
+      const watcher = { vehicleId, onChange }
+      watchers.add(watcher)
+      onChange(forVehicle(vehicleId))
+      return () => watchers.delete(watcher)
+    },
+    save: async (item) => {
+      failIfScheduled()
+      items = [...items.filter((i) => i.id !== item.id), item]
+      notify()
+    },
+    remove: async (id) => {
+      failIfScheduled()
+      items = items.filter((i) => i.id !== id)
+      notify()
+    },
+    failNext: (message) => {
+      nextFailure = message
+    },
+  }
+  return repo
+}
 
 export const memoryOdometer = (initial: OdometerReading[] = []): OdometerRepo => {
   const readings = [...initial]
@@ -267,6 +345,9 @@ export const memoryServiceRecords = (
   const watchers = new Set<{ vehicleId: VehicleId; onChange: (r: ServiceRecord[]) => void }>()
   let nextFailure: string | undefined
   const forVehicle = (vehicleId: VehicleId) => records.filter((r) => r.vehicleId === vehicleId)
+  const notify = (vehicleId: VehicleId) => {
+    for (const w of watchers) if (w.vehicleId === vehicleId) w.onChange(forVehicle(vehicleId))
+  }
 
   return {
     listForVehicle: async (vehicleId) => forVehicle(vehicleId),
@@ -283,8 +364,20 @@ export const memoryServiceRecords = (
         throw new Error(message)
       }
       records.push(record)
-      for (const w of watchers)
-        if (w.vehicleId === record.vehicleId) w.onChange(forVehicle(w.vehicleId))
+      notify(record.vehicleId)
+    },
+    update: async (record) => {
+      const i = records.findIndex((r) => r.id === record.id)
+      if (i < 0) return
+      const vehicleId = records[i]?.vehicleId ?? record.vehicleId
+      records[i] = { ...record, vehicleId }
+      notify(vehicleId)
+    },
+    remove: async (id) => {
+      const i = records.findIndex((r) => r.id === id)
+      if (i < 0) return
+      const [removed] = records.splice(i, 1)
+      if (removed) notify(removed.vehicleId)
     },
     failNextAdd: (message) => {
       nextFailure = message

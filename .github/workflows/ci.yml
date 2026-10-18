@@ -24,7 +24,7 @@ jobs:
     outputs:
       native: ${{ steps.diff.outputs.native }}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 2
           persist-credentials: false
@@ -34,11 +34,11 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -65,11 +65,11 @@ jobs:
   assistant:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -97,15 +97,15 @@ jobs:
       MAESTRO_VERSION: 2.11.0
       MAESTRO_CLI_NO_ANALYTICS: 1
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
           cache: pnpm
-      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: zulu
           java-version: 17
@@ -122,7 +122,7 @@ jobs:
       - name: Restore a native build with the same fingerprint
         id: cached
         if: github.event_name == 'pull_request'
-        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/native
           # Never an exact hit: the newest build saved under this prefix wins.
@@ -136,7 +136,7 @@ jobs:
         run: |
           scripts/reuse-native-build.sh apply android "$RUNNER_TEMP/native" "$RUNNER_TEMP/js"
           echo "APK=$RUNNER_TEMP/native/app.apk" >> "$GITHUB_ENV"
-      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4.4.3
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
         if: steps.reuse.outcome != 'success'
       - name: Generate the native project
         if: steps.reuse.outcome != 'success'
@@ -150,7 +150,7 @@ jobs:
       - name: Keep the build for reuse
         if: steps.reuse.outcome != 'success'
         run: scripts/reuse-native-build.sh keep android "$RUNNER_TEMP/native"
-      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         if: steps.reuse.outcome != 'success'
         # A cache outage should not fail the build.
         continue-on-error: true
@@ -165,7 +165,7 @@ jobs:
           sudo udevadm trigger --name-match=kvm
       - name: Restore Maestro
         id: maestro
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.maestro/bin
@@ -188,7 +188,7 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           # The emulator runner runs each script line on its own, so the steps live in one script.
           script: scripts/android-smoke.sh
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}
         with:
           name: android-emulator
@@ -211,7 +211,7 @@ jobs:
       KEEP: 40
     steps:
       # Missing when the build failed before the emulator ran; the step below then finds nothing.
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         continue-on-error: true
         with:
           name: android-emulator
@@ -255,7 +255,7 @@ jobs:
       GITLEAKS_VERSION: 8.30.0
       GITLEAKS_SHA256: 79a3ab579b53f71efd634f3aaf7e04a0fa0cf206b7ed434638d1547a2470a66e
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -275,7 +275,7 @@ jobs:
   database:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -285,7 +285,7 @@ jobs:
         env:
           BASE_REF: ${{ github.base_ref }}
         run: scripts/check-migration-order.sh "origin/$BASE_REF"
-      - uses: supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb # v1.7.3
+      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
         with:
           version: 2.121.0
       - name: Check scripts and sign-in emails
@@ -306,16 +306,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - uses: supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb # v1.7.3
+      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
         with:
           version: 2.121.0
       # Only what the data layer talks to: Postgres, Auth, PostgREST, Storage and the gateway.
@@ -342,7 +342,7 @@ jobs:
       # Starting the XCTest driver on a cold simulator can take over the 2 minute default.
       MAESTRO_DRIVER_STARTUP_TIMEOUT: 300000
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       # Boots while the app builds; the install step waits for it.
@@ -357,8 +357,8 @@ jobs:
           echo "Booting $udid"
           echo "SIMULATOR=$udid" >> "$GITHUB_ENV"
           xcrun simctl boot "$udid"
-      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -373,7 +373,7 @@ jobs:
       - name: Restore a native build with the same fingerprint
         id: cached
         if: github.event_name == 'pull_request'
-        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/native
           # Never an exact hit: the newest build saved under this prefix wins.
@@ -407,7 +407,7 @@ jobs:
       - name: Keep the build for reuse
         if: steps.reuse.outcome != 'success'
         run: scripts/reuse-native-build.sh keep ios "$RUNNER_TEMP/native"
-      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         if: steps.reuse.outcome != 'success'
         # A cache outage should not fail the build.
         continue-on-error: true
@@ -420,7 +420,7 @@ jobs:
           xcrun simctl install "$SIMULATOR" "$RUNNER_TEMP/native/CarMaintenance.app"
       - name: Restore Maestro
         id: maestro
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.maestro/bin
@@ -433,12 +433,18 @@ jobs:
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
           "$HOME/.maestro/bin/maestro" --version
       - name: UI flows (smoke test and screen sweep)
-        run: maestro test --test-output-dir "$RUNNER_TEMP/maestro" apps/mobile/e2e
+        run: |
+          maestro test --test-output-dir "$RUNNER_TEMP/maestro" --debug-output "$RUNNER_TEMP/maestro/debug" --flatten-debug-output \
+            apps/mobile/e2e
       # Screens again at the largest accessibility text size, to see Dynamic Type at its limit.
       - name: Largest text size
         run: |
           xcrun simctl ui booted content_size accessibility-extra-extra-extra-large
-          maestro test --test-output-dir "$RUNNER_TEMP/maestro/large-text" apps/mobile/e2e-large-text
+          maestro test --test-output-dir "$RUNNER_TEMP/maestro/large-text" \
+            --debug-output "$RUNNER_TEMP/maestro/large-text/debug" --flatten-debug-output apps/mobile/e2e-large-text
+      - name: Explain failed flows
+        if: failure()
+        run: scripts/maestro-report.sh "$RUNNER_TEMP/maestro"
       - name: Collect screenshots
         if: ${{ !cancelled() }}
         run: |
@@ -448,7 +454,7 @@ jobs:
             -not -path '*/node_modules/*' -not -path '*/ios/*' -not -name 'App-Icon*' \
             -exec cp {} "$RUNNER_TEMP/screenshots/" \; || true
           xcrun simctl io booted screenshot "$RUNNER_TEMP/screenshots/last.png" || true
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}
         with:
           name: ios-simulator
@@ -469,7 +475,7 @@ jobs:
       SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       KEEP: 40
     steps:
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ios-simulator
           path: ${{ runner.temp }}/artifact

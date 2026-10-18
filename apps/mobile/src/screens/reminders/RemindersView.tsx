@@ -1,12 +1,18 @@
 import type { RemindersActions, RemindersState, UpcomingReminder } from '@car/core'
-import { Button, Column, ScrollView, Switch } from '@expo/ui'
+import { Column, Row, ScrollView, Switch } from '@expo/ui'
 import { ActivityIndicator, StyleSheet } from 'react-native'
 import { Host } from '../../ui/Host'
 import { Note } from '../../ui/Note'
+import { GlassIconButton } from '../../ui/surfaces'
 import { TAB_BAR_CLEARANCE } from '../../ui/TabBar'
+import { TITLE_TOP } from '../../ui/layout'
 import { Text } from '../../ui/Text'
+import { Button } from '../../ui/Button'
 
-type Props = RemindersState & Pick<RemindersActions, 'setOn' | 'openSettings'>
+type Props = RemindersState &
+  Pick<RemindersActions, 'setOn' | 'openSettings'> & {
+    onBack: () => void
+  }
 
 const HEADING = { fontSize: 20, fontWeight: '700' } as const
 const LABEL = { fontSize: 13, fontWeight: '600' } as const
@@ -20,8 +26,11 @@ export function RemindersView(props: Props) {
       <ScrollView>
         <Column
           spacing={12}
-          style={{ padding: 16, paddingTop: 60, paddingBottom: TAB_BAR_CLEARANCE }}
+          style={{ padding: 16, paddingTop: TITLE_TOP, paddingBottom: TAB_BAR_CLEARANCE }}
         >
+          <Row>
+            <GlassIconButton symbol="back" label="Back" onPress={props.onBack} />
+          </Row>
           <Text textStyle={{ fontSize: 34, fontWeight: '700' }}>Reminders</Text>
           <Switch
             label="Service reminders"
@@ -30,8 +39,9 @@ export function RemindersView(props: Props) {
             onValueChange={(on) => void props.setOn(on)}
           />
           <Note>
-            A notification two weeks before each service is due, and another on the day. They are
-            worked out on this phone from your service log, so they arrive even without signal.
+            Two weeks before each service is due and on the day; a month and a week before each
+            registration, inspection or insurance date and on the day; and a month and a week before
+            a warranty ends. They're worked out on this phone, so they arrive even without signal.
           </Note>
           {props.blocked ? (
             <Column spacing={8}>

@@ -1,5 +1,5 @@
 import type { AiSharingState } from '@car/core'
-import { Button, Column, Row, ScrollView } from '@expo/ui'
+import { Column, Row, ScrollView } from '@expo/ui'
 import { StyleSheet } from 'react-native'
 import { useColors } from '../../theme'
 import { Host } from '../../ui/Host'
@@ -7,7 +7,9 @@ import { ErrorText, Note } from '../../ui/Note'
 import { Card, FillColumn, GlassIconButton, PillButton } from '../../ui/surfaces'
 import { Symbol } from '../../ui/Symbol'
 import type { SymbolName } from '../../ui/symbols'
+import { PAGE_TOP } from '../../ui/layout'
 import { Text } from '../../ui/Text'
+import { Button } from '../../ui/Button'
 
 type Props = AiSharingState & {
   /** Which screen asked, so the copy names what it sends. */
@@ -33,7 +35,7 @@ export function AiSharingView(props: Props) {
   return (
     <Host style={styles.fill}>
       <ScrollView>
-        <Column spacing={16} style={{ padding: 16, paddingTop: 60 }}>
+        <Column spacing={16} style={{ padding: 16, paddingTop: PAGE_TOP }}>
           <Row>
             <GlassIconButton symbol="back" label="Back" onPress={props.onBack} />
           </Row>
@@ -90,7 +92,7 @@ function Point({ symbol, title, body }: { symbol: SymbolName; title: string; bod
   const colors = useColors()
   return (
     <Row spacing={12} style={{ paddingHorizontal: 16, paddingVertical: 14 }}>
-      <Symbol name={symbol} size={22} color={colors.accent} />
+      <Symbol name={symbol} size={22} color={colors.accent} leading />
       <FillColumn spacing={2}>
         <Text textStyle={{ fontSize: 17, fontWeight: '600' }}>{title}</Text>
         <Text textStyle={{ fontSize: 15, color: colors.textSecondary }}>{body}</Text>

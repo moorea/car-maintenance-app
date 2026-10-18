@@ -2,6 +2,7 @@ import { strFromU8, strToU8, unzipSync, zipSync, type Zippable } from 'fflate'
 import { z } from 'zod'
 import type {
   Attachment,
+  CustomItem,
   FillUp,
   MaintenanceItem,
   Renewal,
@@ -39,6 +40,8 @@ export interface CarData {
   tireSets: TireSet[]
   /** Registration, inspection and insurance dates. */
   renewals: Renewal[]
+  /** The owner's own schedule items and intervals. */
+  customItems: CustomItem[]
   /** The car's schedule, to name each service's item. */
   items: MaintenanceItem[]
 }
@@ -147,6 +150,19 @@ const exportedRenewal = z.object({
   notes: clipped(NOTES_MAX),
 })
 
+const exportedCustomItem = z
+  .object({
+    id: z.string().min(1),
+    /** The schedule item whose interval this replaces; ids are stable for a config. */
+    replacesItemId: z.string().min(1).optional(),
+    task: z.string().min(1).max(100),
+    intervalMiles: z.number().int().min(100).max(500_000).optional(),
+    intervalMonths: z.number().int().min(1).max(240).optional(),
+  })
+  .refine((c) => c.intervalMiles !== undefined || c.intervalMonths !== undefined, {
+    message: 'A schedule item needs an interval',
+  })
+
 const exportedCar = z.object({
   id: z.string().min(1),
   year: z.number().int(),
@@ -171,6 +187,8 @@ const exportedCar = z.object({
   tireSets: z.array(exportedTireSet).default([]),
   // Exports made before renewals existed have none.
   renewals: z.array(exportedRenewal).default([]),
+  // Exports made before custom schedule items existed have none.
+  customItems: z.array(exportedCustomItem).default([]),
 })
 
 const exportFile = z.object({
@@ -187,6 +205,7 @@ export type ExportedWarranty = z.infer<typeof exportedWarranty>
 export type ExportedFillUp = z.infer<typeof exportedFillUp>
 export type ExportedTireSet = z.infer<typeof exportedTireSet>
 export type ExportedRenewal = z.infer<typeof exportedRenewal>
+export type ExportedCustomItem = z.infer<typeof exportedCustomItem>
 export type ExportFile = z.infer<typeof exportFile>
 
 /** A car's name in the export: its nickname, or year, make and model. */
@@ -246,6 +265,7 @@ warranties.csv  Every warranty, with when and at what mileage it ends.
 fill-ups.csv    Every fill-up and charging session: gallons or kWh, and its cost in US dollars.
 tires.csv       Every set of tires: when it was made, the miles on it and its last tread depth.
 renewals.csv    Every registration, inspection and insurance date, and how often it repeats.
+schedule.csv    The items you added to each car's schedule, and the intervals you set yourself.
 documents.csv   Every attached receipt, registration, inspection report, insurance card or file.
 documents/      The files themselves, in a folder per car.
 
@@ -327,6 +347,7 @@ export const buildArchive = (
       ],
     ],
     renewals: [['car', 'kind', 'name', 'due_on', 'every_months', 'notes']],
+    customItems: [['car', 'item', 'change', 'every_miles', 'every_months']],
   }
 
   const exported: ExportedCar[] = cars.map(
@@ -339,6 +360,7 @@ export const buildArchive = (
       fillUps,
       tireSets,
       renewals,
+      customItems,
       items,
     }) => {
       const label = carName(safeName(carLabel(v)))
@@ -455,6 +477,18 @@ export const buildArchive = (
           r.everyMonths !== undefined ? String(r.everyMonths) : '',
           r.notes ?? '',
         ])
+      const sortedCustomItems = [...customItems].sort(
+        (a, b) => a.task.localeCompare(b.task) || a.id.localeCompare(b.id),
+      )
+      for (const c of sortedCustomItems)
+        rows.customItems.push([
+          label,
+          // A replacement is named as the schedule names it now.
+          (c.replacesItemId && itemById.get(c.replacesItemId)?.task) || c.task,
+          c.replacesItemId ? 'your interval' : 'your item',
+          c.intervalMiles?.toString() ?? '',
+          c.intervalMonths?.toString() ?? '',
+        ])
       rows.cars.push([
         label,
         String(v.year),
@@ -543,6 +577,13 @@ export const buildArchive = (
           ...(r.everyMonths !== undefined && { everyMonths: r.everyMonths }),
           ...(r.notes && { notes: r.notes }),
         })),
+        customItems: sortedCustomItems.map((c) => ({
+          id: c.id,
+          ...(c.replacesItemId && { replacesItemId: c.replacesItemId }),
+          task: c.task,
+          ...(c.intervalMiles !== undefined && { intervalMiles: c.intervalMiles }),
+          ...(c.intervalMonths !== undefined && { intervalMonths: c.intervalMonths }),
+        })),
       }
     },
   )
@@ -562,6 +603,7 @@ export const buildArchive = (
   zip['fill-ups.csv'] = strToU8(csv(rows.fillUps))
   zip['tires.csv'] = strToU8(csv(rows.tireSets))
   zip['renewals.csv'] = strToU8(csv(rows.renewals))
+  zip['schedule.csv'] = strToU8(csv(rows.customItems))
   zip['documents.csv'] = strToU8(csv(rows.documents))
   return { bytes: zipSync(zip, { level: 6 }), missing }
 }

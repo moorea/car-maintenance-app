@@ -75,7 +75,7 @@ describe('projectDue', () => {
     })
   })
 
-  it('treats a time-only item with no history as due now', () => {
+  it('treats a time-only item with no history as due now when the model year is unknown', () => {
     const wipers: MaintenanceItem = {
       id: 'w',
       configId: 'c1',
@@ -87,6 +87,51 @@ describe('projectDue', () => {
       status: 'due-soon',
       historyUnknown: true,
     })
+  })
+
+  it('assumes an item with no history was done on schedule since the car went into service', () => {
+    const wipers: MaintenanceItem = {
+      id: 'w',
+      configId: 'c1',
+      task: 'Wiper blades',
+      intervalMonths: 12,
+    }
+    // Every 12 months from Jan 2021: the next is Jan 1, 2027, not today.
+    expect(
+      projectDue(input({ item: wipers, lastService: undefined, inServiceSince: '2021-01-01' })),
+    ).toMatchObject({ dueDate: '2027-01-01', trigger: 'time', status: 'upcoming' })
+    // A car newer than one interval is due one interval after it went into service.
+    expect(
+      projectDue(input({ item: wipers, lastService: undefined, inServiceSince: '2027-01-01' })),
+    ).toMatchObject({ dueDate: '2028-01-01' })
+  })
+
+  it('is due on the day a guessed interval ends, and moves to the next one after', () => {
+    const wipers: MaintenanceItem = { id: 'w', configId: 'c1', task: 'Wipers', intervalMonths: 12 }
+    const on = (today: string) =>
+      projectDue(
+        input({ item: wipers, lastService: undefined, inServiceSince: '2021-01-01', today }),
+      )
+    expect(on('2027-01-01')).toMatchObject({ dueDate: '2027-01-01', status: 'due-soon' })
+    expect(on('2027-01-02')).toMatchObject({ dueDate: '2028-01-01', status: 'upcoming' })
+  })
+
+  it('ignores a time limit of zero months rather than guessing from it', () => {
+    const broken: MaintenanceItem = { id: 'b', configId: 'c1', task: 'Broken', intervalMonths: 0 }
+    expect(
+      projectDue(input({ item: broken, lastService: undefined, inServiceSince: '2021-01-01' })),
+    ).toMatchObject({ dueDate: '2026-10-01', historyUnknown: true })
+  })
+
+  it('takes whichever comes first for an item with no history and both limits', () => {
+    // 6-month boundaries from Jan 2021 put the next on Jan 1, 2027, before 45,000 miles at 40 a
+    // day; at 100 a day, 45,000 miles comes first.
+    expect(
+      projectDue(input({ lastService: undefined, inServiceSince: '2021-01-01' })),
+    ).toMatchObject({ dueDate: '2027-01-01', trigger: 'time' })
+    expect(
+      projectDue(input({ lastService: undefined, milesPerDay: 100, inServiceSince: '2021-01-01' })),
+    ).toMatchObject({ dueMiles: 45_000, dueDate: '2026-11-10', trigger: 'miles' })
   })
 
   it('gives a parked car no mileage due date until it reaches the mileage', () => {

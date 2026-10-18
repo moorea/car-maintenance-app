@@ -1,9 +1,10 @@
 import { addDays, type IsoDate } from '../lib/date'
-import { formatLongDate } from '../lib/format'
+import { formatAgo, formatLongDate } from '../lib/format'
 import type { Renewal, Vehicle } from '../domain/types'
 import { RENEWAL_NOTICE_DAYS, renewalReminder, renewalTitle } from '../features/renewals/renewals'
 import { TIRE_AGE_NOTICE_DAYS, type TireAgeMilestone } from '../features/tires/tires'
 import type { LocalNotification } from '../ports'
+import { checkInNoticeDate, type OdometerCheckIn } from './odometerCheckIn'
 import { DUE_SOON_DAYS, type DueProjection } from './projectDue'
 
 /** Reminders arrive at 9am on the phone's clock: awake, and before the working day fills up. */
@@ -15,6 +16,22 @@ export const REMINDER_HOUR = 9
  * fire and the plan is refreshed.
  */
 export const MAX_SCHEDULED_REMINDERS = 60
+
+/**
+ * Every id `planNotifications` gives starts with one of these, so a device adapter can tell the
+ * app's own notifications from any others and never touch the rest.
+ */
+export const PLANNED_ID_PREFIXES = [
+  'reminder:',
+  'warranty:',
+  'renewal:',
+  'tires:',
+  'odometer:',
+] as const
+
+/** Whether a scheduled notification is one this app planned. */
+export const isPlannedNotification = (id: string): boolean =>
+  PLANNED_ID_PREFIXES.some((prefix) => id.startsWith(prefix))
 
 /** A heads-up two weeks ahead, when an item turns "due soon", and a nudge on the due date. */
 type Stage = 'soon' | 'due'
@@ -43,6 +60,8 @@ export interface VehicleDue {
   /** Tire sets' sixth and tenth birthdays still ahead. */
   tires?: TireAgeMilestone[]
   renewals?: Renewal[]
+  /** An odometer reading worth asking for, when one would move a reminder. */
+  checkIn?: OdometerCheckIn | undefined
 }
 
 const formatMiles = (miles: number) => `${Math.round(miles).toLocaleString('en-US')} mi`
@@ -148,14 +167,33 @@ const renewalNotices = (cars: VehicleDue[], today: IsoDate): LocalNotification[]
     ),
   )
 
+const checkInNotices = (cars: VehicleDue[], today: IsoDate): LocalNotification[] =>
+  cars.flatMap(({ vehicle, checkIn }): LocalNotification[] => {
+    const date = checkIn && checkInNoticeDate(checkIn, today)
+    if (!checkIn || !date) return []
+    return [
+      {
+        // One per car and no date in the id: a new reading or service moves or drops it.
+        id: `odometer:${vehicle.id}`,
+        date,
+        hour: REMINDER_HOUR,
+        title: `${vehicle.nickname}: what does the odometer say?`,
+        body: `${checkIn.task} is due around ${formatMiles(checkIn.dueMiles)}, going by a reading from ${formatAgo(checkIn.readOn, date)}. A new reading keeps the reminder on the right day.`,
+        vehicleId: vehicle.id,
+      },
+    ]
+  })
+
 /**
- * The notifications to have scheduled today: for every item with a projected due date, one two
+ * The notifications to have scheduled today: for every item with a projected due date (other than
+ * one guessed only from the car's age), one two
  * weeks before it and one on the day, at REMINDER_HOUR. Items falling on the same day for the same
  * car share one notification. Only dates after today are scheduled, so planning again never
  * repeats a reminder that was due to fire already, and items that are already due are left to
  * the app's own screens. Each warranty still running gets a heads-up WARRANTY_NOTICE_DAYS before
  * it ends, each registration, inspection or insurance date RENEWAL_NOTICE_DAYS before it, and each
- * tire set a heads-up TIRE_AGE_NOTICE_DAYS before it turns six and ten. Soonest first, capped at
+ * tire set a heads-up TIRE_AGE_NOTICE_DAYS before it turns six and ten. A car whose next mileage
+ * reminder rests on an old reading gets one request for a new reading. Soonest first, capped at
  * MAX_SCHEDULED_REMINDERS.
  */
 export const planNotifications = (cars: VehicleDue[], today: IsoDate): LocalNotification[] => {
@@ -167,6 +205,9 @@ export const planNotifications = (cars: VehicleDue[], today: IsoDate): LocalNoti
   for (const { vehicle, due } of cars) {
     for (const item of due) {
       if (item.dueDate === undefined) continue
+      // A date guessed from the car's age alone is no reason to interrupt anyone; the garage asks
+      // when it was last done instead.
+      if (item.historyUnknown && item.trigger === 'time') continue
       const stages: [Stage, IsoDate][] = [
         ['soon', addDays(item.dueDate, -DUE_SOON_DAYS)],
         ['due', item.dueDate],
@@ -194,6 +235,7 @@ export const planNotifications = (cars: VehicleDue[], today: IsoDate): LocalNoti
     ...warrantyNotices(cars, today),
     ...renewalNotices(cars, today),
     ...tireNotices(cars, today),
+    ...checkInNotices(cars, today),
   ]
     .sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
     .slice(0, MAX_SCHEDULED_REMINDERS)

@@ -1,5 +1,5 @@
 import type { IsoDate } from '../../lib/date'
-import { formatCents, formatMiles } from '../../lib/format'
+import { formatCents, formatLongDate, formatMiles } from '../../lib/format'
 import type { ServiceRecord } from '../../domain/types'
 
 const MONTHS = [
@@ -28,6 +28,10 @@ export interface LogEntry {
   /** "Main St Auto · 41,250 mi", leaving out what is unknown. */
   where: string
   cost?: string | undefined
+  /** "Mar 14, 2025", for the service on its own. */
+  date: string
+  /** The owner's notes, when `what` is the task rather than the notes themselves. */
+  notes?: string | undefined
 }
 
 /** A month of history: "October", or "October 2025" outside the current year. */
@@ -80,12 +84,37 @@ export const groupHistory = (
         .filter(Boolean)
         .join(' · '),
       cost: r.costCents !== undefined ? formatCents(r.costCents) : undefined,
+      date: formatLongDate(r.performedOn),
+      notes: r.notes !== what ? r.notes : undefined,
     }
     const last = groups[groups.length - 1]
     if (last?.label === label) last.entries.push(entry)
     else groups.push({ label, entries: [entry] })
   }
   return groups
+}
+
+/**
+ * How many entries a list shows before "Show earlier": enough for a few years of services, while
+ * decades of history never lay out at once.
+ */
+export const LIST_PAGE = 50
+
+/** The first `limit` entries of the groups, and how many entries are left out. */
+export const firstEntries = (
+  groups: readonly LogGroup[],
+  limit: number,
+): { groups: LogGroup[]; hidden: number } => {
+  const shown: LogGroup[] = []
+  let room = limit
+  let hidden = 0
+  for (const group of groups) {
+    const entries = group.entries.slice(0, Math.max(0, room))
+    hidden += group.entries.length - entries.length
+    room -= entries.length
+    if (entries.length > 0) shown.push({ ...group, entries })
+  }
+  return { groups: shown, hidden }
 }
 
 /** What was spent this calendar year and how many services are logged in all. */

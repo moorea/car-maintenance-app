@@ -1,4 +1,6 @@
+import { withCustomItems } from '@car/core'
 import type {
+  CustomItemRepo,
   FillUpRepo,
   RenewalRepo,
   OdometerReading,
@@ -16,14 +18,16 @@ import type {
 import type { CommonPowerSyncDatabase } from '@powersync/common'
 import { readOwner } from './session'
 import {
+  fromCustomItem,
   fromServiceRecord,
   fromFillUp,
-  fromTireSet,
   fromRenewal,
+  fromTireSet,
   fromVehicle,
   fromWarranty,
   toBulletin,
   toComplaintSummary,
+  toCustomItem,
   toFillUp,
   toRenewal,
   toMaintenanceItem,
@@ -46,6 +50,7 @@ export interface PowerSyncRepositories {
   fillUps: FillUpRepo
   tireSets: TireSetRepo
   renewals: RenewalRepo
+  customItems: CustomItemRepo
   sync: SyncStatus
 }
 
@@ -56,6 +61,8 @@ const WARRANTIES_FOR_VEHICLE =
   'select * from warranties where vehicle_id = ? order by starts_on, kind, id'
 
 const RENEWALS_FOR_VEHICLE = 'select * from renewals where vehicle_id = ? order by due_on, id'
+
+const CUSTOM_ITEMS_FOR_VEHICLE = 'select * from custom_items where vehicle_id = ? order by task, id'
 
 const FILL_UPS_FOR_VEHICLE =
   'select * from fill_ups where vehicle_id = ? order by filled_on desc, odometer_miles desc'
@@ -159,7 +166,7 @@ const watchSafety = (
  */
 const saveEditable = async (
   db: CommonPowerSyncDatabase,
-  table: 'warranties' | 'fill_ups' | 'renewals' | 'tire_sets',
+  table: 'warranties' | 'fill_ups' | 'renewals' | 'custom_items' | 'tire_sets',
   ...rows: ({ id: string } & Row)[]
 ) => {
   await db.writeTransaction(async (tx) => {
@@ -240,179 +247,265 @@ export const firstSyncOf = (
 }
 
 /** The core ports implemented over the on-device PowerSync (SQLite) database. */
-export const createPowerSyncRepositories = (
-  db: CommonPowerSyncDatabase,
-): PowerSyncRepositories => ({
-  sync: {
-    onFirstSync: (ownerId, onSynced) =>
-      firstSyncOf(
-        {
-          hasSynced: () => db.currentStatus.hasSynced === true,
-          onStatusChanged: (onChange) => db.registerListener({ statusChanged: onChange }),
-          owner: () => readOwner(db),
-        },
-        ownerId,
-        onSynced,
-      ),
-  },
+const customItemsOf = (db: CommonPowerSyncDatabase): CustomItemRepo => ({
+  listForVehicle: async (vehicleId) =>
+    (await db.getAll<Record<string, unknown>>(CUSTOM_ITEMS_FOR_VEHICLE, [vehicleId])).map(
+      toCustomItem,
+    ),
 
-  vehicles: {
-    // Filtered by owner even though only the owner's rows sync: just after an account switch the
-    // previous owner's copy may not be cleared yet.
-    watchOwned: (ownerId, onChange) =>
-      watchRows(
-        db,
-        'select * from vehicles where owner_id = ? order by nickname',
-        [ownerId],
-        'vehicles',
-        (rows) => onChange(rows.map(toVehicle)),
-      ),
-    get: async (id) => {
-      const row = await db.getOptional<Record<string, unknown>>(
-        'select * from vehicles where id = ?',
-        [id],
-      )
-      return row ? toVehicle(row) : undefined
-    },
-    // One transaction, so the reading uploads after its car and never on its own.
-    add: async (ownerId, vehicle, firstReading) => {
-      const row = { ...fromVehicle(ownerId, vehicle), updated_at: now() }
-      const columns = Object.keys(row)
-      await db.writeTransaction(async (tx) => {
-        await tx.execute(
-          `insert into vehicles (${columns.join(', ')}) values (${columns.map(() => '?').join(', ')})`,
-          Object.values(row),
-        )
-        if (firstReading) await insertReading(tx, firstReading)
-      })
-    },
-    setSevereDuty: async (id, severeDuty) => {
-      await db.execute('update vehicles set severe_duty = ?, updated_at = ? where id = ?', [
-        severeDuty ? 1 : 0,
-        now(),
-        id,
-      ])
-    },
-    setValue: async (id, value) => {
-      await db.execute(
-        'update vehicles set value_cents = ?, valued_on = ?, updated_at = ? where id = ?',
-        [value?.cents ?? null, value?.valuedOn ?? null, now(), id],
-      )
-    },
-  },
+  watchForVehicle: (vehicleId, onChange) =>
+    watchRows(db, CUSTOM_ITEMS_FOR_VEHICLE, [vehicleId], 'custom_items', (rows) =>
+      onChange(rows.map(toCustomItem)),
+    ),
 
-  records: {
-    listForVehicle: async (vehicleId) =>
-      (await db.getAll<Record<string, unknown>>(RECORDS_FOR_VEHICLE, [vehicleId])).map(
-        toServiceRecord,
-      ),
+  save: (item) => saveEditable(db, 'custom_items', fromCustomItem(item)),
 
-    watchForVehicle: (vehicleId, onChange) =>
-      watchRows(db, RECORDS_FOR_VEHICLE, [vehicleId], 'service_records', (rows) =>
-        onChange(rows.map(toServiceRecord)),
-      ),
-
-    add: async (record) => {
-      const row = { ...fromServiceRecord(record), created_at: now() }
-      const columns = Object.keys(row)
-      await db.execute(
-        `insert into service_records (${columns.join(', ')}) values (${columns.map(() => '?').join(', ')})`,
-        Object.values(row),
-      )
-    },
-  },
-
-  odometer: {
-    listForVehicle: async (vehicleId) =>
-      (await db.getAll<Record<string, unknown>>(READINGS_FOR_VEHICLE, [vehicleId])).map(
-        toOdometerReading,
-      ),
-
-    watchForVehicle: (vehicleId, onChange) =>
-      watchRows(db, READINGS_FOR_VEHICLE, [vehicleId], 'odometer_readings', (rows) =>
-        onChange(rows.map(toOdometerReading)),
-      ),
-
-    add: (reading) => insertReading(db, reading),
-  },
-
-  warranties: {
-    listForVehicle: async (vehicleId) =>
-      (await db.getAll<Record<string, unknown>>(WARRANTIES_FOR_VEHICLE, [vehicleId])).map(
-        toWarranty,
-      ),
-
-    watchForVehicle: (vehicleId, onChange) =>
-      watchRows(db, WARRANTIES_FOR_VEHICLE, [vehicleId], 'warranties', (rows) =>
-        onChange(rows.map(toWarranty)),
-      ),
-
-    save: (warranty) => saveEditable(db, 'warranties', fromWarranty(warranty)),
-
-    remove: async (id) => {
-      await db.execute('delete from warranties where id = ?', [id])
-    },
-  },
-
-  renewals: {
-    listForVehicle: async (vehicleId) =>
-      (await db.getAll<Record<string, unknown>>(RENEWALS_FOR_VEHICLE, [vehicleId])).map(toRenewal),
-
-    watchForVehicle: (vehicleId, onChange) =>
-      watchRows(db, RENEWALS_FOR_VEHICLE, [vehicleId], 'renewals', (rows) =>
-        onChange(rows.map(toRenewal)),
-      ),
-
-    save: (renewal) => saveEditable(db, 'renewals', fromRenewal(renewal)),
-
-    remove: async (id) => {
-      await db.execute('delete from renewals where id = ?', [id])
-    },
-  },
-
-  fillUps: {
-    listForVehicle: async (vehicleId) =>
-      (await db.getAll<Record<string, unknown>>(FILL_UPS_FOR_VEHICLE, [vehicleId])).map(toFillUp),
-
-    watchForVehicle: (vehicleId, onChange) =>
-      watchRows(db, FILL_UPS_FOR_VEHICLE, [vehicleId], 'fill_ups', (rows) =>
-        onChange(rows.map(toFillUp)),
-      ),
-
-    save: (fillUp) => saveEditable(db, 'fill_ups', fromFillUp(fillUp)),
-
-    remove: async (id) => {
-      await db.execute('delete from fill_ups where id = ?', [id])
-    },
-  },
-
-  tireSets: {
-    listForVehicle: async (vehicleId) =>
-      (await db.getAll<Record<string, unknown>>(TIRE_SETS_FOR_VEHICLE, [vehicleId])).map(toTireSet),
-
-    watchForVehicle: (vehicleId, onChange) =>
-      watchRows(db, TIRE_SETS_FOR_VEHICLE, [vehicleId], 'tire_sets', (rows) =>
-        onChange(rows.map(toTireSet)),
-      ),
-
-    save: (...sets) => saveEditable(db, 'tire_sets', ...sets.map(fromTireSet)),
-
-    remove: async (id) => {
-      await db.execute('delete from tire_sets where id = ?', [id])
-    },
-  },
-
-  safety: {
-    watchForConfig: (configId, onChange) => watchSafety(db, configId, onChange),
-  },
-
-  schedule: {
-    itemsForConfig: async (configId) =>
-      (
-        await db.getAll<Record<string, unknown>>(
-          'select * from maintenance_items where config_id = ? order by task',
-          [configId],
-        )
-      ).map(toMaintenanceItem),
+  remove: async (id) => {
+    await db.execute('delete from custom_items where id = ?', [id])
   },
 })
+
+export const createPowerSyncRepositories = (db: CommonPowerSyncDatabase): PowerSyncRepositories => {
+  const customItems = customItemsOf(db)
+  return {
+    customItems,
+
+    sync: {
+      onFirstSync: (ownerId, onSynced) =>
+        firstSyncOf(
+          {
+            hasSynced: () => db.currentStatus.hasSynced === true,
+            onStatusChanged: (onChange) => db.registerListener({ statusChanged: onChange }),
+            owner: () => readOwner(db),
+          },
+          ownerId,
+          onSynced,
+        ),
+    },
+
+    vehicles: {
+      // Filtered by owner even though only the owner's rows sync: just after an account switch the
+      // previous owner's copy may not be cleared yet.
+      watchOwned: (ownerId, onChange) =>
+        watchRows(
+          db,
+          // As the owner arranged them, then any not yet placed by name (as byGarageOrder does).
+          'select * from vehicles where owner_id = ? order by garage_position is null, garage_position, nickname',
+          [ownerId],
+          'vehicles',
+          (rows) => onChange(rows.map(toVehicle)),
+        ),
+      get: async (id) => {
+        const row = await db.getOptional<Record<string, unknown>>(
+          'select * from vehicles where id = ?',
+          [id],
+        )
+        return row ? toVehicle(row) : undefined
+      },
+      // One transaction, so the reading uploads after its car and never on its own.
+      add: async (ownerId, vehicle, firstReading) => {
+        const row = { ...fromVehicle(ownerId, vehicle), updated_at: now() }
+        const columns = Object.keys(row)
+        await db.writeTransaction(async (tx) => {
+          await tx.execute(
+            `insert into vehicles (${columns.join(', ')}) values (${columns.map(() => '?').join(', ')})`,
+            Object.values(row),
+          )
+          if (firstReading) await insertReading(tx, firstReading)
+        })
+      },
+      setSevereDuty: async (id, severeDuty) => {
+        await db.execute('update vehicles set severe_duty = ?, updated_at = ? where id = ?', [
+          severeDuty ? 1 : 0,
+          now(),
+          id,
+        ])
+      },
+      setValue: async (id, value) => {
+        await db.execute(
+          'update vehicles set value_cents = ?, valued_on = ?, updated_at = ? where id = ?',
+          [value?.cents ?? null, value?.valuedOn ?? null, now(), id],
+        )
+      },
+      rename: async (id, nickname) => {
+        await db.execute('update vehicles set nickname = ?, updated_at = ? where id = ?', [
+          nickname,
+          now(),
+          id,
+        ])
+      },
+      // One transaction, so this phone applies the whole new order at once. Other phones may see part
+      // of it while the uploads land one by one; ties sort by name until the rest arrive.
+      reorder: async (ids) => {
+        const at = now()
+        await db.writeTransaction(async (tx) => {
+          for (const [position, id] of ids.entries())
+            await tx.execute(
+              'update vehicles set garage_position = ?, updated_at = ? where id = ?',
+              [position, at, id],
+            )
+        })
+      },
+      // The server deletes the rest of the car's history with it, and sync then clears it here.
+      // Its attachments go first, in the same transaction, so the upload deletes their files in
+      // Storage too rather than leaving them for the sweep.
+      remove: async (id) => {
+        await db.writeTransaction(async (tx) => {
+          await tx.execute('delete from attachments where vehicle_id = ?', [id])
+          await tx.execute('delete from vehicles where id = ?', [id])
+        })
+      },
+    },
+
+    records: {
+      listForVehicle: async (vehicleId) =>
+        (await db.getAll<Record<string, unknown>>(RECORDS_FOR_VEHICLE, [vehicleId])).map(
+          toServiceRecord,
+        ),
+
+      watchForVehicle: (vehicleId, onChange) =>
+        watchRows(db, RECORDS_FOR_VEHICLE, [vehicleId], 'service_records', (rows) =>
+          onChange(rows.map(toServiceRecord)),
+        ),
+
+      add: async (record) => {
+        const row = { ...fromServiceRecord(record), created_at: now() }
+        const columns = Object.keys(row)
+        await db.execute(
+          `insert into service_records (${columns.join(', ')}) values (${columns.map(() => '?').join(', ')})`,
+          Object.values(row),
+        )
+      },
+
+      // Only what changed is written, so the upload sends just those columns.
+      update: async (record) => {
+        await db.writeTransaction(async (tx) => {
+          const existing = await tx.getOptional<Row>('select * from service_records where id = ?', [
+            record.id,
+          ])
+          if (!existing) return
+          const { id: _id, vehicle_id: _car, ...fields } = fromServiceRecord(record)
+          const changed = Object.entries(fields).filter(
+            ([column, value]) => existing[column] !== value,
+          )
+          if (changed.length === 0) return
+          await tx.execute(
+            `update service_records set ${changed.map(([column]) => `${column} = ?`).join(', ')} where id = ?`,
+            [...changed.map(([, value]) => value), record.id],
+          )
+        })
+      },
+
+      // Its receipts go first, in the same transaction, so the upload deletes their files in
+      // Storage too rather than leaving them for the sweep.
+      remove: async (id) => {
+        await db.writeTransaction(async (tx) => {
+          await tx.execute('delete from attachments where service_record_id = ?', [id])
+          await tx.execute('delete from service_records where id = ?', [id])
+        })
+      },
+    },
+
+    odometer: {
+      listForVehicle: async (vehicleId) =>
+        (await db.getAll<Record<string, unknown>>(READINGS_FOR_VEHICLE, [vehicleId])).map(
+          toOdometerReading,
+        ),
+
+      watchForVehicle: (vehicleId, onChange) =>
+        watchRows(db, READINGS_FOR_VEHICLE, [vehicleId], 'odometer_readings', (rows) =>
+          onChange(rows.map(toOdometerReading)),
+        ),
+
+      add: (reading) => insertReading(db, reading),
+    },
+
+    warranties: {
+      listForVehicle: async (vehicleId) =>
+        (await db.getAll<Record<string, unknown>>(WARRANTIES_FOR_VEHICLE, [vehicleId])).map(
+          toWarranty,
+        ),
+
+      watchForVehicle: (vehicleId, onChange) =>
+        watchRows(db, WARRANTIES_FOR_VEHICLE, [vehicleId], 'warranties', (rows) =>
+          onChange(rows.map(toWarranty)),
+        ),
+
+      save: (warranty) => saveEditable(db, 'warranties', fromWarranty(warranty)),
+
+      remove: async (id) => {
+        await db.execute('delete from warranties where id = ?', [id])
+      },
+    },
+
+    renewals: {
+      listForVehicle: async (vehicleId) =>
+        (await db.getAll<Record<string, unknown>>(RENEWALS_FOR_VEHICLE, [vehicleId])).map(
+          toRenewal,
+        ),
+
+      watchForVehicle: (vehicleId, onChange) =>
+        watchRows(db, RENEWALS_FOR_VEHICLE, [vehicleId], 'renewals', (rows) =>
+          onChange(rows.map(toRenewal)),
+        ),
+
+      save: (renewal) => saveEditable(db, 'renewals', fromRenewal(renewal)),
+
+      remove: async (id) => {
+        await db.execute('delete from renewals where id = ?', [id])
+      },
+    },
+
+    fillUps: {
+      listForVehicle: async (vehicleId) =>
+        (await db.getAll<Record<string, unknown>>(FILL_UPS_FOR_VEHICLE, [vehicleId])).map(toFillUp),
+
+      watchForVehicle: (vehicleId, onChange) =>
+        watchRows(db, FILL_UPS_FOR_VEHICLE, [vehicleId], 'fill_ups', (rows) =>
+          onChange(rows.map(toFillUp)),
+        ),
+
+      save: (fillUp) => saveEditable(db, 'fill_ups', fromFillUp(fillUp)),
+
+      remove: async (id) => {
+        await db.execute('delete from fill_ups where id = ?', [id])
+      },
+    },
+
+    tireSets: {
+      listForVehicle: async (vehicleId) =>
+        (await db.getAll<Record<string, unknown>>(TIRE_SETS_FOR_VEHICLE, [vehicleId])).map(
+          toTireSet,
+        ),
+
+      watchForVehicle: (vehicleId, onChange) =>
+        watchRows(db, TIRE_SETS_FOR_VEHICLE, [vehicleId], 'tire_sets', (rows) =>
+          onChange(rows.map(toTireSet)),
+        ),
+
+      save: (...sets) => saveEditable(db, 'tire_sets', ...sets.map(fromTireSet)),
+
+      remove: async (id) => {
+        await db.execute('delete from tire_sets where id = ?', [id])
+      },
+    },
+
+    safety: {
+      watchForConfig: (configId, onChange) => watchSafety(db, configId, onChange),
+    },
+
+    // The schedule each car follows: its config's, with the owner's own items and intervals.
+    schedule: withCustomItems(
+      {
+        itemsForConfig: async (configId) =>
+          (
+            await db.getAll<Record<string, unknown>>(
+              'select * from maintenance_items where config_id = ? order by task',
+              [configId],
+            )
+          ).map(toMaintenanceItem),
+      },
+      customItems,
+    ),
+  }
+}

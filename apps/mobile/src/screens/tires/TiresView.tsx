@@ -1,14 +1,16 @@
 import type { TireCondition, TireRow, TiresActions, TiresState } from '@car/core'
-import { BottomSheet, Button, Column, Row, ScrollView, Spacer, Switch } from '@expo/ui'
+import { BottomSheet, Column, Row, ScrollView, Spacer, Switch } from '@expo/ui'
 import type { ReactNode } from 'react'
 import { ActivityIndicator, StyleSheet } from 'react-native'
 import { useColors, type ColorRole } from '../../theme'
+import { Button } from '../../ui/Button'
 import { Host } from '../../ui/Host'
 import { ErrorText, Note } from '../../ui/Note'
 import { Symbol } from '../../ui/Symbol'
 import { TAB_BAR_CLEARANCE } from '../../ui/TabBar'
 import { TextField } from '../../ui/TextField'
 import { Card, FillColumn, FillRow, GlassIconButton, PillButton } from '../../ui/surfaces'
+import { PAGE_TOP } from '../../ui/layout'
 import { Text } from '../../ui/Text'
 
 type Props = TiresState &
@@ -50,7 +52,7 @@ export function TiresView(props: Props) {
       <ScrollView>
         <Column
           spacing={16}
-          style={{ padding: 16, paddingTop: 60, paddingBottom: TAB_BAR_CLEARANCE }}
+          style={{ padding: 16, paddingTop: PAGE_TOP, paddingBottom: TAB_BAR_CLEARANCE }}
         >
           <Row alignment="center">
             <GlassIconButton symbol="back" label="Back" onPress={props.onBack} />
@@ -151,7 +153,7 @@ function TireCard({
   return (
     <Card padding={14} spacing={10}>
       <FillRow spacing={12} onPress={onEdit}>
-        <Symbol name="tire" size={26} color={colors.accent} />
+        <Symbol name="tire" size={26} color={colors.accent} leading />
         <FillColumn spacing={1}>
           <Text textStyle={{ fontSize: 17, fontWeight: '600' }}>{row.title}</Text>
           {row.subtitle ? (
@@ -178,7 +180,7 @@ function TireCard({
       {row.advice ? (
         <Card fill="warningSubtle" padding={12}>
           <Row spacing={10} alignment="center">
-            <Symbol name="warning" size={18} color={colors[ADVICE_TEXT[row.condition]]} />
+            <Symbol name="warning" size={18} color={colors[ADVICE_TEXT[row.condition]]} leading />
             <FillColumn>
               <Text
                 textStyle={{

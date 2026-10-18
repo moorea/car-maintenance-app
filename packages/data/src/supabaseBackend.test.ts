@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { describe, expect, it } from 'vitest'
-import { supabaseBackend } from './connector'
+import { supabaseBackend, writeTimeoutMs } from './connector'
+import { isPermanent } from './upload'
 
 interface Sent {
   method: string
@@ -60,6 +61,79 @@ describe('supabaseBackend', () => {
     expect(sent[0]).toMatchObject({ method: 'POST', body: { id: 'v1' } })
     expect(sent[0]?.url.pathname).toBe('/rest/v1/vehicles')
     expect(sent[0]?.prefer).toContain('resolution=ignore-duplicates')
+  })
+
+  it('inserts several rows in one request, still without overwriting existing ones', async () => {
+    const { supabase, sent } = recordingClient(201)
+    const backend = supabaseBackend(supabase, storage, 'jwt')
+    expect(await backend.insertMany('service_records', [{ id: 'r1' }, { id: 'r2' }])).toBeNull()
+    expect(sent).toHaveLength(1)
+    expect(sent[0]).toMatchObject({ method: 'POST', body: [{ id: 'r1' }, { id: 'r2' }] })
+    expect(sent[0]?.prefer).toContain('resolution=ignore-duplicates')
+  })
+
+  it('upserts several rows in one request', async () => {
+    const { supabase, sent } = recordingClient(201)
+    const backend = supabaseBackend(supabase, storage, 'jwt')
+    expect(await backend.upsertMany('fill_ups', [{ id: 'f1' }, { id: 'f2' }])).toBeNull()
+    expect(sent).toHaveLength(1)
+    expect(sent[0]?.prefer).toContain('resolution=merge-duplicates')
+  })
+
+  it('gives up on a write with no response in time, as a network failure that is retried', async () => {
+    let requests = 0
+    const fetch = (_input: RequestInfo | URL, init?: RequestInit) =>
+      new Promise<Response>((_, reject) => {
+        requests++
+        init?.signal?.addEventListener('abort', () => reject(init.signal?.reason as Error))
+      })
+    const supabase = createClient('https://db.example', 'anon-key', {
+      global: { fetch },
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
+    const backend = supabaseBackend(supabase, storage, 'jwt', 1, () => 20)
+    const writes = [
+      backend.insert('vehicles', { id: 'v1' }),
+      backend.upsertMany('vehicles', [{ id: 'v1' }]),
+      backend.update('vehicles', 'v1', {}),
+      backend.remove('vehicles', 'v1'),
+    ]
+    for (const error of await Promise.all(writes)) {
+      expect(error).toMatchObject({ status: 0 })
+      expect(error && isPermanent(error)).toBe(false)
+    }
+    expect(requests).toBe(4)
+  })
+
+  it('allows a large batch more time, and more again after uploads have timed out', async () => {
+    const asked: number[] = []
+    const answerAfter = (ms: number) => (_input: RequestInfo | URL, init?: RequestInit) =>
+      new Promise<Response>((resolve, reject) => {
+        const timer = setTimeout(() => resolve(new Response(null, { status: 201 })), ms)
+        init?.signal?.addEventListener('abort', () => {
+          clearTimeout(timer)
+          reject(init.signal?.reason as Error)
+        })
+      })
+    const client = (ms: number) =>
+      createClient('https://db.example', 'anon-key', {
+        global: { fetch: answerAfter(ms) },
+        auth: { persistSession: false, autoRefreshToken: false },
+      })
+    const timeout = (bytes: number) => (asked.push(bytes), 30)
+    const rows = [{ id: 'r1', notes: 'x'.repeat(1_000) }]
+    expect(
+      await supabaseBackend(client(60), storage, 'jwt', 1, timeout).insertMany('t', rows),
+    ).toMatchObject({ status: 0 })
+    expect(
+      await supabaseBackend(client(60), storage, 'jwt', 4, timeout).insertMany('t', rows),
+    ).toBeNull()
+    expect(asked[0]).toBe(JSON.stringify(rows).length)
+  })
+
+  it('allows a large batch ten seconds more a megabyte', () => {
+    expect(writeTimeoutMs(0)).toBe(30_000)
+    expect(writeTimeoutMs(2_500_000)).toBe(60_000)
   })
 
   it('upserts by replacing a row that already exists', async () => {

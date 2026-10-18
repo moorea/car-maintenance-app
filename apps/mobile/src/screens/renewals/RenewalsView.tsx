@@ -1,5 +1,5 @@
 import type { RenewalRow, RenewalsActions, RenewalsState, RenewalState } from '@car/core'
-import { BottomSheet, Button, Column, Picker, Row, ScrollView, Spacer } from '@expo/ui'
+import { BottomSheet, Column, Picker, Row, ScrollView, Spacer } from '@expo/ui'
 import type { ReactNode } from 'react'
 import { ActivityIndicator, StyleSheet } from 'react-native'
 import { useColors, type ColorRole } from '../../theme'
@@ -8,7 +8,9 @@ import { ErrorText, Note } from '../../ui/Note'
 import { Reflow } from '../../ui/Reflow'
 import { Symbol } from '../../ui/Symbol'
 import { TAB_BAR_CLEARANCE } from '../../ui/TabBar'
+import { PAGE_TOP } from '../../ui/layout'
 import { Text } from '../../ui/Text'
+import { DateField } from '../../ui/DateField'
 import { TextField } from '../../ui/TextField'
 import { Card, FillColumn, GlassIconButton, PillButton } from '../../ui/surfaces'
 import {
@@ -17,6 +19,7 @@ import {
   AttachStatus,
   type AttachmentsProps,
 } from '../attachments/AttachmentList'
+import { Button } from '../../ui/Button'
 
 type Props = RenewalsState &
   Pick<
@@ -53,7 +56,7 @@ export function RenewalsView(props: Props) {
       <ScrollView>
         <Column
           spacing={16}
-          style={{ padding: 16, paddingTop: 60, paddingBottom: TAB_BAR_CLEARANCE }}
+          style={{ padding: 16, paddingTop: PAGE_TOP, paddingBottom: TAB_BAR_CLEARANCE }}
         >
           <Row alignment="center">
             <GlassIconButton symbol="back" label="Back" onPress={props.onBack} />
@@ -148,7 +151,12 @@ function RenewalCard(props: Props & { row: RenewalRow }) {
   return (
     <Card padding={14} spacing={10}>
       <Row alignment="center" spacing={12}>
-        <Symbol name={row.state === 'overdue' ? 'warning' : 'calendar'} size={22} color={color} />
+        <Symbol
+          name={row.state === 'overdue' ? 'warning' : 'calendar'}
+          size={22}
+          color={color}
+          leading
+        />
         <FillColumn spacing={1}>
           <Text textStyle={{ fontSize: 17, fontWeight: '600' }}>{row.title}</Text>
           <Text
@@ -230,12 +238,12 @@ function RenewalForm({ form, kinds, repeats, setField, save, remove, closeForm }
             placeholder="Parking permit, toll pass, lease return"
           />
         ) : null}
-        <TextField
+        <DateField
           label={draft.kind === 'registration' ? 'Expires on' : 'Due on'}
           value={draft.dueOn}
-          onChangeText={(v) => setField('dueOn', v)}
+          onChange={(v) => setField('dueOn', v)}
           error={errors.dueOn}
-          placeholder="YYYY-MM-DD, from the paperwork"
+          placeholder="Choose the date on the paperwork"
         />
         <Column spacing={4}>
           <Text textStyle={{ fontSize: 13, fontWeight: '600' }}>Repeats</Text>

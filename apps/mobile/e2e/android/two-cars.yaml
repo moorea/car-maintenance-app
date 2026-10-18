@@ -1,0 +1,31 @@
+# A garage with two cars, as apps/mobile/e2e/two-cars.yaml does on iOS. The `demoTwoCars`
+# argument reaches the app as an intent extra (see apps/mobile/modules/launch-flags).
+appId: com.moorea.carmaintenance
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      '-demoTwoCars': true
+- extendedWaitUntil:
+    visible: '.*Commuter.*'
+    timeout: 90000
+- assertVisible: '.*Oil & filter change · Was due at 87,000 mi.*'
+- takeScreenshot: 60-garage-two-cars
+# Reordering: the Demo car moves up to lead the garage.
+- tapOn: 'Reorder'
+- extendedWaitUntil:
+    visible: 'Reorder cars'
+    timeout: 5000
+- takeScreenshot: 61-reorder-cars
+- tapOn: 'Move Demo car up'
+- takeScreenshot: 61-reorder-cars-moved
+- tapOn: 'Done'
+- extendedWaitUntil:
+    notVisible: 'Reorder cars'
+    timeout: 5000
+- assertVisible:
+    text: '.*Commuter.*'
+    below: '.*Demo car.*'
+- takeScreenshot: 61-garage-reordered

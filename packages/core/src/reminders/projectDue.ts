@@ -34,6 +34,12 @@ export interface ProjectionInput {
   currentMiles: number | undefined
   milesPerDay: number
   severeDuty: boolean
+  /**
+   * Roughly when the car went into service: the start of its model year, though many go on sale
+   * the summer before. With no service record, a time limit is assumed to fall on the next whole
+   * interval since then.
+   */
+  inServiceSince?: IsoDate | undefined
   today: IsoDate
 }
 
@@ -62,13 +68,24 @@ const dateForMiles = (
   return remaining <= 0 ? today : undefined
 }
 
+/** The first whole number of `months` intervals from `since` that falls on or after `today`. */
+const nextBoundary = (since: IsoDate, months: number, today: IsoDate): IsoDate => {
+  const elapsed = (Number(today.slice(0, 4)) - Number(since.slice(0, 4))) * 12
+  const monthsSince = elapsed + Number(today.slice(5, 7)) - Number(since.slice(5, 7))
+  // Counted rather than stepped to, so a bad interval can never loop; the check after covers a
+  // boundary earlier in the same month as today.
+  let n = Math.max(1, Math.ceil(monthsSince / months))
+  if (addMonths(since, n * months) < today) n++
+  return addMonths(since, n * months)
+}
+
 /**
  * Projects when one maintenance item is due: whichever comes first of its time limit and the
  * date the car is expected to reach its mileage limit. Returns undefined for an item with no
  * interval at all.
  */
 export const projectDue = (input: ProjectionInput): DueProjection | undefined => {
-  const { item, lastService, currentMiles, milesPerDay, severeDuty, today } = input
+  const { item, lastService, currentMiles, milesPerDay, severeDuty, inServiceSince, today } = input
   const interval = intervalsFor(item, severeDuty)
   if (interval.miles === undefined && interval.months === undefined) return undefined
 
@@ -88,9 +105,14 @@ export const projectDue = (input: ProjectionInput): DueProjection | undefined =>
       ? dateForMiles(dueMiles, currentMiles, milesPerDay, today)
       : undefined
   const byTime =
-    interval.months !== undefined && lastService
-      ? addMonths(lastService.performedOn, interval.months)
-      : undefined
+    interval.months === undefined
+      ? undefined
+      : lastService
+        ? addMonths(lastService.performedOn, interval.months)
+        : // No history: assume it was done on schedule since the car went into service.
+          inServiceSince && interval.months > 0
+          ? nextBoundary(inServiceSince, interval.months, today)
+          : undefined
 
   const candidates = [
     ...(byMiles ? [{ date: byMiles, trigger: 'miles' as const }] : []),

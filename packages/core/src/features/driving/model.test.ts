@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { MaintenanceItem, Vehicle } from '../../domain/types'
-import { memorySchedule, memoryVehicles } from '../../testing'
+import { withCustomItems } from '../../lib/customSchedule'
+import { memoryCustomItems, memorySchedule, memoryVehicles } from '../../testing'
 import { assessDriving, DRIVING_QUESTIONS, severeDifferences } from './conditions'
 import { createDrivingModel } from './model'
 
@@ -145,7 +146,10 @@ describe('driving model', () => {
     const model = createDrivingModel({
       vehicle,
       vehicles: memoryVehicles([vehicle]),
-      schedule: { itemsForConfig: () => Promise.reject(new Error('offline')) },
+      schedule: withCustomItems(
+        { itemsForConfig: () => Promise.reject(new Error('offline')) },
+        memoryCustomItems(),
+      ),
     })
     model.getState().start()
     await settle()

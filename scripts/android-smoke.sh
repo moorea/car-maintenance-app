@@ -16,13 +16,30 @@ adb install -r "$apk" || exit 1
 adb shell settings put global hide_error_dialogs 1
 adb shell settings put secure anr_show_background 0
 adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS > /dev/null || true
-maestro test --test-output-dir "$out/maestro" apps/mobile/e2e/android
+maestro test --test-output-dir "$out/maestro" --debug-output "$out/maestro/debug" --flatten-debug-output apps/mobile/e2e/android
 status=$?
+# The emulator sometimes drops off adb for a moment while the first flow launches the app
+# ("device offline"), which fails that flow before it has tested anything. When every failed flow
+# lost the device that way, run all the flows again once, after the device is back, so a failure
+# Maestro did not log against a flow still counts.
+if [ "$status" != 0 ]; then
+  failed=$(grep -l 'onCommandFinished: .* FAILED$' "$out"/maestro/debug/*/logs/maestro.log 2> /dev/null)
+  # shellcheck disable=SC2086 # One log path per word.
+  lost=$(grep -l 'device offline' $failed /dev/null)
+  if [ -n "$failed" ] && [ "$failed" = "$lost" ]; then
+    echo "The device went offline during $(sed -E 's|.*/debug/([^/]+)/logs/.*|\1|' <<< "$lost" | paste -sd " " -). Running every flow again."
+    timeout 120 adb wait-for-device || exit 1
+    maestro test --test-output-dir "$out/maestro/retry" --debug-output "$out/maestro/retry/debug" \
+      --flatten-debug-output apps/mobile/e2e/android
+    status=$?
+  fi
+fi
 # The same screens as iOS's largest text size check, at Android's largest font scale.
 trap 'adb shell settings put system font_scale 1.0' EXIT
 adb shell settings put system font_scale 2.0
 adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS > /dev/null || true
-maestro test --test-output-dir "$out/maestro/large-text" apps/mobile/e2e-large-text || status=1
+maestro test --test-output-dir "$out/maestro/large-text" --debug-output "$out/maestro/large-text/debug" --flatten-debug-output \
+  apps/mobile/e2e-large-text || status=1
 
 # takeScreenshot writes to the working directory; failure screenshots go to the output dir.
 find . "$out/maestro" \( -name node_modules -o -name .expo -o -path ./apps/mobile/android \) -prune \
@@ -30,4 +47,5 @@ find . "$out/maestro" \( -name node_modules -o -name .expo -o -path ./apps/mobil
 adb exec-out screencap -p > "$out/screenshots/last.png" || true
 adb logcat -d -v time > "$out/maestro/logcat.txt" || true
 grep -E 'ReactNativeJS|AndroidRuntime|FATAL' "$out/maestro/logcat.txt" | tail -n 200 || true
+[ "$status" = 0 ] || scripts/maestro-report.sh "$out/maestro"
 exit "$status"

@@ -5,6 +5,7 @@ import {
   memoryFillUps,
   memoryOdometer,
   memoryRenewals,
+  memoryCustomItems,
   memorySafety,
   memorySchedule,
   memoryServiceRecords,
@@ -27,6 +28,7 @@ import {
   type MaintenanceItem,
   type OdometerReading,
   type SafetyReport,
+  type ServiceRecord,
   type Vehicle,
 } from '@car/core'
 
@@ -426,11 +428,50 @@ export const demoFillUps = (): FillUp[] => {
   return fills
 }
 
+/**
+ * An older second car for UI tests of a garage with two. Its oil change is overdue by mileage, so
+ * it stays the car's next item whatever day the tests run.
+ */
+const SECOND_CAR: Vehicle = {
+  id: 'demo-2',
+  configId: 'demo',
+  year: 2016,
+  make: 'Honda',
+  model: 'Civic',
+  trim: 'LX',
+  nickname: 'Commuter',
+  severeDuty: false,
+}
+
+const SECOND_CAR_READINGS: OdometerReading[] = [
+  { vehicleId: 'demo-2', date: '2026-03-01', miles: 81_200 },
+  { vehicleId: 'demo-2', date: '2026-10-05', miles: 88_900 },
+]
+
+const SECOND_CAR_RECORDS: ServiceRecord[] = [
+  {
+    id: 'seed-2-1',
+    vehicleId: 'demo-2',
+    itemId: 'demo-oil',
+    performedOn: '2026-05-01',
+    odometerMiles: 82_000,
+  },
+  {
+    id: 'seed-2-2',
+    vehicleId: 'demo-2',
+    itemId: 'demo-tires',
+    performedOn: '2026-09-15',
+    odometerMiles: 88_100,
+  },
+]
+
 export const createDemoRepositories = () => {
   // Already signed in, so the demo opens on the sample car. After signing out, any email with
   // code 123456 signs back in as the same demo owner. UI tests can start signed out instead, to
   // walk through a first run: the introduction, then signing in as a new owner with no cars.
   const firstRun = launchFlag('demoSignedOut')
+  // UI tests can add a second car, to show a garage with more than one.
+  const twoCars = launchFlag('demoTwoCars')
   const auth = memoryAuth({
     ...(firstRun ? {} : { user: { id: OWNER, email: 'demo@example.com' } }),
     userIdFor: () => (firstRun ? NEW_OWNER : OWNER),
@@ -448,10 +489,24 @@ export const createDemoRepositories = () => {
       nickname: 'Demo car',
       severeDuty: false,
     },
+    ...(twoCars ? [SECOND_CAR] : []),
   ])
   const odometer = memoryOdometer([
     { vehicleId: 'demo', date: '2026-04-02', miles: 24_150 },
     { vehicleId: 'demo', date: '2026-10-10', miles: 35_780 },
+    ...(twoCars ? SECOND_CAR_READINGS : []),
+  ])
+  // The owner's own schedule items and intervals, applied to the demo car's schedule.
+  const customItems = memoryCustomItems([
+    // The owner stretched the engine air filter to the interval in their manual.
+    {
+      id: 'demo-own-engine-air',
+      vehicleId: 'demo',
+      replacesItemId: 'demo-engine-air',
+      task: 'Engine air filter',
+      intervalMiles: 20_000,
+      intervalMonths: 24,
+    },
   ])
   return {
     auth,
@@ -473,7 +528,8 @@ export const createDemoRepositories = () => {
     },
     odometer,
     fillUps: memoryFillUps(demoFillUps()),
-    schedule: memorySchedule(DEMO_SCHEDULE),
+    customItems,
+    schedule: memorySchedule(DEMO_SCHEDULE, customItems),
     safety: memorySafety({ demo: DEMO_SAFETY }),
     // Factory coverage as Toyota states it for a RAV4, from a sale in April 2022, plus a dealer's
     // add-on, so the demo shows coverage that has ended, is ending soon and has years left.
@@ -637,6 +693,7 @@ export const createDemoRepositories = () => {
         costCents: 2_199,
         notes: 'Did it myself',
       },
+      ...(twoCars ? SECOND_CAR_RECORDS : []),
     ]),
   }
 }
@@ -657,7 +714,7 @@ export const createDemoAssistant = (repositories: DemoRepositories, clock: Clock
         vehicle,
         today: clock.today(),
         readings: await repositories.odometer.listForVehicle(vehicleId),
-        schedule: await repositories.schedule.itemsForConfig(vehicle.configId),
+        schedule: await repositories.schedule.itemsForVehicle(vehicle),
         records: await repositories.records.listForVehicle(vehicleId),
         safety: DEMO_SAFETY,
         complaints: [],

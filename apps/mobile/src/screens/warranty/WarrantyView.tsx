@@ -1,16 +1,19 @@
 import type { CoverageState, WarrantyActions, WarrantyRow, WarrantyState } from '@car/core'
-import { BottomSheet, Button, Column, Row, ScrollView, Spacer } from '@expo/ui'
+import { BottomSheet, Column, Row, ScrollView, Spacer } from '@expo/ui'
 import type { ReactNode } from 'react'
 import { ActivityIndicator, StyleSheet } from 'react-native'
 import { useColors, type ColorRole } from '../../theme'
 import { Host } from '../../ui/Host'
 import { ErrorText, Note } from '../../ui/Note'
 import { TAB_BAR_CLEARANCE } from '../../ui/TabBar'
+import { DateField } from '../../ui/DateField'
 import { TextField } from '../../ui/TextField'
 import { ChoiceField } from '../../ui/ChoiceField'
 import { Symbol } from '../../ui/Symbol'
 import { Card, FillColumn, GlassIconButton, PillButton, ProgressBar } from '../../ui/surfaces'
+import { PAGE_TOP } from '../../ui/layout'
 import { Text } from '../../ui/Text'
+import { Button } from '../../ui/Button'
 
 type Props = WarrantyState &
   Pick<
@@ -45,7 +48,7 @@ export function WarrantyView(props: Props) {
       <ScrollView>
         <Column
           spacing={16}
-          style={{ padding: 16, paddingTop: 60, paddingBottom: TAB_BAR_CLEARANCE }}
+          style={{ padding: 16, paddingTop: PAGE_TOP, paddingBottom: TAB_BAR_CLEARANCE }}
         >
           <Row alignment="center">
             <GlassIconButton symbol="back" label="Back" onPress={props.onBack} />
@@ -200,12 +203,12 @@ function WarrantyForm({ form, kinds, setField, save, remove, closeForm }: Props)
           error={errors.provider}
           placeholder="The carmaker, or the warranty company"
         />
-        <TextField
+        <DateField
           label="Starts on"
           value={draft.startsOn}
-          onChangeText={(v) => setField('startsOn', v)}
+          onChange={(v) => setField('startsOn', v)}
           error={errors.startsOn}
-          placeholder="YYYY-MM-DD, the day the car was first sold"
+          placeholder="The day the car was first sold"
         />
         <Row spacing={10}>
           <FillColumn>

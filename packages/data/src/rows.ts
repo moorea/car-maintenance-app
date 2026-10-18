@@ -9,6 +9,7 @@ import type {
   MaintenanceItem,
   OdometerReading,
   Recall,
+  CustomItem,
   Renewal,
   RenewalKind,
   SafetyReport,
@@ -59,6 +60,7 @@ export const toVehicle = (r: Row): Vehicle =>
         valueCents: num(r.value_cents),
         valuedOn: text(r.valued_on),
       }),
+    garagePosition: num(r.garage_position),
   })
 
 /** The columns the device writes for a new car. The server fills in config_id. */
@@ -76,6 +78,7 @@ export const fromVehicle = (ownerId: string, v: Vehicle) => ({
   severe_duty: v.severeDuty ? 1 : 0,
   value_cents: v.valueCents ?? null,
   valued_on: v.valuedOn ?? null,
+  garage_position: v.garagePosition ?? null,
 })
 
 export const toServiceRecord = (r: Row): ServiceRecord =>
@@ -281,6 +284,25 @@ export const toOdometerReading = (r: Row): OdometerReading => ({
   vehicleId: required(text(r.vehicle_id), 'vehicle_id'),
   date: required(text(r.read_on), 'read_on'),
   miles: required(num(r.miles), 'miles'),
+})
+
+export const toCustomItem = (r: Row): CustomItem =>
+  defined({
+    id: required(text(r.id), 'id'),
+    vehicleId: required(text(r.vehicle_id), 'vehicle_id'),
+    replacesItemId: text(r.replaces_item_id),
+    task: required(text(r.task), 'task'),
+    intervalMiles: num(r.interval_miles),
+    intervalMonths: num(r.interval_months),
+  })
+
+export const fromCustomItem = (c: CustomItem) => ({
+  id: c.id,
+  vehicle_id: c.vehicleId,
+  replaces_item_id: c.replacesItemId ?? null,
+  task: c.task,
+  interval_miles: c.intervalMiles ?? null,
+  interval_months: c.intervalMonths ?? null,
 })
 
 export const toMaintenanceItem = (r: Row): MaintenanceItem =>

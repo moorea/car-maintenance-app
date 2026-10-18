@@ -180,7 +180,7 @@ export const checkQuote = (input: QuoteCheckInput): QuoteCheck => {
 
   const project = (item: MaintenanceItem, severeDuty: boolean) => {
     const summary = dueItemsFor({
-      vehicle: { id: vehicle.id, severeDuty },
+      vehicle: { id: vehicle.id, year: vehicle.year, severeDuty },
       items: [item],
       records,
       readings,

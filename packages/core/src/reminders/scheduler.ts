@@ -12,6 +12,7 @@ import type {
 import { upcomingTireMilestones } from '../features/tires/tires'
 import { upcomingWarrantyEnds } from '../features/warranty/coverage'
 import { getDueSummary, type GetDueItemsDeps } from './getDueItems'
+import { odometerCheckIn } from './odometerCheckIn'
 import { planNotifications } from './planNotifications'
 
 export interface ReminderSchedulerDeps extends GetDueItemsDeps {
@@ -27,8 +28,8 @@ export interface ReminderSchedulerDeps extends GetDueItemsDeps {
 
 export interface ReminderScheduler {
   /**
-   * Follows sign-in, the owner's cars, their service logs, warranties, renewals, tire sets and the
-   * reminder setting.
+   * Follows sign-in, the owner's cars, their service logs, warranties, renewals, tire sets, custom
+   * schedule items and the reminder setting.
    */
   start: () => void
   /**
@@ -93,6 +94,7 @@ export const createReminderScheduler = (deps: ReminderSchedulerDeps): ReminderSc
           warranties: upcomingWarrantyEnds(warranties, { mileage, currentMiles, today }),
           renewals,
           tires: upcomingTireMilestones(tireSets, today),
+          checkIn: odometerCheckIn(summary.items, mileage),
         }
       }),
     )
@@ -149,7 +151,8 @@ export const createReminderScheduler = (deps: ReminderSchedulerDeps): ReminderSc
     }
     for (const id of ids) {
       if (stopCarData.has(id)) continue
-      // A service or an odometer reading can move a due date or a warranty's mileage end. Every callback re-plans, the first
+      // A service, an odometer reading or a changed interval can move a due date or a warranty's
+      // mileage end. Every callback re-plans, the first
       // included: it may carry a change made since the last plan read the data, and a pass with
       // nothing new changes nothing on the device.
       const stops = [
@@ -158,6 +161,8 @@ export const createReminderScheduler = (deps: ReminderSchedulerDeps): ReminderSc
         deps.warranties.watchForVehicle(id, () => void refresh()),
         deps.tireSets.watchForVehicle(id, () => void refresh()),
         deps.renewals.watchForVehicle(id, () => void refresh()),
+        // The owner's own items and intervals; the schedule a config brings changes with the car.
+        deps.schedule.watchForVehicle({ id }, () => void refresh()),
       ]
       stopCarData.set(id, () => {
         for (const stop of stops) stop()

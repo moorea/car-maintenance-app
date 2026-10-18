@@ -1,9 +1,10 @@
-import { Button, Column, Row, type UniversalStyle } from '@expo/ui'
+import { Column, Row, type UniversalStyle } from '@expo/ui'
 import type { ReactNode } from 'react'
 import { useColors, type ColorRole } from '../theme'
 import { Symbol } from './Symbol'
 import type { SymbolName } from './symbols'
 import { Text } from './Text'
+import { Button } from './Button'
 
 // The web preview has no native Liquid Glass, so glass is a blurred translucent fill. These CSS
 // properties are not in the universal style type but react-native-web passes them through.
@@ -157,17 +158,24 @@ interface PillButtonProps {
   onPress: () => void
   fill: ColorRole
   text: ColorRole
+  /** Dims the button and ignores taps, as while the action it starts is still running. */
+  disabled?: boolean
 }
 
 /** A capsule button that shares its row's width equally with its siblings. */
-export function PillButton({ label, onPress, fill, text }: PillButtonProps) {
+export function PillButton({ label, onPress, fill, text, disabled = false }: PillButtonProps) {
   const colors = useColors()
   return (
     <Row
       alignment="center"
-      onPress={onPress}
+      {...(disabled ? {} : { onPress })}
       style={{
-        ...({ flex: 1, justifyContent: 'center', cursor: 'pointer' } as UniversalStyle),
+        ...({
+          flex: 1,
+          justifyContent: 'center',
+          cursor: disabled ? 'default' : 'pointer',
+        } as UniversalStyle),
+        opacity: disabled ? 0.4 : 1,
         height: 44,
         borderRadius: 22,
         backgroundColor: colors[fill],

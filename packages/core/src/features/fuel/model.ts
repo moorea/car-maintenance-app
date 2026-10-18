@@ -11,9 +11,11 @@ import type {
   Unsubscribe,
 } from '../../ports'
 import { formatCents, formatDay, formatMiles, formatMonth } from '../../lib/format'
+import { FUTURE_DATE_ERROR } from '../../schemas/date'
 import { fillUpDraftSchema, type FillUpDraft } from '../../schemas/fillUp'
 import { MAX_PLAUSIBLE_MILES_PER_DAY } from '../../reminders/mileage'
 import { currentOdometer } from '../garage/odometer'
+import { LIST_PAGE } from '../service-log/history'
 import { climbing, runningCosts, type PeriodCost } from './costs'
 import {
   formatEconomy,
@@ -84,6 +86,8 @@ export interface FillUpForm {
   fieldErrors: FillUpFieldErrors
   /** "About 41,250", the odometer the car is estimated to be at today, as a placeholder. */
   odometerHint: string
+  /** The latest day a fill-up can be dated: today. */
+  latestDate: IsoDate
   /** "$3.89/gal" once both quantity and total are typed. */
   unitPrice?: string | undefined
   saving: boolean
@@ -99,8 +103,12 @@ export interface FuelState {
   lastYear: CostRow
   /** One per kind of energy with a measured stretch, fuel first. */
   economy: EconomyTrend[]
-  /** Newest first. */
+  /** The newest fill-ups, newest first: at most `rowLimit` of them. */
   rows: FillUpRow[]
+  /** How many fill-ups `rows` may hold; grows with "Show earlier". */
+  rowLimit: number
+  /** How many older fill-ups are left out of `rows`. */
+  hiddenRows: number
   /** The twelve months to this one, oldest first. */
   months: MonthBar[]
   /** Each year with a cost, newest first. */
@@ -114,6 +122,8 @@ export interface FuelState {
 export interface FuelActions {
   start: () => void
   showSection: (section: FuelSection) => void
+  /** Shows another page of older fill-ups. */
+  showMoreRows: () => void
   openNew: () => void
   openEdit: (id: string) => void
   setField: (field: FillUpField, value: string) => void
@@ -216,6 +226,13 @@ export const createFuelModel = (deps: FuelDeps): FuelModel => {
     let odometerHint = ''
     /** Mileages from readings and services that a fill-up must not contradict. */
     let checkpoints: { date: IsoDate; miles: number; what: string }[] = []
+    // Every fill-up's row, newest first; the screen lists a page of them at a time.
+    let allRows: FillUpRow[] = []
+    const pageOfRows = (rowLimit: number) => ({
+      rowLimit,
+      rows: allRows.slice(0, rowLimit),
+      hiddenRows: Math.max(0, allRows.length - rowLimit),
+    })
 
     /** Recomputes economy and costs from the fill-ups, services and readings. */
     const refresh = async () => {
@@ -248,7 +265,7 @@ export const createFuelModel = (deps: FuelDeps): FuelModel => {
         })
       }
 
-      const rows = [...fillUps].sort(newestFirst).map((f): FillUpRow => {
+      allRows = [...fillUps].sort(newestFirst).map((f): FillUpRow => {
         const measured = stretches.get(f.id)
         const note = measured?.stretch.implausible
           ? 'Check the odometer and amount'
@@ -306,7 +323,7 @@ export const createFuelModel = (deps: FuelDeps): FuelModel => {
       set({
         status: 'ready',
         economy,
-        rows,
+        ...pageOfRows(get().rowLimit),
         lastYear: costRow('Last 12 months', costs.lastYear),
         months: costs.months.map((m) => ({
           label: formatMonth(m.month),
@@ -395,11 +412,15 @@ export const createFuelModel = (deps: FuelDeps): FuelModel => {
       lastYear: costRow('Last 12 months', { fuelCents: 0, serviceCents: 0, totalCents: 0 }),
       economy: [],
       rows: [],
+      rowLimit: LIST_PAGE,
+      hiddenRows: 0,
       months: [],
       years: [],
       energies,
 
       showSection: (section) => set({ section }),
+
+      showMoreRows: () => set((s) => pageOfRows(s.rowLimit + LIST_PAGE)),
 
       openNew: () => {
         // A new fill-up is usually like the last one: same energy, same station.
@@ -419,6 +440,7 @@ export const createFuelModel = (deps: FuelDeps): FuelModel => {
             },
             fieldErrors: {},
             odometerHint,
+            latestDate: deps.clock.today(),
             saving: false,
             confirmingDelete: false,
           },
@@ -435,6 +457,7 @@ export const createFuelModel = (deps: FuelDeps): FuelModel => {
             draft,
             fieldErrors: {},
             odometerHint,
+            latestDate: deps.clock.today(),
             unitPrice: unitPriceOf(draft),
             saving: false,
             confirmingDelete: false,
@@ -463,7 +486,7 @@ export const createFuelModel = (deps: FuelDeps): FuelModel => {
         const d = parsed.data
         const id = form.id ?? deps.ids.next()
         if (d.filledOn > deps.clock.today()) {
-          updateForm({ fieldErrors: { filledOn: "Can't be in the future" } })
+          updateForm({ fieldErrors: { filledOn: FUTURE_DATE_ERROR } })
           return false
         }
         const order = outOfOrder(id, d.filledOn, d.odometerMiles)

@@ -40,6 +40,22 @@ describe('session model', () => {
     expect(model.getState().vehicles.map((v) => v.nickname)).toEqual(['Accord', 'Civic'])
   })
 
+  it('lists the cars in the order the owner arranged, and starts on the first', async () => {
+    const { vehicles, model } = setup(true, [civic, accord])
+    model.getState().start()
+    await vehicles.reorder(['v-civic', 'v-accord'])
+    expect(model.getState().vehicles.map((v) => v.nickname)).toEqual(['Civic', 'Accord'])
+    // The car already open stays open; a fresh start opens the one the owner put first.
+    expect(model.getState().selectedVehicleId).toBe('v-accord')
+    const fresh = setup(true, [
+      civic,
+      { ...accord, garagePosition: 1 },
+      { ...civic, id: 'v-1', garagePosition: 0 },
+    ])
+    fresh.model.getState().start()
+    expect(fresh.model.getState().selectedVehicleId).toBe('v-1')
+  })
+
   it('asks for a car when the owner has none, then shows it once one syncs', () => {
     const { vehicles, model } = setup(true)
     model.getState().start()
@@ -112,6 +128,39 @@ describe('session model', () => {
     model.getState().start()
     vehicles.set([civic])
     expect(model.getState().selectedVehicleId).toBe('v-civic')
+  })
+
+  it("lands on the garage when the car whose page is open is removed, not the next car's page", () => {
+    const { vehicles, model } = setup(true, [civic, accord])
+    model.getState().start()
+    model.getState().openCar('v-accord')
+    vehicles.set([civic])
+    expect(model.getState()).toMatchObject({ selectedVehicleId: 'v-civic', tab: 'garage' })
+  })
+
+  it('stays on the open page when a car other than the selected one is removed', () => {
+    const { vehicles, model } = setup(true, [civic, accord])
+    model.getState().start()
+    model.getState().openCar('v-accord')
+    vehicles.set([accord])
+    expect(model.getState()).toMatchObject({ selectedVehicleId: 'v-accord', tab: 'car' })
+  })
+
+  it('leaves a page that is not about one car open when the selected car is removed', () => {
+    const { vehicles, model } = setup(true, [civic, accord])
+    model.getState().start()
+    model.getState().selectVehicle('v-accord')
+    model.getState().openTab('account')
+    vehicles.set([civic])
+    expect(model.getState()).toMatchObject({ selectedVehicleId: 'v-civic', tab: 'account' })
+  })
+
+  it('asks for a car once the last one is removed', () => {
+    const { vehicles, model } = setup(true, [civic])
+    model.getState().start()
+    model.getState().openCar('v-civic')
+    vehicles.set([])
+    expect(model.getState()).toMatchObject({ status: 'no-vehicles', tab: 'garage' })
   })
 
   it('ignores selecting a car the owner does not have', () => {
@@ -378,6 +427,52 @@ describe('session model, adding a car', () => {
     expect(model.getState().tab).toBe('car')
   })
 
+  it('goes back from the reminder settings to the account when opened from the account', () => {
+    const { model } = setup(true, [civic])
+    model.getState().start()
+    model.getState().openTab('account')
+    model.getState().openTab('reminders')
+    model.getState().back()
+    expect(model.getState().tab).toBe('account')
+    model.getState().back()
+    expect(model.getState().tab).toBe('garage')
+  })
+
+  it('goes back from the reminder settings to the garage when opened from the garage', () => {
+    const { model } = setup(true, [civic])
+    model.getState().start()
+    model.getState().openTab('account')
+    model.getState().openTab('garage')
+    model.getState().openTab('reminders')
+    model.getState().back()
+    expect(model.getState().tab).toBe('garage')
+  })
+
+  it('goes back from the reminder settings with the system gesture as their back button does', () => {
+    const { model } = setup(true, [civic])
+    model.getState().start()
+    model.getState().openTab('account')
+    model.getState().openTab('reminders')
+    expect(model.getState().systemBack()).toBe(true)
+    expect(model.getState().tab).toBe('account')
+    model.getState().openTab('garage')
+    model.getState().openTab('reminders')
+    expect(model.getState().systemBack()).toBe(true)
+    expect(model.getState().tab).toBe('garage')
+  })
+
+  it('returns to the reminder settings from Ask without forgetting they came from the account', () => {
+    const { model } = setup(true, [civic])
+    model.getState().start()
+    model.getState().openTab('account')
+    model.getState().openTab('reminders')
+    model.getState().openTab('ask')
+    model.getState().back()
+    expect(model.getState().tab).toBe('reminders')
+    model.getState().back()
+    expect(model.getState().tab).toBe('account')
+  })
+
   it('lets the system gesture close the app from the garage', () => {
     const { model } = setup(true, [civic])
     model.getState().start()
@@ -450,6 +545,15 @@ describe('session model, adding a car', () => {
     expect(model.getState().logRequest).toBeUndefined()
   })
 
+  it('passes on that a service to log was done earlier, so the form does not assume today', () => {
+    const { model } = setup(true, [civic])
+    model.getState().start()
+    model.getState().logService('oil')
+    expect(model.getState().logRequest?.earlier).toBeFalsy()
+    model.getState().logService('oil', { earlier: true })
+    expect(model.getState().logRequest).toMatchObject({ itemId: 'oil', earlier: true })
+  })
+
   it('forgets a request to log a service once the form has opened for it', () => {
     const { model } = setup(true, [civic])
     model.getState().start()
@@ -458,5 +562,23 @@ describe('session model, adding a car', () => {
     expect(model.getState()).toMatchObject({ tab: 'log', logRequest: undefined })
     model.getState().logService('tires')
     expect(model.getState().logRequest).toEqual({ itemId: 'tires', seq: 2 })
+  })
+
+  it("opens a car's page with its odometer editor, and forgets the request once handled", () => {
+    const { model } = setup(true, [civic, accord])
+    model.getState().start()
+    model.getState().updateOdometer('v-accord')
+    expect(model.getState()).toMatchObject({
+      tab: 'car',
+      selectedVehicleId: 'v-accord',
+      odometerRequest: { seq: 1 },
+    })
+    model.getState().odometerRequestHandled()
+    expect(model.getState().odometerRequest).toBeUndefined()
+    model.getState().updateOdometer('v-unknown')
+    expect(model.getState().odometerRequest).toBeUndefined()
+    model.getState().updateOdometer('v-civic')
+    model.getState().openTab('garage')
+    expect(model.getState().odometerRequest).toBeUndefined()
   })
 })

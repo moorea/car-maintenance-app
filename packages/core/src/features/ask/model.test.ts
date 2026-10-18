@@ -6,9 +6,12 @@ import { ASK_SUGGESTIONS, createAskModel } from './model'
 const vehicle = { id: 'v1', year: 2021, make: 'Toyota', model: 'RAV4', configId: 'c1' }
 const recall: AnswerSource = { kind: 'recall', id: '24V001000', label: 'Recall 24V001000' }
 
-const setup = (v: typeof vehicle | Omit<typeof vehicle, 'configId'> = vehicle) => {
+const setup = (
+  v: typeof vehicle | Omit<typeof vehicle, 'configId'> = vehicle,
+  sharingAllowed?: () => boolean,
+) => {
   const assistant = controlledAssistant()
-  const model = createAskModel({ vehicle: v, assistant, ids: sequentialIds('m') })
+  const model = createAskModel({ vehicle: v, assistant, ids: sequentialIds('m'), sharingAllowed })
   model.getState().start()
   const call = (n: number) => {
     const c = assistant.calls[n]
@@ -99,6 +102,33 @@ describe('ask model', () => {
       conversationId: 'conv1',
       question: 'Second?',
     })
+  })
+
+  it('sends a question brought from another screen straight away when sharing is allowed', () => {
+    const { state, assistant } = setup(vehicle, () => true)
+    state().askAbout('Is P0420 serious?')
+    expect(assistant.calls[0]?.request.question).toBe('Is P0420 serious?')
+    expect(state().draft).toBe('')
+  })
+
+  it('holds a question from another screen in the draft until sharing is allowed', () => {
+    let allowed = false
+    const { state, assistant } = setup(vehicle, () => allowed)
+    state().askAbout('Is P0420 serious?')
+    expect(assistant.calls).toHaveLength(0)
+    expect(state()).toMatchObject({ draft: 'Is P0420 serious?', canSend: true })
+    expect(state().error).toBeUndefined()
+    allowed = true
+    state().send()
+    expect(assistant.calls[0]?.request.question).toBe('Is P0420 serious?')
+  })
+
+  it('holds a question from another screen in the draft while an answer is streaming', () => {
+    const { state, assistant } = setup(vehicle, () => true)
+    state().ask('First?')
+    state().askAbout('Second?')
+    expect(assistant.calls).toHaveLength(1)
+    expect(state().draft).toBe('Second?')
   })
 
   it('ignores a question while an answer is streaming', () => {

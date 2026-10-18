@@ -31,7 +31,9 @@ export function TabBar<K extends string>({ tabs, selected, onSelect, action }: P
   const colors = useColors()
   return (
     <View style={styles.dock} pointerEvents="box-none">
-      <Host matchContents={{ vertical: true }} style={styles.host}>
+      {/* The bar floats over the bottom of the screen on iOS; its own layout ignores the home
+          indicator's inset, which would push its content up inside it. */}
+      <Host matchContents={{ vertical: true }} ignoreSafeArea="all" style={styles.host}>
         <Row alignment="center" spacing={10}>
           <GlassBar>
             {tabs.map((tab) => {

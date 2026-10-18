@@ -20,6 +20,7 @@ streams:
       - SELECT * FROM fill_ups WHERE vehicle_id IN (SELECT id FROM vehicles WHERE owner_id = auth.user_id())
       - SELECT * FROM tire_sets WHERE vehicle_id IN (SELECT id FROM vehicles WHERE owner_id = auth.user_id())
       - SELECT * FROM renewals WHERE vehicle_id IN (SELECT id FROM vehicles WHERE owner_id = auth.user_id())
+      - SELECT * FROM custom_items WHERE vehicle_id IN (SELECT id FROM vehicles WHERE owner_id = auth.user_id())
       - SELECT * FROM attachments WHERE vehicle_id IN (SELECT id FROM vehicles WHERE owner_id = auth.user_id())
 
   # Shared reference data for the configurations the user's vehicles use: schedules, recalls,

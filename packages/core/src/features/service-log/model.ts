@@ -11,9 +11,18 @@ import type {
   ServiceRecordRepo,
   Unsubscribe,
 } from '../../ports'
+import type { IsoDate } from '../../lib/date'
+import { FUTURE_DATE_ERROR } from '../../schemas/date'
 import { serviceRecordDraftSchema, type ServiceRecordDraft } from '../../schemas/serviceRecord'
 import { pickAttachable, saveAttachment } from '../attachments/model'
-import { groupHistory, summarizeHistory, type LogGroup, type LogSummary } from './history'
+import {
+  firstEntries,
+  groupHistory,
+  LIST_PAGE,
+  summarizeHistory,
+  type LogGroup,
+  type LogSummary,
+} from './history'
 
 export type ServiceLogStatus = 'loading' | 'ready' | 'saving' | 'error'
 export type DraftField = keyof ServiceRecordDraft
@@ -32,33 +41,54 @@ export interface ServiceLogState {
   receipts: PickedFile[]
   /** Why the last receipt could not be picked or attached. */
   receiptError?: string | undefined
-  /** The logged service the owner opened, to see or add its receipts. */
+  /** The logged service the owner opened, to see or add its receipts, correct or delete it. */
   openEntryId?: string | undefined
+  /** The logged service the form is correcting; absent while logging a new one. */
+  editingId?: string | undefined
+  /** Deleting the open service: asked to confirm, or under way. */
+  deleting?: 'confirm' | 'deleting' | undefined
+  /** Why the open service could not be deleted. */
+  deleteError?: string | undefined
   /** The car's scheduled tasks, for "what was done". */
   tasks: { id: string; task: string }[]
   /** What the owner typed in the search field. */
   query: string
-  /** The records matching `query`, by month, newest first. */
+  /** The newest records matching `query`, by month, newest first: at most `limit` of them. */
   groups: LogGroup[]
+  /** How many entries `groups` may hold; grows with "Show earlier". */
+  limit: number
+  /** How many matching records are left out of `groups`. */
+  hidden: number
   summary: LogSummary
+  /** The latest day a service can be dated: today, as of when the form opened. */
+  latestDate: IsoDate
 }
 
 export interface ServiceLogActions {
   /** Starts watching the database. Safe to call again after dispose. */
   start: () => void
   setField: (field: DraftField, value: string) => void
-  /** Opens the form, optionally with a scheduled task already chosen. */
-  openForm: (itemId?: string) => void
+  /**
+   * Opens the form, optionally with a scheduled task already chosen. Dated today, unless the
+   * service was done `earlier`, when the date is left for the owner to fill in.
+   */
+  openForm: (itemId?: string, options?: { earlier?: boolean }) => void
   /** Closes the form. A save already under way finishes, and reopens the form if it fails. */
   closeForm: () => void
-  /** Loads the scheduled tasks for the car's configuration once it has synced or changed. */
+  /** Follows the schedule of the car's configuration once it has synced or changed. */
   setConfig: (configId: string | undefined) => void
   setQuery: (query: string) => void
+  /** Shows another page of older services. */
+  showMore: () => void
   /** Asks the system for a photo or PDF of the receipt, to attach when the service is saved. */
   addReceipt: (source: FileSource) => Promise<void>
   removeReceipt: (index: number) => void
   openEntry: (id: string) => void
   closeEntry: () => void
+  /** Opens the form filled in with the open service, to correct it. */
+  editEntry: () => void
+  /** Deletes the open service and its receipts; the first call only asks to confirm. */
+  deleteEntry: () => Promise<void>
   /** Validates and saves the draft. Resolves true on success. */
   save: () => Promise<boolean>
   /** Stops watching the database. Call when the screen unmounts. */
@@ -107,42 +137,36 @@ export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => 
   let unsubscribe: Unsubscribe | undefined
   let taskNames = new Map<string, string>()
   let configId = deps.configId
-  // Each schedule read supersedes the one before, and dispose drops any still in flight.
-  let scheduleRead = 0
+  let stopSchedule: Unsubscribe | undefined
   const today = () => deps.clock.today()
-  const draftFor = (itemId?: string) => ({ ...emptyDraft(today()), itemId: itemId ?? '' })
+  const draftFor = (itemId?: string, earlier = false) => ({
+    ...emptyDraft(earlier ? '' : today()),
+    itemId: itemId ?? '',
+  })
 
   return createStore<ServiceLogState & ServiceLogActions>()((set, get) => {
-    /** Recomputes what the history shows from the records and the search. */
-    const show = (records: ServiceRecord[], query: string) => ({
+    /** Recomputes what the history shows from the records, the search and how much is shown. */
+    const show = (records: ServiceRecord[], query: string, limit: number) => ({
       records,
       query,
-      groups: groupHistory(records, taskNames, query, today()),
+      limit,
+      ...firstEntries(groupHistory(records, taskNames, query, today()), limit),
       summary: summarizeHistory(records, today()),
     })
 
-    /** Reads the names of the scheduled tasks, for the form and the history. */
-    const loadTasks = () => {
-      const mine = ++scheduleRead
-      if (configId === undefined) {
-        taskNames = new Map()
-        set((s) => ({ tasks: [], ...show(s.records, s.query) }))
-        return
-      }
-      void deps.schedule.itemsForConfig(configId).then(
-        (items) => {
-          if (mine !== scheduleRead) return
-          taskNames = new Map(items.map((i) => [i.id, i.task]))
-          set((s) => ({
-            tasks: items
-              .map((i) => ({ id: i.id, task: i.task }))
-              .sort((a, b) => a.task.localeCompare(b.task)),
-            ...show(s.records, s.query),
-          }))
-        },
-        // Without the schedule, entries fall back to their notes; nothing else is lost.
-        () => {},
-      )
+    /** Follows the car's schedule, the owner's own items included, for the form and history. */
+    const followSchedule = () => {
+      stopSchedule?.()
+      // Without the schedule, entries fall back to their notes; nothing else is lost.
+      stopSchedule = deps.schedule.watchForVehicle({ id: deps.vehicleId, configId }, (items) => {
+        taskNames = new Map(items.map((i) => [i.id, i.task]))
+        set((s) => ({
+          tasks: items
+            .map((i) => ({ id: i.id, task: i.task }))
+            .sort((a, b) => a.task.localeCompare(b.task)),
+          ...show(s.records, s.query, s.limit),
+        }))
+      })
     }
 
     return {
@@ -155,7 +179,10 @@ export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => 
       tasks: [],
       query: '',
       groups: [],
+      limit: LIST_PAGE,
+      hidden: 0,
       summary: summarizeHistory([], today()),
+      latestDate: today(),
 
       setField: (field, value) =>
         set((s) => {
@@ -163,10 +190,12 @@ export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => 
           return { draft: { ...s.draft, [field]: value }, fieldErrors }
         }),
 
-      openForm: (itemId) =>
+      openForm: (itemId, options) =>
         set({
           adding: true,
-          draft: draftFor(itemId),
+          editingId: undefined,
+          draft: draftFor(itemId, options?.earlier),
+          latestDate: today(),
           fieldErrors: {},
           saveError: undefined,
           receipts: [],
@@ -178,10 +207,13 @@ export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => 
       setConfig: (next) => {
         if (next === configId) return
         configId = next
-        if (unsubscribe) loadTasks()
+        if (unsubscribe) followSchedule()
       },
 
-      setQuery: (query) => set((s) => show(s.records, query)),
+      // A new search starts from the newest matches again.
+      setQuery: (query) => set((s) => show(s.records, query, LIST_PAGE)),
+
+      showMore: () => set((s) => show(s.records, s.query, s.limit + LIST_PAGE)),
 
       addReceipt: async (source) => {
         set({ receiptError: undefined })
@@ -194,9 +226,65 @@ export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => 
       removeReceipt: (index) =>
         set((s) => ({ receipts: s.receipts.filter((_, i) => i !== index) })),
 
-      openEntry: (id) => set({ openEntryId: id }),
+      openEntry: (id) => set({ openEntryId: id, deleting: undefined, deleteError: undefined }),
 
-      closeEntry: () => set({ openEntryId: undefined }),
+      closeEntry: () => {
+        // A delete under way finishes; the sheet just stops showing it.
+        if (get().deleting === 'deleting') set({ openEntryId: undefined })
+        else set({ openEntryId: undefined, deleting: undefined, deleteError: undefined })
+      },
+
+      editEntry: () => {
+        const record = get().records.find((r) => r.id === get().openEntryId)
+        if (!record || get().deleting === 'deleting') return
+        set({
+          openEntryId: undefined,
+          deleting: undefined,
+          deleteError: undefined,
+          adding: true,
+          editingId: record.id,
+          latestDate: today(),
+          draft: {
+            performedOn: record.performedOn,
+            // Kept even when the schedule has not loaded or no longer lists it, so a correction to
+            // the mileage never drops the link that reminders count from.
+            itemId: record.itemId ?? '',
+            odometerMiles: record.odometerMiles?.toString() ?? '',
+            cost: record.costCents !== undefined ? (record.costCents / 100).toFixed(2) : '',
+            shop: record.shop ?? '',
+            notes: record.notes ?? '',
+          },
+          fieldErrors: {},
+          saveError: undefined,
+          receipts: [],
+          receiptError: undefined,
+        })
+      },
+
+      deleteEntry: async () => {
+        const { openEntryId: id, deleting } = get()
+        if (id === undefined || deleting === 'deleting') return
+        if (deleting !== 'confirm') {
+          set({ deleting: 'confirm', deleteError: undefined })
+          return
+        }
+        set({ deleting: 'deleting' })
+        try {
+          await deps.records.remove(id)
+        } catch {
+          // Only the sheet still showing this service says so; another one opened since is left be.
+          set((s) =>
+            s.openEntryId === id
+              ? { deleting: undefined, deleteError: 'The service could not be deleted. Try again.' }
+              : { deleting: undefined },
+          )
+          return
+        }
+        set((s) => ({
+          deleting: undefined,
+          openEntryId: s.openEntryId === id ? undefined : s.openEntryId,
+        }))
+      },
 
       save: async () => {
         if (get().status === 'saving') return false
@@ -211,9 +299,15 @@ export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => 
           set({ fieldErrors: { notes: 'Say what was done' } })
           return false
         }
+        // A typo like 2062 would push the car's schedule decades out.
+        if (parsed.data.performedOn > today()) {
+          set({ fieldErrors: { performedOn: FUTURE_DATE_ERROR } })
+          return false
+        }
         const d = parsed.data
+        const editingId = get().editingId
         const record: ServiceRecord = {
-          id: deps.ids.next(),
+          id: editingId ?? deps.ids.next(),
           vehicleId: deps.vehicleId,
           performedOn: d.performedOn,
           ...(d.itemId !== undefined && { itemId: d.itemId }),
@@ -224,7 +318,8 @@ export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => 
         }
         set({ status: 'saving' })
         try {
-          await deps.records.add(record)
+          if (editingId !== undefined) await deps.records.update(record)
+          else await deps.records.add(record)
         } catch (e) {
           // Reopen the form if it was closed mid-save, so the error and the draft are not lost.
           set({
@@ -246,6 +341,7 @@ export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => 
         set({
           status: 'ready',
           adding: false,
+          editingId: undefined,
           draft: draftFor(),
           fieldErrors: {},
           receipts: [],
@@ -261,17 +357,18 @@ export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => 
         if (unsubscribe) return
         unsubscribe = deps.records.watchForVehicle(deps.vehicleId, (records) =>
           set((s) => ({
-            ...show([...records].sort(newestFirst), s.query),
+            ...show([...records].sort(newestFirst), s.query, s.limit),
             status: s.status === 'loading' ? 'ready' : s.status,
           })),
         )
-        loadTasks()
+        followSchedule()
       },
 
       dispose: () => {
         unsubscribe?.()
         unsubscribe = undefined
-        scheduleRead++
+        stopSchedule?.()
+        stopSchedule = undefined
       },
     }
   })

@@ -141,6 +141,16 @@ const rav4: CarData = {
       notes: 'Plate 8ABC123',
     },
   ],
+  customItems: [
+    { id: 'c-2', vehicleId: 'car-1', task: 'Wiper blades', intervalMonths: 12 },
+    {
+      id: 'c-1',
+      vehicleId: 'car-1',
+      replacesItemId: 'item-oil',
+      task: 'Engine oil',
+      intervalMiles: 5_000,
+    },
+  ],
   items: [{ id: 'item-oil', configId: 'cfg', task: 'Engine oil and filter', kind: 'engine-oil' }],
 }
 
@@ -168,6 +178,7 @@ describe('buildArchive', () => {
       'fill-ups.csv',
       'odometer.csv',
       'renewals.csv',
+      'schedule.csv',
       'service-log.csv',
       'tires.csv',
       'warranties.csv',
@@ -215,6 +226,12 @@ describe('buildArchive', () => {
     expect(textOf(bytes, 'renewals.csv').split('\r\n').slice(1, 3)).toEqual([
       'Blue -Bessie-,registration,,2026-11-30,12,Plate 8ABC123',
       'Blue -Bessie-,other,Parking permit,2027-01-01,,',
+    ])
+    // The owner's interval is named as the schedule names the item now.
+    expect(textOf(bytes, 'schedule.csv').split('\r\n').slice(0, 3)).toEqual([
+      'car,item,change,every_miles,every_months',
+      'Blue -Bessie-,Engine oil and filter,your interval,5000,',
+      'Blue -Bessie-,Wiper blades,your item,,12',
     ])
   })
 

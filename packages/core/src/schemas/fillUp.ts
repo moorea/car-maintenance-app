@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { dateInput } from './date'
 import { NOTES_MAX, SHORT_TEXT_MAX, optionalText } from './text'
 import type { EnergyKind } from '../domain/types'
 
@@ -15,7 +16,7 @@ const number = (pattern: RegExp, s: string) =>
 
 /** What the owner types on the fill-up form. Numbers arrive as text from inputs. */
 export const fillUpDraftSchema = z.object({
-  filledOn: z.iso.date({ error: 'Enter the date as YYYY-MM-DD' }),
+  filledOn: dateInput('Add the date'),
   odometerMiles: z
     .string()
     .trim()

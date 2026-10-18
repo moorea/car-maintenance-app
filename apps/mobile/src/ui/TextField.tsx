@@ -2,6 +2,7 @@ import { Column, TextInput, useNativeState, type TextInputProps } from '@expo/ui
 import { useEffect, useRef } from 'react'
 import { useColors } from '../theme'
 import { fullWidth } from './fullWidth'
+import { placeholderProps } from './placeholder'
 import { labelled } from './labelled'
 import { Text } from './Text'
 
@@ -41,6 +42,7 @@ export function TextField({ label, value, onChangeText, error, ...input }: Props
           onChangeText(next)
         }}
         placeholder={input.placeholder ?? ''}
+        {...placeholderProps(colors)}
         keyboardType={input.keyboardType ?? 'default'}
         autoComplete={input.autoComplete ?? 'off'}
         autoCapitalize={input.autoCapitalize ?? 'sentences'}
