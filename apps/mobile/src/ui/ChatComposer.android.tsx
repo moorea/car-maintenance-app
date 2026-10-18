@@ -1,5 +1,5 @@
 import { Row, TextInput } from '@expo/ui'
-import { height, weight } from '@expo/ui/jetpack-compose/modifiers'
+import { padding, weight } from '@expo/ui/jetpack-compose/modifiers'
 import { useColors } from '../theme'
 import type { ChatComposerProps } from './ChatComposer'
 import { useModelText } from './composerText'
@@ -26,7 +26,7 @@ export function ChatComposer({
             placeholder={placeholder}
             returnKeyType="send"
             autoCapitalize="sentences"
-            modifiers={[weight(1), height(44)]}
+            modifiers={[weight(1), padding(0, 12, 0, 12)]}
             textStyle={{ fontSize: 16, color: colors.textPrimary }}
           />
           <FilledIconButton {...action} />

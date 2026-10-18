@@ -126,7 +126,8 @@ jobs:
   # write token never shares a runner with install scripts or app code. Skipped for forks.
   android-screenshots:
     needs: android
-    if: ${{ !cancelled() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
+    # Dependabot's PRs get a read-only token, so they skip publishing too.
+    if: ${{ !cancelled() && github.actor != 'dependabot[bot]' && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
     runs-on: ubuntu-latest
     permissions:
       contents: write

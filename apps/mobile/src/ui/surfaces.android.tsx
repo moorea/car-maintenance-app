@@ -7,7 +7,6 @@ import {
 } from '@expo/ui/jetpack-compose'
 import {
   background,
-  border,
   clickable,
   clip,
   fillMaxWidth,
@@ -27,9 +26,9 @@ import { Symbol } from './Symbol'
 import type { SymbolName } from './symbols'
 import { Text } from './Text'
 
-// Android has no Liquid Glass, so glass surfaces are the translucent `glass` fill with a hairline
-// edge. Compose takes no percentage sizes or flex, so filling space uses `fillMaxWidth` (in a
-// column) and `weight` (for a share of a row) instead.
+// Android has no Liquid Glass, so glass surfaces are the translucent `glass` fill, without an edge
+// line since Compose's border is always square. Compose takes no percentage sizes or flex, so
+// filling space uses `fillMaxWidth` (in a column) and `weight` (for a share of a row) instead.
 
 const capsule = Shapes.RoundedCorner(999)
 
@@ -44,7 +43,6 @@ const filled = (color: string, radius: number, onPress?: () => void): ModifierCo
 const glass = (colors: ReturnType<typeof useColors>, shape = capsule): ModifierConfig[] => [
   clip(shape),
   background(colors.glass),
-  border(0.5, colors.glassEdge),
 ]
 
 interface CardProps {
@@ -104,7 +102,6 @@ export function GlassIconButton({
       colors={{ containerColor: colors.glass, contentColor: colors[tint] }}
       modifiers={[
         sizeModifier(size, size),
-        border(0.5, colors.glassEdge),
         clip(Shapes.Circle),
         semantics({ contentDescription: label }),
       ]}
@@ -315,7 +312,7 @@ export function FilledIconButton({
         containerColor: colors.accent,
         contentColor: colors.onAccent,
         disabledContainerColor: colors.accentSubtle,
-        disabledContentColor: colors.onAccent,
+        disabledContentColor: colors.accent,
       }}
       modifiers={[sizeModifier(size, size), semantics({ contentDescription: label })]}
     >

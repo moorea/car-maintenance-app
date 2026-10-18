@@ -326,6 +326,42 @@ describe('session model, adding a car', () => {
     expect(model.getState().tab).toBe('garage')
   })
 
+  it("goes back with the system gesture as each page's back button does", () => {
+    const { model } = setup(true, [civic])
+    model.getState().start()
+    model.getState().openTab('car')
+    model.getState().openTab('fuel')
+    expect(model.getState().systemBack()).toBe(true)
+    expect(model.getState().tab).toBe('car')
+    model.getState().openTab('quote')
+    model.getState().openTab('ask')
+    expect(model.getState().systemBack()).toBe(true)
+    expect(model.getState().tab).toBe('quote')
+    model.getState().openTab('account')
+    model.getState().openTab('data')
+    expect(model.getState().systemBack()).toBe(true)
+    expect(model.getState().tab).toBe('account')
+    expect(model.getState().systemBack()).toBe(true)
+    expect(model.getState().tab).toBe('garage')
+  })
+
+  it('lets the system gesture close the app from the garage', () => {
+    const { model } = setup(true, [civic])
+    model.getState().start()
+    expect(model.getState().systemBack()).toBe(false)
+    expect(model.getState().tab).toBe('garage')
+  })
+
+  it('closes "add your car" with the system gesture, staying on the same page', () => {
+    const { model } = setup(true, [civic])
+    model.getState().start()
+    model.getState().openTab('car')
+    model.getState().addCar()
+    expect(model.getState().systemBack()).toBe(true)
+    expect(model.getState().addingCar).toBe(false)
+    expect(model.getState().tab).toBe('car')
+  })
+
   it("opens a car's page from the garage, selecting that car", () => {
     const { model } = setup(true, [civic, accord])
     model.getState().start()

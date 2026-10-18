@@ -11,15 +11,11 @@ import { RootView } from './RootView'
 export function RootScreen() {
   const model = useScreenModel('session', () => createSessionModel(deps))
   const state = useStore(model)
-  // Android's back gesture leaves a page as its back button does, and only closes the app from
-  // the garage. Other platforms never fire it.
+  // Android's back gesture; other platforms never fire it.
   useEffect(() => {
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      const { status, tab, back } = model.getState()
-      if (status === 'signed-out' || tab === 'garage') return false
-      back()
-      return true
-    })
+    const sub = BackHandler.addEventListener('hardwareBackPress', () =>
+      model.getState().systemBack(),
+    )
     return () => sub.remove()
   }, [model])
   // The introduction shows before sign-in on a first launch; an owner already signed in, such
