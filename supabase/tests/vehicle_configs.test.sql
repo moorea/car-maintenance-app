@@ -57,10 +57,14 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000b', true);
 insert into public.vehicles (id, year, make, model, trim, engine, nickname) values
   ('20000000-0000-0000-0000-00000000000b', 2003, 'HONDA', 'Accord', 'ex-v6', '3.0L 6-cyl', 'Mine');
+-- Compared as the server, since neither owner can see the other's car.
+reset role;
 select is(
-  (select count(*) from public.vehicle_configs where model = 'Accord')::int, 1,
+  (select config_id from public.vehicles where id = '20000000-0000-0000-0000-00000000000b'),
+  (select config_id from public.vehicles where id = '20000000-0000-0000-0000-00000000000a'),
   'two owners of the same car share one config'
 );
+set local role authenticated;
 select is((select count(*) from public.vehicles)::int, 1, 'owners still see only their own cars');
 
 select throws_ok(

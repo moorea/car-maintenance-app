@@ -39,11 +39,12 @@ export interface CarData {
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 const text = (max: number) => z.string().max(max)
 
-// Free text past the server's limits is cut to fit, so an export never fails to import.
+// Free text past the server's limits is cut to fit, so an export never fails to import. Cut by
+// character, as Postgres counts, so an emoji is never split in half.
 const clipped = (max: number) =>
   z
     .string()
-    .transform((s) => s.slice(0, max))
+    .transform((s) => Array.from(s).slice(0, max).join(''))
     .optional()
 
 const exportedService = z.object({

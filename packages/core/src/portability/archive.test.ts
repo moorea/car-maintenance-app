@@ -269,6 +269,16 @@ describe('readArchive', () => {
     expect(service?.shop).toHaveLength(SHORT_TEXT_MAX)
   })
 
+  it('never cuts an emoji in half when cutting text to fit', () => {
+    const json = JSON.parse(
+      textOf(buildArchive([rav4], files, '2026-10-17').bytes, 'car-data.json'),
+    )
+    json.cars[0].services[0].shop = '🚗'.repeat(SHORT_TEXT_MAX + 1)
+
+    const [service] = readArchive(zipOf(json)).data.cars[0]?.services ?? []
+    expect(service?.shop).toBe('🚗'.repeat(SHORT_TEXT_MAX))
+  })
+
   const kindOf = (bytes: Uint8Array) => {
     try {
       readArchive(bytes)
