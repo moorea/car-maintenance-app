@@ -116,8 +116,11 @@ jobs:
             CODE_SIGNING_ALLOWED=NO | tail -n 200
       - name: Boot a simulator and install the app
         run: |
+          # The UI flows tap round buttons by screen position, so prefer one standard size and
+          # only fall back to whichever iPhone the runner image has.
           udid=$(xcrun simctl list devices available --json \
-            | jq -r '[.devices[][] | select(.name | startswith("iPhone"))][0].udid')
+            | jq -r '[.devices[][] | select(.name | startswith("iPhone"))]
+                | ([.[] | select(.name == "iPhone 17 Pro")] + .)[0].udid')
           [ "$udid" != null ] || { echo "No iPhone simulator available"; xcrun simctl list; exit 1; }
           echo "Booting $udid"
           xcrun simctl boot "$udid"
@@ -128,7 +131,7 @@ jobs:
           curl -fsSL "https://get.maestro.mobile.dev" | bash
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
           "$HOME/.maestro/bin/maestro" --version
-      - name: Smoke test
+      - name: UI flows (smoke test and screen sweep)
         run: maestro test --test-output-dir "$RUNNER_TEMP/maestro" apps/mobile/e2e
       # Screens again at the largest accessibility text size, to see Dynamic Type at its limit.
       - name: Largest text size
@@ -141,7 +144,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/screenshots"
           # takeScreenshot writes to the working directory; failure screenshots go to the output dir.
           find . "$RUNNER_TEMP/maestro" -name '*.png' -newer package.json \
-            -not -path '*/node_modules/*' -not -path '*/ios/*' \
+            -not -path '*/node_modules/*' -not -path '*/ios/*' -not -name 'App-Icon*' \
             -exec cp {} "$RUNNER_TEMP/screenshots/" \; || true
           xcrun simctl io booted screenshot "$RUNNER_TEMP/screenshots/last.png" || true
       - uses: actions/upload-artifact@v4
