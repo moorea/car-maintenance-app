@@ -102,9 +102,56 @@ describe('service log screen model', () => {
     const s = model.getState()
     expect(s.fieldErrors).toEqual({
       odometerMiles: 'Enter whole miles, like 41,250',
-      performedOn: 'Enter a date as YYYY-MM-DD',
+      performedOn: 'Enter a date like 3/14/2025',
     })
     expect(s.records).toHaveLength(1)
+  })
+
+  it('reads a date typed the US way', async () => {
+    const { model } = setup()
+    model.getState().setField('notes', 'Wipers')
+    model.getState().setField('performedOn', '3/14/2026')
+    expect(await model.getState().save()).toBe(true)
+    expect(model.getState().records[0]?.performedOn).toBe('2026-03-14')
+  })
+
+  it('refuses a service dated after today, which would push the schedule out', async () => {
+    const { model } = setup()
+    model.getState().setField('notes', 'Wipers')
+    model.getState().setField('performedOn', '2062-10-17')
+    expect(await model.getState().save()).toBe(false)
+    expect(model.getState().fieldErrors).toEqual({ performedOn: "That's in the future" })
+    expect(model.getState().records).toHaveLength(1)
+    model.getState().setField('performedOn', '2026-10-17')
+    expect(await model.getState().save()).toBe(true)
+  })
+
+  it('offers the picker no day after today', () => {
+    const { model } = setup()
+    model.getState().openForm(undefined, { earlier: true })
+    expect(model.getState().latestDate).toBe('2026-10-17')
+  })
+
+  it('offers the picker no day after today when a service is corrected the next day', async () => {
+    let day = '2026-10-17'
+    const model = createServiceLogModel({
+      vehicleId: 'v1',
+      configId: 'c1',
+      schedule: memorySchedule(),
+      records: memoryServiceRecords([
+        { id: 'r1', vehicleId: 'v1', performedOn: '2026-10-01', notes: 'Wipers' },
+      ]),
+      attachments: memoryAttachments(),
+      picker: memoryFilePicker(),
+      clock: { today: () => day },
+      ids: sequentialIds(),
+    })
+    model.getState().start()
+    await settle()
+    day = '2026-10-18'
+    model.getState().openEntry('r1')
+    model.getState().editEntry()
+    expect(model.getState().latestDate).toBe('2026-10-18')
   })
 
   it('clears a field error when that field is edited', async () => {
@@ -397,9 +444,7 @@ describe('service log screen model', () => {
       model.getState().openForm('oil', { earlier: true })
       expect(model.getState().draft).toMatchObject({ itemId: 'oil', performedOn: '' })
       expect(await model.getState().save()).toBe(false)
-      expect(model.getState().fieldErrors.performedOn).toBe(
-        'Add the date it was done, as YYYY-MM-DD',
-      )
+      expect(model.getState().fieldErrors.performedOn).toBe('Add the date it was done')
       expect(await records.listForVehicle('v1')).toHaveLength(before)
     })
 

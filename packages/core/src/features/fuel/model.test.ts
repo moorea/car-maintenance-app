@@ -276,6 +276,13 @@ describe('fuel and costs screen', () => {
     )
   })
 
+  it('offers the picker no day after today', async () => {
+    const { model } = setup()
+    await settle()
+    model.getState().openNew()
+    expect(model.getState().form?.latestDate).toBe(model.getState().form?.draft.filledOn)
+  })
+
   it('refuses a fill-up dated in the future', async () => {
     const { model } = setup()
     await settle()
@@ -285,7 +292,7 @@ describe('fuel and costs screen', () => {
     s.setField('odometerMiles', '33,240')
     s.setField('quantity', '10')
     expect(await s.save()).toBe(false)
-    expect(model.getState().form?.fieldErrors).toEqual({ filledOn: "Can't be in the future" })
+    expect(model.getState().form?.fieldErrors).toEqual({ filledOn: "That's in the future" })
   })
 
   it('corrects a fill-up in place', async () => {

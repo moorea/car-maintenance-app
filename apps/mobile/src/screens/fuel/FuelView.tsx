@@ -17,6 +17,7 @@ import { SegmentedControl } from '../../ui/SegmentedControl'
 import { StackedBars } from '../../ui/StackedBars'
 import { Symbol } from '../../ui/Symbol'
 import { TAB_BAR_CLEARANCE } from '../../ui/TabBar'
+import { DateField } from '../../ui/DateField'
 import { TextField } from '../../ui/TextField'
 import { TrendChart } from '../../ui/TrendChart'
 import { Card, Dot, FillColumn, GlassIconButton, PillButton, Separator } from '../../ui/surfaces'
@@ -357,12 +358,12 @@ function FillUpForm({
         />
         <Row spacing={10}>
           <FillColumn>
-            <TextField
+            <DateField
               label="Date"
               value={draft.filledOn}
-              onChangeText={(v) => setField('filledOn', v)}
+              onChange={(v) => setField('filledOn', v)}
               error={errors.filledOn}
-              placeholder="YYYY-MM-DD"
+              max={form.latestDate}
             />
           </FillColumn>
           <FillColumn>

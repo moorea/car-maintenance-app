@@ -11,6 +11,8 @@ import type {
   ServiceRecordRepo,
   Unsubscribe,
 } from '../../ports'
+import type { IsoDate } from '../../lib/date'
+import { FUTURE_DATE_ERROR } from '../../schemas/date'
 import { serviceRecordDraftSchema, type ServiceRecordDraft } from '../../schemas/serviceRecord'
 import { pickAttachable, saveAttachment } from '../attachments/model'
 import {
@@ -58,6 +60,8 @@ export interface ServiceLogState {
   /** How many matching records are left out of `groups`. */
   hidden: number
   summary: LogSummary
+  /** The latest day a service can be dated: today, as of when the form opened. */
+  latestDate: IsoDate
 }
 
 export interface ServiceLogActions {
@@ -178,6 +182,7 @@ export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => 
       limit: LIST_PAGE,
       hidden: 0,
       summary: summarizeHistory([], today()),
+      latestDate: today(),
 
       setField: (field, value) =>
         set((s) => {
@@ -190,6 +195,7 @@ export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => 
           adding: true,
           editingId: undefined,
           draft: draftFor(itemId, options?.earlier),
+          latestDate: today(),
           fieldErrors: {},
           saveError: undefined,
           receipts: [],
@@ -237,6 +243,7 @@ export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => 
           deleteError: undefined,
           adding: true,
           editingId: record.id,
+          latestDate: today(),
           draft: {
             performedOn: record.performedOn,
             // Kept even when the schedule has not loaded or no longer lists it, so a correction to
@@ -290,6 +297,11 @@ export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => 
         // Without a scheduled task, the notes are the only record of what was done.
         if (parsed.data.itemId === undefined && parsed.data.notes === undefined) {
           set({ fieldErrors: { notes: 'Say what was done' } })
+          return false
+        }
+        // A typo like 2062 would push the car's schedule decades out.
+        if (parsed.data.performedOn > today()) {
+          set({ fieldErrors: { performedOn: FUTURE_DATE_ERROR } })
           return false
         }
         const d = parsed.data

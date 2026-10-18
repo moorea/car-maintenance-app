@@ -6,6 +6,7 @@ import { useColors, type ColorRole } from '../../theme'
 import { Host } from '../../ui/Host'
 import { ErrorText, Note } from '../../ui/Note'
 import { TAB_BAR_CLEARANCE } from '../../ui/TabBar'
+import { DateField } from '../../ui/DateField'
 import { TextField } from '../../ui/TextField'
 import { ChoiceField } from '../../ui/ChoiceField'
 import { Symbol } from '../../ui/Symbol'
@@ -202,12 +203,12 @@ function WarrantyForm({ form, kinds, setField, save, remove, closeForm }: Props)
           error={errors.provider}
           placeholder="The carmaker, or the warranty company"
         />
-        <TextField
+        <DateField
           label="Starts on"
           value={draft.startsOn}
-          onChangeText={(v) => setField('startsOn', v)}
+          onChange={(v) => setField('startsOn', v)}
           error={errors.startsOn}
-          placeholder="YYYY-MM-DD, the day the car was first sold"
+          placeholder="The day the car was first sold"
         />
         <Row spacing={10}>
           <FillColumn>

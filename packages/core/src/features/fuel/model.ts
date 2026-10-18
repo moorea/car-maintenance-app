@@ -11,6 +11,7 @@ import type {
   Unsubscribe,
 } from '../../ports'
 import { formatCents, formatDay, formatMiles, formatMonth } from '../../lib/format'
+import { FUTURE_DATE_ERROR } from '../../schemas/date'
 import { fillUpDraftSchema, type FillUpDraft } from '../../schemas/fillUp'
 import { MAX_PLAUSIBLE_MILES_PER_DAY } from '../../reminders/mileage'
 import { currentOdometer } from '../garage/odometer'
@@ -85,6 +86,8 @@ export interface FillUpForm {
   fieldErrors: FillUpFieldErrors
   /** "About 41,250", the odometer the car is estimated to be at today, as a placeholder. */
   odometerHint: string
+  /** The latest day a fill-up can be dated: today. */
+  latestDate: IsoDate
   /** "$3.89/gal" once both quantity and total are typed. */
   unitPrice?: string | undefined
   saving: boolean
@@ -437,6 +440,7 @@ export const createFuelModel = (deps: FuelDeps): FuelModel => {
             },
             fieldErrors: {},
             odometerHint,
+            latestDate: deps.clock.today(),
             saving: false,
             confirmingDelete: false,
           },
@@ -453,6 +457,7 @@ export const createFuelModel = (deps: FuelDeps): FuelModel => {
             draft,
             fieldErrors: {},
             odometerHint,
+            latestDate: deps.clock.today(),
             unitPrice: unitPriceOf(draft),
             saving: false,
             confirmingDelete: false,
@@ -481,7 +486,7 @@ export const createFuelModel = (deps: FuelDeps): FuelModel => {
         const d = parsed.data
         const id = form.id ?? deps.ids.next()
         if (d.filledOn > deps.clock.today()) {
-          updateForm({ fieldErrors: { filledOn: "Can't be in the future" } })
+          updateForm({ fieldErrors: { filledOn: FUTURE_DATE_ERROR } })
           return false
         }
         const order = outOfOrder(id, d.filledOn, d.odometerMiles)

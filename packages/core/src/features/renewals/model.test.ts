@@ -86,14 +86,23 @@ describe('renewals model', () => {
     expect((await renewals.listForVehicle('v1'))[0]).not.toHaveProperty('title')
   })
 
-  it('asks for a date in the right form', async () => {
+  it('asks for a date it can read, and reads one typed the US way', async () => {
+    const { state, renewals } = setup()
+    state().openNew()
+    state().setField('dueOn', 'Nov 1')
+    await expect(state().save()).resolves.toBe(false)
+    expect(state().form?.fieldErrors.dueOn).toBe('Enter a date like 3/14/2025')
+    state().setField('dueOn', '11/01/2026')
+    expect(state().form?.fieldErrors.dueOn).toBeUndefined()
+    await expect(state().save()).resolves.toBe(true)
+    expect((await renewals.listForVehicle('v1'))[0]?.dueOn).toBe('2026-11-01')
+  })
+
+  it('asks for the date when none was chosen', async () => {
     const { state } = setup()
     state().openNew()
-    state().setField('dueOn', '11/01/2026')
     await expect(state().save()).resolves.toBe(false)
-    expect(state().form?.fieldErrors.dueOn).toBe('Enter the date as YYYY-MM-DD')
-    state().setField('dueOn', '2026-11-01')
-    expect(state().form?.fieldErrors.dueOn).toBeUndefined()
+    expect(state().form?.fieldErrors.dueOn).toBe('Add the date it is due')
   })
 
   it('asks for a shorter name', async () => {
