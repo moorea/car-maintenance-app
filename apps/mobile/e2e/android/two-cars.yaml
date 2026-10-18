@@ -1,0 +1,15 @@
+# A garage with two cars, as apps/mobile/e2e/two-cars.yaml does on iOS. The `demoTwoCars`
+# argument reaches the app as an intent extra (see apps/mobile/modules/launch-flags).
+appId: com.moorea.carmaintenance
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      '-demoTwoCars': true
+- extendedWaitUntil:
+    visible: '.*Commuter.*'
+    timeout: 90000
+- assertVisible: '.*Cabin air filter · In .*'
+- takeScreenshot: 60-garage-two-cars
