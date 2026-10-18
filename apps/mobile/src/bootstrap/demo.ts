@@ -427,7 +427,10 @@ export const demoFillUps = (): FillUp[] => {
   return fills
 }
 
-/** An older second car, with different services coming up, for UI tests of a garage with two. */
+/**
+ * An older second car for UI tests of a garage with two. Its oil change is overdue by mileage, so
+ * it stays the car's next item whatever day the tests run.
+ */
 const SECOND_CAR: Vehicle = {
   id: 'demo-2',
   configId: 'demo',
@@ -449,8 +452,8 @@ const SECOND_CAR_RECORDS: ServiceRecord[] = [
     id: 'seed-2-1',
     vehicleId: 'demo-2',
     itemId: 'demo-oil',
-    performedOn: '2026-08-20',
-    odometerMiles: 86_400,
+    performedOn: '2026-05-01',
+    odometerMiles: 82_000,
   },
   {
     id: 'seed-2-2',

@@ -11,5 +11,5 @@ appId: com.moorea.carmaintenance
 - extendedWaitUntil:
     visible: '.*Commuter.*'
     timeout: 90000
-- assertVisible: '.*Cabin air filter · In .*'
+- assertVisible: '.*Oil & filter change · Was due at 87,000 mi.*'
 - takeScreenshot: 60-garage-two-cars

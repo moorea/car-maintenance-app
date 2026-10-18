@@ -168,6 +168,30 @@ describe('garage cards model', () => {
     expect(Object.keys(model.getState().nextDue)).toEqual(['v1'])
   })
 
+  it('drops a read still under way when disposed', async () => {
+    const records = memoryServiceRecords(history)
+    let release = () => {}
+    const slow = new Promise<void>((resolve) => (release = resolve))
+    const model = createGarageCardsModel({
+      cars: [rav4],
+      schedule: memorySchedule([oil, tires]),
+      records: {
+        ...records,
+        listForVehicle: async (id) => {
+          await slow
+          return records.listForVehicle(id)
+        },
+      },
+      odometer: memoryOdometer(readings),
+      clock: fixedClock(TODAY),
+    })
+    model.getState().start()
+    model.getState().dispose()
+    release()
+    await settle()
+    expect(model.getState().nextDue).toEqual({})
+  })
+
   it('stops following the cars once disposed', async () => {
     const { model, records } = setup()
     model.getState().start()
