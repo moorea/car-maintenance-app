@@ -96,6 +96,15 @@ describe('renewals model', () => {
     expect(state().form?.fieldErrors.dueOn).toBeUndefined()
   })
 
+  it('asks for a shorter name', async () => {
+    const { state } = setup()
+    state().openNew('other')
+    state().setField('title', 'x'.repeat(101))
+    state().setField('dueOn', '2027-01-01')
+    await expect(state().save()).resolves.toBe(false)
+    expect(state().form?.fieldErrors.title).toBe('Keep the name under 100 characters')
+  })
+
   it('moves a repeating one on a period when renewed, and says to when', async () => {
     const { state, renewals } = setup([registration])
     await expect(state().markRenewed('r1')).resolves.toBe(true)

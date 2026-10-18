@@ -23,10 +23,10 @@ often it repeats, and notes such as the plate or policy number.
 - **Paperwork is an attachment of the matching kind** (ADR 0012). `inspection` joins the car's
   document kinds for inspection and emissions reports; the renewals page lists and attaches each
   kind beside its date.
-- A driver's licence is left out: it belongs to the person, not the car, and every table here hangs
+- A driver's license is left out: it belongs to the person, not the car, and every table here hangs
   off a car.
 
 ## Revisit when
 
 State rules can fill the dates in (a DMV integration, or a table of inspection cycles by state), or
-an owner with several drivers needs licence reminders.
+an owner with several drivers needs license reminders.

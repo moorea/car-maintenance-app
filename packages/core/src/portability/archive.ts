@@ -107,7 +107,7 @@ const exportedFillUp = z.object({
 const exportedRenewal = z.object({
   id: z.string().min(1),
   kind: z.enum(RENEWAL_KIND_IDS),
-  title: z.string().optional(),
+  title: z.string().min(1).max(100).optional(),
   dueOn: isoDate,
   everyMonths: z.number().int().min(1).max(120).optional(),
   notes: z.string().optional(),

@@ -400,7 +400,7 @@ export const createDemoRepositories = () => {
         policyNumber: 'TW-20431',
       },
     ]),
-    // The registration is a fortnight from expiring, the emissions test slipped by, and the
+    // The registration is two weeks from expiring, the emissions test slipped by, and the
     // six-month insurance policy has months left: one of each state.
     renewals: memoryRenewals([
       {

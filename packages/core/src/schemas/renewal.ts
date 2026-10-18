@@ -19,7 +19,11 @@ const MONTHS = /^\d+$/
 /** What the owner types on the renewal form. `everyMonths` is text, blank when it doesn't repeat. */
 export const renewalDraftSchema = z.object({
   kind: z.enum(RENEWAL_KIND_IDS, { error: 'Choose what it is' }),
-  title: optionalText,
+  title: z
+    .string()
+    .trim()
+    .max(100, 'Keep the name under 100 characters')
+    .transform((s) => (s === '' ? undefined : s)),
   dueOn: z.iso.date({ error: 'Enter the date as YYYY-MM-DD' }),
   everyMonths: z
     .string()
