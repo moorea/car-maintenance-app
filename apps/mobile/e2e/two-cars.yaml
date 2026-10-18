@@ -27,4 +27,7 @@ appId: com.moorea.carmaintenance
 - extendedWaitUntil:
     notVisible: 'Reorder cars'
     timeout: 5000
+- assertVisible:
+    text: 'Commuter'
+    below: 'Demo car'
 - takeScreenshot: 61-garage-reordered

@@ -54,16 +54,6 @@ describe('arrange cars model', () => {
     expect(order()).toEqual(['f', 'a', 'c'])
   })
 
-  it('moves dragged rows to where they were dropped', () => {
-    const { model, order } = setup()
-    // Dropping the last row at the top.
-    model.getState().move([2], 0)
-    expect(order()).toEqual(['f', 'a', 'c'])
-    // Dropping the first row past the end.
-    model.getState().move([0], 3)
-    expect(order()).toEqual(['a', 'c', 'f'])
-  })
-
   it('saves the new order for every phone and closes', async () => {
     const { model, vehicles } = setup()
     model.getState().moveUp('c')

@@ -28,8 +28,6 @@ export interface ArrangeCarsActions {
   open: () => void
   moveUp: (id: VehicleId) => void
   moveDown: (id: VehicleId) => void
-  /** Moves the rows at `from` to sit before the row now at `to`, as a dragged list reports it. */
-  move: (from: number[], to: number) => void
   /** Closes the sheet without saving. A save already running still finishes. */
   close: () => void
   /** Saves the order. Resolves true when saved, or when nothing moved. */
@@ -89,16 +87,6 @@ export const createArrangeCarsModel = (deps: ArrangeCarsDeps): ArrangeCarsModel 
 
       moveUp: (id) => swap(id, -1),
       moveDown: (id) => swap(id, 1),
-
-      move: (from, to) =>
-        reorder((cars) => {
-          const moving = cars.filter((_, i) => from.includes(i))
-          if (moving.length === 0) return cars
-          const target = Math.max(0, Math.min(to, cars.length))
-          const before = cars.slice(0, target).filter((c) => !moving.includes(c))
-          const after = cars.slice(target).filter((c) => !moving.includes(c))
-          return [...before, ...moving, ...after]
-        }),
 
       close: () => {
         if (!get().form?.saving) set({ form: undefined })

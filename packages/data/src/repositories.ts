@@ -324,7 +324,8 @@ export const createPowerSyncRepositories = (db: CommonPowerSyncDatabase): PowerS
           id,
         ])
       },
-      // One transaction, so every phone sees the whole new order at once rather than part of it.
+      // One transaction, so this phone applies the whole new order at once. Other phones may see part
+      // of it while the uploads land one by one; ties sort by name until the rest arrive.
       reorder: async (ids) => {
         const at = now()
         await db.writeTransaction(async (tx) => {
