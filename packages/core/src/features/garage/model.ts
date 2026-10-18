@@ -20,7 +20,13 @@ export interface NextUp extends DueRow {
   detail: string
   /** How much of the interval is used up, 0 to 1, when known. */
   progress?: number | undefined
+  /** What "Ask about it" asks the assistant about this item. */
+  question: string
 }
+
+/** "My car is overdue for tire rotation. What does it involve, and can it wait?" */
+const questionAbout = (row: DueRow): string =>
+  `My car is ${row.status === 'overdue' ? 'overdue' : 'due soon'} for ${row.task.toLowerCase()}. What does it involve, and can it wait?`
 
 export interface GarageState {
   status: GarageStatus
@@ -140,17 +146,20 @@ export const createGarageModel = (deps: GarageDeps): GarageModel => {
           .sort((a, b) => Number(isOil(b.itemId)) - Number(isOil(a.itemId)))
           .map((d) => ({ itemId: d.itemId, task: d.task }))
         const [first, ...rest] = due
-        const nextUp: NextUp | undefined = first && {
-          ...toDueRow(first, currentMiles, today),
-          detail: describeNext(first, currentMiles, today),
-          progress: intervalUsed(
-            first,
-            items.find((i) => i.id === first.itemId),
-            vehicle.severeDuty,
-            currentMiles,
-            today,
-          ),
-        }
+        const firstRow = first && toDueRow(first, currentMiles, today)
+        const nextUp: NextUp | undefined = first &&
+          firstRow && {
+            ...firstRow,
+            question: questionAbout(firstRow),
+            detail: describeNext(first, currentMiles, today),
+            progress: intervalUsed(
+              first,
+              items.find((i) => i.id === first.itemId),
+              vehicle.severeDuty,
+              currentMiles,
+              today,
+            ),
+          }
         set({
           status: vehicle.configId === undefined ? 'unmatched' : 'ready',
           today: formatWeekday(today),

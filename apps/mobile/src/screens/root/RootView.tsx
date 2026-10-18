@@ -160,7 +160,7 @@ function TabContent(props: Props & { vehicle: Vehicle }) {
           onAddCar={props.addCar}
           onReminders={() => props.openTab('reminders')}
           onLogService={props.logService}
-          onAsk={() => props.openTab('ask')}
+          onAsk={(question) => askAbout(props, vehicle, question)}
           onAccount={() => props.openTab('account')}
         />
       )
@@ -219,10 +219,11 @@ function TabContent(props: Props & { vehicle: Vehicle }) {
         />
       )
     case 'reminders':
-      return <RemindersScreen />
+      return <RemindersScreen onBack={props.back} />
     case 'account':
       return (
         <AccountScreen
+          onBack={props.back}
           onReminders={() => props.openTab('reminders')}
           onYourData={() => props.openTab('data')}
         />
@@ -232,13 +233,13 @@ function TabContent(props: Props & { vehicle: Vehicle }) {
   }
 }
 
-/** Opens Ask with a question from another screen, such as one line of a quote. */
+/**
+ * Opens Ask with a question from another screen, such as one line of a quote or the garage's next
+ * item. It waits in the composer while Ask is answering or sharing is not yet allowed.
+ */
 function askAbout(props: Props, vehicle: Vehicle, question: string) {
   props.openTab('ask')
-  const ask = askModelFor(vehicle).getState()
-  // While Ask is still answering, the question waits in the composer to send.
-  if (ask.status === 'ready') ask.ask(question)
-  else ask.setDraft(question)
+  askModelFor(vehicle).getState().askAbout(question)
 }
 
 const styles = StyleSheet.create({

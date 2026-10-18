@@ -60,6 +60,12 @@ export interface AskActions {
   send: () => void
   /** Sends a question without touching the draft, as a suggestion does. */
   ask: (question: string) => void
+  /**
+   * Asks a question brought from another screen, such as one line of a quote. While an answer is
+   * still streaming, or before the owner has allowed sharing with Anthropic, it waits in the
+   * draft for the owner to send instead, so it never fails as "turned off".
+   */
+  askAbout: (question: string) => void
   /** Stops the answer that is streaming, keeping what has arrived. */
   stop: () => void
   /** Asks the question that last failed again. */
@@ -75,6 +81,8 @@ export interface AskDeps {
   vehicle: Pick<Vehicle, 'id' | 'year' | 'make' | 'model' | 'trim' | 'configId'>
   assistant: Assistant
   ids: IdGenerator
+  /** Whether the owner allows sharing with Anthropic right now. Taken as allowed when absent. */
+  sharingAllowed?: (() => boolean) | undefined
 }
 
 export const ASK_SUGGESTIONS: Suggestion[] = [
@@ -205,6 +213,11 @@ export const createAskModel = (deps: AskDeps): AskModel => {
       },
 
       ask,
+
+      askAbout: (question) => {
+        if (get().status === 'ready' && (deps.sharingAllowed?.() ?? true)) ask(question)
+        else get().setDraft(question)
+      },
 
       stop: () => {
         if (get().status !== 'answering') return

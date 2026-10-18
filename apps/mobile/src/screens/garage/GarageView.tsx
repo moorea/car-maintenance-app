@@ -36,7 +36,8 @@ export interface GarageNavigation {
   onReminders: () => void
   /** Opens the service log form, for a scheduled task if given. */
   onLogService: (itemId?: string, options?: { earlier?: boolean }) => void
-  onAsk: () => void
+  /** Opens Ask with a question, such as one about the next item due. */
+  onAsk: (question: string) => void
   /** Opens the owner's account: sign out, delete the account, reminder settings. */
   onAccount: () => void
 }
@@ -287,7 +288,12 @@ function NextUpCard(props: Props) {
           fill="surface"
           text="accent"
         />
-        <PillButton label="Ask about it" onPress={props.onAsk} fill="accentSubtle" text="accent" />
+        <PillButton
+          label="Ask about it"
+          onPress={() => props.onAsk(nextUp.question)}
+          fill="accentSubtle"
+          text="accent"
+        />
       </Row>
     </Card>
   )
