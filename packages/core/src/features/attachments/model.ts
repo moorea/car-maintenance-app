@@ -34,6 +34,8 @@ export interface AttachmentsState {
   attachments: Attachment[]
   /** The car's own documents (registration, insurance), newest first. */
   documents: AttachmentItem[]
+  /** The car's own documents by kind, newest first, for the renewal each one goes with. */
+  documentsByKind: Partial<Record<AttachmentKind, AttachmentItem[]>>
   /** Receipts and photos by the service they belong to, newest first. */
   byService: Record<string, AttachmentItem[]>
   /** True while a picked file is being saved. */
@@ -140,11 +142,10 @@ export const createAttachmentsModel = (deps: AttachmentsDeps): AttachmentsModel 
         if (item.serviceRecordId === undefined) continue
         ;(byService[item.serviceRecordId] ??= []).push(item)
       }
-      return {
-        attachments,
-        documents: items.filter((i) => i.serviceRecordId === undefined),
-        byService,
-      }
+      const documents = items.filter((i) => i.serviceRecordId === undefined)
+      const documentsByKind: Partial<Record<AttachmentKind, AttachmentItem[]>> = {}
+      for (const item of documents) (documentsByKind[item.kind] ??= []).push(item)
+      return { attachments, documents, documentsByKind, byService }
     }
 
     const find = (id: string | undefined) => get().attachments.find((a) => a.id === id)
@@ -153,6 +154,7 @@ export const createAttachmentsModel = (deps: AttachmentsDeps): AttachmentsModel 
       status: 'loading',
       attachments: [],
       documents: [],
+      documentsByKind: {},
       byService: {},
       adding: false,
 

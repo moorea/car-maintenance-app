@@ -1,6 +1,7 @@
 import { addDays, type IsoDate } from '../lib/date'
 import { formatLongDate } from '../lib/format'
-import type { Vehicle } from '../domain/types'
+import type { Renewal, Vehicle } from '../domain/types'
+import { RENEWAL_NOTICE_DAYS, renewalReminder, renewalTitle } from '../features/renewals/renewals'
 import { TIRE_AGE_NOTICE_DAYS, type TireAgeMilestone } from '../features/tires/tires'
 import type { LocalNotification } from '../ports'
 import { DUE_SOON_DAYS, type DueProjection } from './projectDue'
@@ -41,6 +42,7 @@ export interface VehicleDue {
   warranties?: WarrantyEnding[]
   /** Tire sets' sixth and tenth birthdays still ahead. */
   tires?: TireAgeMilestone[]
+  renewals?: Renewal[]
 }
 
 const formatMiles = (miles: number) => `${Math.round(miles).toLocaleString('en-US')} mi`
@@ -124,14 +126,37 @@ const tireNotices = (cars: VehicleDue[], today: IsoDate): LocalNotification[] =>
     }),
   )
 
+const renewalNotices = (cars: VehicleDue[], today: IsoDate): LocalNotification[] =>
+  cars.flatMap(({ vehicle, renewals = [] }) =>
+    renewals.flatMap((r) =>
+      RENEWAL_NOTICE_DAYS.flatMap((days): LocalNotification[] => {
+        const date = addDays(r.dueOn, -days)
+        if (date <= today) return []
+        return [
+          {
+            // No date in the id: renewing moves the date, and the scheduler then moves the
+            // notification rather than adding another.
+            id: `renewal:${vehicle.id}:${r.id}:${days}`,
+            date,
+            hour: REMINDER_HOUR,
+            title: `${vehicle.nickname}: ${renewalTitle(r)} ${days === 0 ? 'today' : 'coming up'}`,
+            body: renewalReminder(r, days),
+            vehicleId: vehicle.id,
+          },
+        ]
+      }),
+    ),
+  )
+
 /**
  * The notifications to have scheduled today: for every item with a projected due date, one two
  * weeks before it and one on the day, at REMINDER_HOUR. Items falling on the same day for the same
  * car share one notification. Only dates after today are scheduled, so planning again never
  * repeats a reminder that was due to fire already, and items that are already due are left to
  * the app's own screens. Each warranty still running gets a heads-up WARRANTY_NOTICE_DAYS before
- * it ends, and each tire set a heads-up TIRE_AGE_NOTICE_DAYS before it turns six and ten. Soonest
- * first, capped at MAX_SCHEDULED_REMINDERS.
+ * it ends, each registration, inspection or insurance date RENEWAL_NOTICE_DAYS before it, and each
+ * tire set a heads-up TIRE_AGE_NOTICE_DAYS before it turns six and ten. Soonest first, capped at
+ * MAX_SCHEDULED_REMINDERS.
  */
 export const planNotifications = (cars: VehicleDue[], today: IsoDate): LocalNotification[] => {
   const groups = new Map<
@@ -164,7 +189,12 @@ export const planNotifications = (cars: VehicleDue[], today: IsoDate): LocalNoti
     body: bodyFor(g.stage, g.items),
     vehicleId: g.vehicle.id,
   }))
-  return [...service, ...warrantyNotices(cars, today), ...tireNotices(cars, today)]
+  return [
+    ...service,
+    ...warrantyNotices(cars, today),
+    ...renewalNotices(cars, today),
+    ...tireNotices(cars, today),
+  ]
     .sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
     .slice(0, MAX_SCHEDULED_REMINDERS)
 }

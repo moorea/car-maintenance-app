@@ -173,6 +173,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # Deploys apply migrations in timestamp order and refuse one older than the newest applied.
+      - name: Check new migrations sort after main's
+        if: github.event_name == 'pull_request'
+        run: scripts/check-migration-order.sh "origin/${{ github.base_ref }}"
       - uses: supabase/setup-cli@v1
         with:
           version: 2.121.0

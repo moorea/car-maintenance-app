@@ -34,6 +34,7 @@ import downloadIcon from '@expo/material-symbols/download.xml'
 import archiveIcon from '@expo/material-symbols/inventory_2.xml'
 import checkmarkIcon from '@expo/material-symbols/check_circle.xml'
 import ellipsisIcon from '@expo/material-symbols/more_horiz.xml'
+import calendarIcon from '@expo/material-symbols/calendar_month.xml'
 import bulletinIcon from '@expo/material-symbols/build.xml'
 import gaugeIcon from '@expo/material-symbols/speed.xml'
 import tireIcon from '@expo/material-symbols/tire_repair.xml'
@@ -81,6 +82,7 @@ const MATERIAL: Record<SymbolName, ImageSourcePropType> = {
   archive: archiveIcon,
   checkmark: checkmarkIcon,
   ellipsis: ellipsisIcon,
+  calendar: calendarIcon,
   bulletin: bulletinIcon,
   gauge: gaugeIcon,
   tire: tireIcon,

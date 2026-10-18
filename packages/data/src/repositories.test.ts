@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import type {
   FillUp,
   OdometerReading,
+  Renewal,
   SafetyReport,
   ServiceRecord,
   TireSet,
@@ -198,6 +199,40 @@ describe('PowerSync repositories', () => {
     const values = await updates.waitFor(2)
     expect(values.at(-1)?.map((w) => w.kind)).toEqual(['extended'])
     updates.stop()
+  })
+
+  it('reads back renewals soonest first, and uploads renewing one as only its new date', async () => {
+    const repos = createPowerSyncRepositories(db)
+    const insurance: Renewal = {
+      id: 'r2',
+      vehicleId: 'v1',
+      kind: 'insurance',
+      dueOn: '2027-03-01',
+      everyMonths: 6,
+      notes: 'Policy 77',
+    }
+    const permit: Renewal = {
+      id: 'r1',
+      vehicleId: 'v1',
+      kind: 'other',
+      title: 'Permit',
+      dueOn: '2026-12-01',
+    }
+    await repos.renewals.save(insurance)
+    await repos.renewals.save(permit)
+    expect(await repos.renewals.listForVehicle('v1')).toStrictEqual([permit, insurance])
+
+    await repos.renewals.save({ ...insurance, dueOn: '2027-09-01' })
+    await repos.renewals.remove('r1')
+    const ops: [string, Record<string, unknown> | undefined][] = []
+    for (let tx = await db.getNextCrudTransaction(); tx; tx = await db.getNextCrudTransaction()) {
+      ops.push(
+        ...tx.crud.map((c) => [c.op, c.opData] as [string, Record<string, unknown> | undefined]),
+      )
+      await tx.complete()
+    }
+    expect(ops.map(([op]) => op)).toEqual(['PUT', 'PUT', 'PATCH', 'DELETE'])
+    expect(Object.keys(ops[2]?.[1] ?? {}).sort()).toEqual(['due_on', 'updated_at'])
   })
 
   it('reads back fill-ups newest first, with switches and decimals intact', async () => {

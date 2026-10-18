@@ -1,7 +1,7 @@
 -- Run with `supabase test db`. Proves one owner can never read or write another owner's car data.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(31);
+select plan(36);
 
 insert into auth.users (id) values
   ('00000000-0000-0000-0000-00000000000a'),
@@ -20,8 +20,11 @@ insert into public.fill_ups (id, vehicle_id, filled_on, odometer_miles, energy, 
   ('50000000-0000-0000-0000-00000000000a', '20000000-0000-0000-0000-00000000000a', '2026-01-01', 1000, 'fuel', 12.4),
   ('50000000-0000-0000-0000-00000000000b', '20000000-0000-0000-0000-00000000000b', '2026-01-01', 1000, 'fuel', 12.4);
 insert into public.tire_sets (id, vehicle_id, name) values
-  ('60000000-0000-0000-0000-00000000000a', '20000000-0000-0000-0000-00000000000a', 'Winter'),
-  ('60000000-0000-0000-0000-00000000000b', '20000000-0000-0000-0000-00000000000b', 'Winter');
+  ('70000000-0000-0000-0000-00000000000a', '20000000-0000-0000-0000-00000000000a', 'Winter'),
+  ('70000000-0000-0000-0000-00000000000b', '20000000-0000-0000-0000-00000000000b', 'Winter');
+insert into public.renewals (id, vehicle_id, kind, due_on, every_months) values
+  ('60000000-0000-0000-0000-00000000000a', '20000000-0000-0000-0000-00000000000a', 'registration', '2026-11-01', 12),
+  ('60000000-0000-0000-0000-00000000000b', '20000000-0000-0000-0000-00000000000b', 'registration', '2026-11-01', 12);
 -- A car only B has, typed with text B would not want strangers to read.
 insert into public.vehicles (owner_id, year, make, model, trim, nickname) values
   ('00000000-0000-0000-0000-00000000000b', 2014, 'Ford', 'Focus', 'Plate 7ABC123', 'Other B car');
@@ -122,12 +125,12 @@ select is((select count(*) from public.tire_sets)::int, 1,
   'owner sees only the tire sets of their own car');
 select lives_ok(
   $$ update public.tire_sets set mounted = true, mounted_at_miles = 41000
-     where id = '60000000-0000-0000-0000-00000000000a' $$,
+     where id = '70000000-0000-0000-0000-00000000000a' $$,
   'owner can put a tire set on their own car'
 );
 select throws_ok(
   $$ update public.tire_sets set vehicle_id = '20000000-0000-0000-0000-00000000000b'
-     where id = '60000000-0000-0000-0000-00000000000a' $$,
+     where id = '70000000-0000-0000-0000-00000000000a' $$,
   '42501', null, 'owner cannot move a tire set onto someone else''s car'
 );
 select throws_ok(
@@ -137,13 +140,31 @@ select throws_ok(
 );
 select throws_ok(
   $$ update public.tire_sets set mounted = false
-     where id = '60000000-0000-0000-0000-00000000000a' $$,
+     where id = '70000000-0000-0000-0000-00000000000a' $$,
   '23514', null, 'a stored tire set cannot keep the mileage it went on at'
 );
 -- The phone's SQLite stores the switch as 1 and 0, and uploads it as a JSON number.
 select is(
   (json_populate_record(null::public.tire_sets, '{"mounted": 1}')).mounted,
   true, 'a tire set uploaded with 1 for on the car reads as true'
+);
+
+select is((select count(*) from public.renewals)::int, 1,
+  'owner sees only the renewal dates of their own car');
+select lives_ok(
+  $$ update public.renewals set due_on = '2027-11-01'
+     where id = '60000000-0000-0000-0000-00000000000a' $$,
+  'owner can renew a registration on their own car'
+);
+select throws_ok(
+  $$ update public.renewals set vehicle_id = '20000000-0000-0000-0000-00000000000b'
+     where id = '60000000-0000-0000-0000-00000000000a' $$,
+  '42501', null, 'owner cannot move a renewal date onto someone else''s car'
+);
+select throws_ok(
+  $$ insert into public.renewals (vehicle_id, kind, due_on)
+     values ('20000000-0000-0000-0000-00000000000b', 'insurance', '2027-01-01') $$,
+  '42501', null, 'owner cannot add a renewal date to someone else''s car'
 );
 
 -- Free text is capped, so one account cannot fill the database.
@@ -166,6 +187,11 @@ select throws_ok(
   $$ update public.fill_ups set station = repeat('s', 201)
      where id = '50000000-0000-0000-0000-00000000000a' $$,
   '23514', null, 'a fill-up''s station past the limit is refused'
+);
+select throws_ok(
+  $$ update public.renewals set notes = repeat('n', 10001)
+     where id = '60000000-0000-0000-0000-00000000000a' $$,
+  '23514', null, 'a renewal''s notes past the limit are refused'
 );
 
 select * from finish();

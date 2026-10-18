@@ -4,6 +4,7 @@ import {
   memoryAuth,
   memoryFillUps,
   memoryOdometer,
+  memoryRenewals,
   memorySafety,
   memorySchedule,
   memoryServiceRecords,
@@ -520,6 +521,33 @@ export const createDemoRepositories = () => {
         treadDepth32nds: 6,
         treadCheckedOn: '2026-04-02',
         notes: 'Stored at Demo Garage',
+      },
+    ]),
+    // The registration is two weeks from expiring, the emissions test slipped by, and the
+    // six-month insurance policy has months left: one of each state.
+    renewals: memoryRenewals([
+      {
+        id: 'demo-r-registration',
+        vehicleId: 'demo',
+        kind: 'registration',
+        dueOn: '2026-10-31',
+        everyMonths: 12,
+        notes: 'Plate 8DEM123. Renew at dmv.ca.gov or a DMV kiosk.',
+      },
+      {
+        id: 'demo-r-emissions',
+        vehicleId: 'demo',
+        kind: 'emissions',
+        dueOn: '2026-10-12',
+        everyMonths: 24,
+      },
+      {
+        id: 'demo-r-insurance',
+        vehicleId: 'demo',
+        kind: 'insurance',
+        dueOn: '2027-02-28',
+        everyMonths: 6,
+        notes: 'Demo Mutual, policy DM-4471-02',
       },
     ]),
     attachments: demoAttachments(),

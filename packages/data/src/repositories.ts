@@ -1,5 +1,6 @@
 import type {
   FillUpRepo,
+  RenewalRepo,
   OdometerReading,
   OdometerRepo,
   SafetyReport,
@@ -18,11 +19,13 @@ import {
   fromServiceRecord,
   fromFillUp,
   fromTireSet,
+  fromRenewal,
   fromVehicle,
   fromWarranty,
   toBulletin,
   toComplaintSummary,
   toFillUp,
+  toRenewal,
   toMaintenanceItem,
   toOdometerReading,
   toRecall,
@@ -42,6 +45,7 @@ export interface PowerSyncRepositories {
   warranties: WarrantyRepo
   fillUps: FillUpRepo
   tireSets: TireSetRepo
+  renewals: RenewalRepo
   sync: SyncStatus
 }
 
@@ -50,6 +54,8 @@ const RECORDS_FOR_VEHICLE =
 
 const WARRANTIES_FOR_VEHICLE =
   'select * from warranties where vehicle_id = ? order by starts_on, kind, id'
+
+const RENEWALS_FOR_VEHICLE = 'select * from renewals where vehicle_id = ? order by due_on, id'
 
 const FILL_UPS_FOR_VEHICLE =
   'select * from fill_ups where vehicle_id = ? order by filled_on desc, odometer_miles desc'
@@ -153,7 +159,7 @@ const watchSafety = (
  */
 const saveEditable = async (
   db: CommonPowerSyncDatabase,
-  table: 'warranties' | 'fill_ups' | 'tire_sets',
+  table: 'warranties' | 'fill_ups' | 'renewals' | 'tire_sets',
   ...rows: ({ id: string } & Row)[]
 ) => {
   await db.writeTransaction(async (tx) => {
@@ -339,6 +345,22 @@ export const createPowerSyncRepositories = (
 
     remove: async (id) => {
       await db.execute('delete from warranties where id = ?', [id])
+    },
+  },
+
+  renewals: {
+    listForVehicle: async (vehicleId) =>
+      (await db.getAll<Record<string, unknown>>(RENEWALS_FOR_VEHICLE, [vehicleId])).map(toRenewal),
+
+    watchForVehicle: (vehicleId, onChange) =>
+      watchRows(db, RENEWALS_FOR_VEHICLE, [vehicleId], 'renewals', (rows) =>
+        onChange(rows.map(toRenewal)),
+      ),
+
+    save: (renewal) => saveEditable(db, 'renewals', fromRenewal(renewal)),
+
+    remove: async (id) => {
+      await db.execute('delete from renewals where id = ?', [id])
     },
   },
 

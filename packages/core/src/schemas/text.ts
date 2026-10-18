@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 /**
  * Longest free text the server stores, matching the length checks in Postgres (migration
- * 20261017000041_text_limits.sql). Generous for anything typed on a phone; they stop one account
+ * 20261018000003_text_limits.sql). Generous for anything typed on a phone; they stop one account
  * filling the database.
  */
 export const SHORT_TEXT_MAX = 200

@@ -11,6 +11,7 @@ import {
   memoryVehicles,
   memoryTireSets,
   memoryWarranties,
+  memoryRenewals,
   OWNER,
 } from '../testing'
 import { createReminderScheduler } from './scheduler'
@@ -65,6 +66,7 @@ const setup = (
     odometer: memoryOdometer([{ vehicleId: 'v1', date: '2026-09-29', miles: 33_000 }]),
     warranties: memoryWarranties(),
     tireSets: memoryTireSets(),
+    renewals: memoryRenewals(),
     clock: { today: () => calendar.today },
     notifier: memoryNotifier({ permission: options.permission ?? 'granted' }),
     settings: memoryReminderSettings({ enabled: options.enabled ?? true }),
@@ -97,6 +99,7 @@ const openWatches = (d: ReturnType<typeof setup>) => {
       odometer: { ...d.odometer, watchForVehicle: counted(d.odometer.watchForVehicle) },
       warranties: { ...d.warranties, watchForVehicle: counted(d.warranties.watchForVehicle) },
       tireSets: { ...d.tireSets, watchForVehicle: counted(d.tireSets.watchForVehicle) },
+      renewals: { ...d.renewals, watchForVehicle: counted(d.renewals.watchForVehicle) },
     },
   }
 }
@@ -388,13 +391,43 @@ describe('createReminderScheduler', () => {
     expect(await ids(notifier)).toEqual(PLANNED)
   })
 
+  it('reminds before a registration expires, and moves the reminders when it is renewed', async () => {
+    const { scheduler, notifier, renewals } = setup()
+    scheduler.start()
+    await scheduler.refresh()
+    const registration = {
+      id: 'r1',
+      vehicleId: 'v1',
+      kind: 'registration' as const,
+      dueOn: '2026-12-15',
+      everyMonths: 12,
+    }
+    await renewals.save(registration)
+    await scheduler.refresh()
+    const notices = (await notifier.scheduled()).filter((n) => n.id.startsWith('renewal:'))
+    expect(notices.map((n) => [n.id, n.date])).toEqual([
+      ['renewal:v1:r1:30', '2026-11-15'],
+      ['renewal:v1:r1:7', '2026-12-08'],
+      ['renewal:v1:r1:0', '2026-12-15'],
+    ])
+    expect(notices[0]).toMatchObject({
+      title: 'RAV4: Registration coming up',
+      body: 'Registration expires in about a month, on Dec 15, 2026. Renew it before then to avoid a late fee.',
+    })
+
+    await renewals.save({ ...registration, dueOn: '2027-12-15' })
+    await scheduler.refresh()
+    const moved = (await notifier.scheduled()).filter((n) => n.id.startsWith('renewal:'))
+    expect(moved.map((n) => n.date)).toEqual(['2027-11-15', '2027-12-08', '2027-12-15'])
+  })
+
   it("stops watching a car's service log and readings once it is gone", async () => {
     const d = setup()
     const counter = openWatches(d)
     const scheduler = createReminderScheduler({ ...d, ...counter.repos })
     scheduler.start()
     await scheduler.refresh()
-    expect(counter.open()).toBe(4)
+    expect(counter.open()).toBe(5)
 
     const car = await d.vehicles.get('v1')
     if (!car) throw new Error('missing fixture')
@@ -402,7 +435,7 @@ describe('createReminderScheduler', () => {
     expect(counter.open()).toBe(0)
 
     d.vehicles.set([car])
-    expect(counter.open()).toBe(4)
+    expect(counter.open()).toBe(5)
     await d.auth.signOut()
     expect(counter.open()).toBe(0)
   })

@@ -4,6 +4,7 @@ import type {
   Attachment,
   FillUp,
   MaintenanceItem,
+  Renewal,
   OdometerReading,
   ServiceRecord,
   TireSet,
@@ -12,6 +13,7 @@ import type {
 } from '../domain/types'
 import type { IsoDate } from '../lib/date'
 import { ATTACHMENT_TYPES, MAX_ATTACHMENT_BYTES } from '../features/attachments/files'
+import { RENEWAL_KIND_IDS } from '../schemas/renewal'
 import { csv } from './csv'
 import { NOTES_MAX, SHORT_TEXT_MAX } from '../schemas/text'
 
@@ -34,6 +36,8 @@ export interface CarData {
   /** Fill-ups and charging sessions. Their mileage is not repeated in `readings`. */
   fillUps: FillUp[]
   tireSets: TireSet[]
+  /** Registration, inspection and insurance dates. */
+  renewals: Renewal[]
   /** The car's schedule, to name each service's item. */
   items: MaintenanceItem[]
 }
@@ -66,7 +70,7 @@ const exportedService = z.object({
 const exportedDocument = z.object({
   id: z.string().min(1),
   serviceId: z.string().min(1).optional(),
-  kind: z.enum(['receipt', 'registration', 'insurance', 'other']),
+  kind: z.enum(['receipt', 'registration', 'inspection', 'insurance', 'other']),
   name: z.string().min(1).max(255),
   contentType: z.enum(ATTACHMENT_TYPES),
   sizeBytes: z.number().int().positive().max(MAX_ATTACHMENT_BYTES),
@@ -133,6 +137,15 @@ const exportedTireSet = z
     'A DOT date needs its week and its year',
   )
 
+const exportedRenewal = z.object({
+  id: z.string().min(1),
+  kind: z.enum(RENEWAL_KIND_IDS),
+  title: z.string().min(1).max(100).optional(),
+  dueOn: isoDate,
+  everyMonths: z.number().int().min(1).max(120).optional(),
+  notes: clipped(NOTES_MAX),
+})
+
 const exportedCar = z.object({
   id: z.string().min(1),
   year: z.number().int(),
@@ -152,6 +165,8 @@ const exportedCar = z.object({
   fillUps: z.array(exportedFillUp).default([]),
   // Nor did they have tire sets.
   tireSets: z.array(exportedTireSet).default([]),
+  // Exports made before renewals existed have none.
+  renewals: z.array(exportedRenewal).default([]),
 })
 
 const exportFile = z.object({
@@ -167,6 +182,7 @@ export type ExportedDocument = z.infer<typeof exportedDocument>
 export type ExportedWarranty = z.infer<typeof exportedWarranty>
 export type ExportedFillUp = z.infer<typeof exportedFillUp>
 export type ExportedTireSet = z.infer<typeof exportedTireSet>
+export type ExportedRenewal = z.infer<typeof exportedRenewal>
 export type ExportFile = z.infer<typeof exportFile>
 
 /** A car's name in the export: its nickname, or year, make and model. */
@@ -225,7 +241,8 @@ odometer.csv    Every odometer reading, in miles.
 warranties.csv  Every warranty, with when and at what mileage it ends.
 fill-ups.csv    Every fill-up and charging session: gallons or kWh, and its cost in US dollars.
 tires.csv       Every set of tires: when it was made, the miles on it and its last tread depth.
-documents.csv   Every attached receipt, registration, insurance card or other file.
+renewals.csv    Every registration, inspection and insurance date, and how often it repeats.
+documents.csv   Every attached receipt, registration, inspection report, insurance card or file.
 documents/      The files themselves, in a folder per car.
 
 The CSV files open in Numbers, Excel or Google Sheets. Dates are YYYY-MM-DD.
@@ -303,10 +320,21 @@ export const buildArchive = (
         'notes',
       ],
     ],
+    renewals: [['car', 'kind', 'name', 'due_on', 'every_months', 'notes']],
   }
 
   const exported: ExportedCar[] = cars.map(
-    ({ vehicle: v, readings, services, attachments, warranties, fillUps, tireSets, items }) => {
+    ({
+      vehicle: v,
+      readings,
+      services,
+      attachments,
+      warranties,
+      fillUps,
+      tireSets,
+      renewals,
+      items,
+    }) => {
       const label = carName(safeName(carLabel(v)))
       const fileName = uniquely(true)
       const itemById = new Map(items.map((i) => [i.id, i]))
@@ -409,6 +437,18 @@ export const buildArchive = (
           t.treadCheckedOn ?? '',
           t.notes ?? '',
         ])
+      const sortedRenewals = [...renewals].sort(
+        (a, b) => a.dueOn.localeCompare(b.dueOn) || a.id.localeCompare(b.id),
+      )
+      for (const r of sortedRenewals)
+        rows.renewals.push([
+          label,
+          r.kind,
+          r.title ?? '',
+          r.dueOn,
+          r.everyMonths !== undefined ? String(r.everyMonths) : '',
+          r.notes ?? '',
+        ])
       rows.cars.push([
         label,
         String(v.year),
@@ -485,6 +525,14 @@ export const buildArchive = (
           ...(t.treadCheckedOn && { treadCheckedOn: t.treadCheckedOn }),
           ...(t.notes && { notes: t.notes }),
         })),
+        renewals: sortedRenewals.map((r) => ({
+          id: r.id,
+          kind: r.kind,
+          ...(r.title && { title: r.title }),
+          dueOn: r.dueOn,
+          ...(r.everyMonths !== undefined && { everyMonths: r.everyMonths }),
+          ...(r.notes && { notes: r.notes }),
+        })),
       }
     },
   )
@@ -503,6 +551,7 @@ export const buildArchive = (
   zip['warranties.csv'] = strToU8(csv(rows.warranties))
   zip['fill-ups.csv'] = strToU8(csv(rows.fillUps))
   zip['tires.csv'] = strToU8(csv(rows.tireSets))
+  zip['renewals.csv'] = strToU8(csv(rows.renewals))
   zip['documents.csv'] = strToU8(csv(rows.documents))
   return { bytes: zipSync(zip, { level: 6 }), missing }
 }

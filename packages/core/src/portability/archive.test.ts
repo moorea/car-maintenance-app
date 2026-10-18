@@ -122,6 +122,23 @@ const rav4: CarData = {
       treadCheckedOn: '2026-03-01',
     },
   ],
+  renewals: [
+    {
+      id: 'r-2',
+      vehicleId: 'car-1',
+      kind: 'other',
+      title: 'Parking permit',
+      dueOn: '2027-01-01',
+    },
+    {
+      id: 'r-1',
+      vehicleId: 'car-1',
+      kind: 'registration',
+      dueOn: '2026-11-30',
+      everyMonths: 12,
+      notes: 'Plate 8ABC123',
+    },
+  ],
   items: [{ id: 'item-oil', configId: 'cfg', task: 'Engine oil and filter', kind: 'engine-oil' }],
 }
 
@@ -148,6 +165,7 @@ describe('buildArchive', () => {
       'documents/Blue -Bessie-/Oil change.jpg',
       'fill-ups.csv',
       'odometer.csv',
+      'renewals.csv',
       'service-log.csv',
       'tires.csv',
       'warranties.csv',
@@ -191,6 +209,10 @@ describe('buildArchive', () => {
     expect(textOf(bytes, 'fill-ups.csv').split('\r\n').slice(1, 3)).toEqual([
       'Blue -Bessie-,2026-02-01,29800,fuel,12.5,gal,42.50,yes,no,Costco,',
       'Blue -Bessie-,2026-02-20,30100,fuel,11.204,gal,,no,yes,,Forgot the receipt',
+    ])
+    expect(textOf(bytes, 'renewals.csv').split('\r\n').slice(1, 3)).toEqual([
+      'Blue -Bessie-,registration,,2026-11-30,12,Plate 8ABC123',
+      'Blue -Bessie-,other,Parking permit,2027-01-01,,',
     ])
   })
 
@@ -312,6 +334,29 @@ describe('readArchive', () => {
     delete json.cars[0].tireSets
 
     expect(readArchive(zipOf(json)).data.cars[0]?.tireSets).toEqual([])
+  })
+
+  it('reads back renewals, soonest first', () => {
+    const archive = readArchive(buildArchive([rav4], files, '2026-10-17').bytes)
+    expect(archive.data.cars[0]?.renewals).toEqual([
+      {
+        id: 'r-1',
+        kind: 'registration',
+        dueOn: '2026-11-30',
+        everyMonths: 12,
+        notes: 'Plate 8ABC123',
+      },
+      { id: 'r-2', kind: 'other', title: 'Parking permit', dueOn: '2027-01-01' },
+    ])
+  })
+
+  it('reads an export made before renewals existed as a car without renewals', () => {
+    const json = JSON.parse(
+      textOf(buildArchive([{ ...rav4, renewals: [] }], files, '2026-10-17').bytes, 'car-data.json'),
+    )
+    delete json.cars[0].renewals
+
+    expect(readArchive(zipOf(json)).data.cars[0]?.renewals).toEqual([])
   })
 
   it('reads an export made before fill-ups existed as a car without fill-ups', () => {

@@ -58,6 +58,7 @@ export interface YourDataDeps extends Omit<ExportDeps, keyof ImportDeps> {
   warranties: ExportDeps['warranties'] & ImportDeps['warranties']
   fillUps: ExportDeps['fillUps'] & ImportDeps['fillUps']
   tireSets: ExportDeps['tireSets'] & ImportDeps['tireSets']
+  renewals: ExportDeps['renewals'] & ImportDeps['renewals']
   files: DataFiles
   ids: IdGenerator
 }
@@ -77,9 +78,10 @@ const exportedText = (r: ExportResult) => {
     count(r.cars, 'car'),
     count(r.services, 'service'),
     count(r.warranties, 'warranty', 'warranties'),
-    // Only owners with fill-ups or tire sets hear about them.
+    // Only owners with fill-ups, tire sets or renewals hear about them.
     ...(r.fillUps > 0 ? [count(r.fillUps, 'fill-up')] : []),
     ...(r.tireSets > 0 ? [count(r.tireSets, 'tire set')] : []),
+    ...(r.renewals > 0 ? [count(r.renewals, 'renewal date')] : []),
     count(r.documents, 'document'),
   ]
   const missing =
@@ -95,6 +97,7 @@ const importedText = (r: ImportResult) => {
     count(r.warranties, 'warranty', 'warranties'),
     ...(r.fillUps > 0 ? [count(r.fillUps, 'fill-up')] : []),
     ...(r.tireSets > 0 ? [count(r.tireSets, 'tire set')] : []),
+    ...(r.renewals > 0 ? [count(r.renewals, 'renewal date')] : []),
     count(r.documents, 'document'),
   ])}.`
   const skipped =

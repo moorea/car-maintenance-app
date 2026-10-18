@@ -35,6 +35,7 @@ interface Props {
   onFuel: () => void
   onTires: () => void
   onDriving: () => void
+  onRenewals: () => void
 }
 
 const OVERLINE = { fontSize: 13, fontWeight: '600', letterSpacing: 0.5 } as const
@@ -50,6 +51,7 @@ export function CarView({
   onFuel,
   onTires,
   onDriving,
+  onRenewals,
 }: Props) {
   const colors = useColors()
   if (car.status === 'loading') return <ActivityIndicator style={styles.fill} />
@@ -79,6 +81,7 @@ export function CarView({
           <FuelCard onPress={onFuel} />
           <TiresCard onPress={onTires} />
           <WarrantyCard onPress={onWarranty} />
+          <RenewalsCard onPress={onRenewals} />
           <DocumentsSection {...documents} />
           <SegmentedControl options={sections} selected={car.section} onSelect={car.showSection} />
           {car.section === 'schedule' ? (
@@ -210,6 +213,25 @@ function TiresCard({ onPress }: { onPress: () => void }) {
           <Text textStyle={{ fontSize: 16, fontWeight: '600' }}>Tires</Text>
           <Text textStyle={{ fontSize: 13, color: colors.textSecondary }}>
             How old they are, miles on each set, and seasonal swaps
+          </Text>
+        </FillColumn>
+        <Symbol name="chevron" size={16} color={colors.textSecondary} />
+      </Row>
+    </Card>
+  )
+}
+
+/** Opens the car's registration, inspection and insurance dates. */
+function RenewalsCard({ onPress }: { onPress: () => void }) {
+  const colors = useColors()
+  return (
+    <Card padding={14} onPress={onPress}>
+      <Row alignment="center" spacing={12}>
+        <Symbol name="calendar" size={22} color={colors.accent} />
+        <FillColumn spacing={1}>
+          <Text textStyle={{ fontSize: 16, fontWeight: '600' }}>Registration & insurance</Text>
+          <Text textStyle={{ fontSize: 13, color: colors.textSecondary }}>
+            Renewal dates and inspections, with reminders before each
           </Text>
         </FillColumn>
         <Symbol name="chevron" size={16} color={colors.textSecondary} />

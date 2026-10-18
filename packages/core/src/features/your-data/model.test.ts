@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type {
   Attachment,
   FillUp,
+  Renewal,
   ServiceRecord,
   TireSet,
   Vehicle,
@@ -15,6 +16,7 @@ import {
   memoryDataFiles,
   memoryFillUps,
   memoryTireSets,
+  memoryRenewals,
   memoryOdometer,
   memorySchedule,
   memoryServiceRecords,
@@ -98,6 +100,7 @@ const phone = (
     warranties?: Warranty[]
     fillUps?: FillUp[]
     tireSets?: TireSet[]
+    renewals?: Renewal[]
     remote?: string[]
     files?: Record<string, Uint8Array>
   } = {},
@@ -117,6 +120,7 @@ const phone = (
   const warranties = memoryWarranties(data.warranties ?? [])
   const fillUps = memoryFillUps(data.fillUps ?? [])
   const tireSets = memoryTireSets(data.tireSets ?? [])
+  const renewals = memoryRenewals(data.renewals ?? [])
   const files = memoryDataFiles(data.files ?? {})
   const schedule = memorySchedule([
     { id: 'item-oil', configId: 'cfg-civic', task: 'Engine oil', kind: 'engine-oil' },
@@ -130,6 +134,7 @@ const phone = (
     warranties,
     fillUps,
     tireSets,
+    renewals,
     schedule,
     files,
     clock: fixedClock('2026-10-17'),
@@ -145,6 +150,7 @@ const phone = (
     warranties,
     fillUps,
     tireSets,
+    renewals,
     files,
     model,
   }
@@ -381,6 +387,34 @@ describe('your data model', () => {
       ])
       expect(alex.model.getState().message?.text).toBe(
         'Added 1 car with 0 services, 0 warranties, 1 tire set and 0 documents.',
+      )
+    })
+
+    it('carries renewal dates over under new ids', async () => {
+      const insurance: Renewal = {
+        id: 'r-1',
+        vehicleId: 'civic',
+        kind: 'insurance',
+        dueOn: '2027-01-15',
+        everyMonths: 6,
+        notes: 'Policy 77',
+      }
+      const sam = phone(SAM, { vehicles: [civic], renewals: [insurance] })
+      await sam.model.getState().exportAll()
+      expect(sam.model.getState().message?.text).toBe(
+        'Exported 1 car, 0 services, 0 warranties, 1 renewal date and 0 documents.',
+      )
+      const alex = phone({ id: 'alex' })
+      alex.files.queueArchive(got(sam.files.shared[0]).bytes)
+
+      await alex.model.getState().chooseImport()
+      await alex.model.getState().confirmImport()
+
+      expect(await alex.renewals.listForVehicle('new-1')).toEqual([
+        { ...insurance, id: 'new-2', vehicleId: 'new-1' },
+      ])
+      expect(alex.model.getState().message?.text).toBe(
+        'Added 1 car with 0 services, 0 warranties, 1 renewal date and 0 documents.',
       )
     })
 

@@ -5,6 +5,7 @@ import type {
   Notifier,
   ReminderSettingsRepo,
   TireSetRepo,
+  RenewalRepo,
   Unsubscribe,
   WarrantyRepo,
 } from '../ports'
@@ -19,14 +20,15 @@ export interface ReminderSchedulerDeps extends GetDueItemsDeps {
   settings: ReminderSettingsRepo
   warranties: WarrantyRepo
   tireSets: Pick<TireSetRepo, 'listForVehicle' | 'watchForVehicle'>
+  renewals: Pick<RenewalRepo, 'listForVehicle' | 'watchForVehicle'>
   /** Where failures go; a reminder that cannot be planned must not crash the app. */
   log?: (message: string, error: unknown) => void
 }
 
 export interface ReminderScheduler {
   /**
-   * Follows sign-in, the owner's cars, their service logs, warranties, tire sets and the reminder
-   * setting.
+   * Follows sign-in, the owner's cars, their service logs, warranties, renewals, tire sets and the
+   * reminder setting.
    */
   start: () => void
   /**
@@ -48,8 +50,8 @@ const sameNotification = (a: LocalNotification, b: LocalNotification) =>
 
 /**
  * Keeps this device's scheduled reminders in step with the owner's cars: re-plans whenever a car,
- * a service record, an odometer reading, a warranty or a tire set changes, and schedules or cancels only the
- * notifications that differ.
+ * a service record, an odometer reading, a warranty, a renewal or a tire set changes, and schedules
+ * or cancels only the notifications that differ.
  * Nothing is scheduled while signed out, while reminders are off or without permission, so
  * signing out or turning reminders off cancels them all.
  */
@@ -78,9 +80,10 @@ export const createReminderScheduler = (deps: ReminderSchedulerDeps): ReminderSc
     const today = deps.clock.today()
     const cars = await Promise.all(
       vehicles.map(async (vehicle) => {
-        const [summary, warranties, tireSets] = await Promise.all([
+        const [summary, warranties, renewals, tireSets] = await Promise.all([
           summaryOf(vehicle.id),
           deps.warranties.listForVehicle(vehicle.id),
+          deps.renewals.listForVehicle(vehicle.id),
           deps.tireSets.listForVehicle(vehicle.id),
         ])
         const { mileage, currentMiles } = summary
@@ -88,6 +91,7 @@ export const createReminderScheduler = (deps: ReminderSchedulerDeps): ReminderSc
           vehicle,
           due: summary.items,
           warranties: upcomingWarrantyEnds(warranties, { mileage, currentMiles, today }),
+          renewals,
           tires: upcomingTireMilestones(tireSets, today),
         }
       }),
@@ -153,6 +157,7 @@ export const createReminderScheduler = (deps: ReminderSchedulerDeps): ReminderSc
         deps.odometer.watchForVehicle(id, () => void refresh()),
         deps.warranties.watchForVehicle(id, () => void refresh()),
         deps.tireSets.watchForVehicle(id, () => void refresh()),
+        deps.renewals.watchForVehicle(id, () => void refresh()),
       ]
       stopCarData.set(id, () => {
         for (const stop of stops) stop()

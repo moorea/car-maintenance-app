@@ -168,6 +168,18 @@ export const schema = new Schema({
     },
     { indexes: { by_vehicle: ['vehicle_id'] } },
   ),
+  renewals: new Table(
+    {
+      vehicle_id: column.text,
+      kind: column.text,
+      title: column.text,
+      due_on: column.text,
+      every_months: column.integer,
+      notes: column.text,
+      updated_at: column.text,
+    },
+    { indexes: { by_vehicle: ['vehicle_id'] } },
+  ),
   attachments: new Table(
     {
       owner_id: column.text,
@@ -194,6 +206,7 @@ export const UPLOADABLE_TABLES = [
   'warranties',
   'fill_ups',
   'tire_sets',
+  'renewals',
   'attachments',
 ] as const
 export type UploadableTable = (typeof UPLOADABLE_TABLES)[number]

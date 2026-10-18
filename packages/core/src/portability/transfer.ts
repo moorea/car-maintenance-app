@@ -11,6 +11,7 @@ import type {
   DataFiles,
   FillUpRepo,
   TireSetRepo,
+  RenewalRepo,
   IdGenerator,
   OdometerRepo,
   ScheduleRepo,
@@ -50,6 +51,7 @@ export interface ExportDeps {
   warranties: Pick<WarrantyRepo, 'listForVehicle'>
   fillUps: Pick<FillUpRepo, 'listForVehicle'>
   tireSets: Pick<TireSetRepo, 'listForVehicle'>
+  renewals: Pick<RenewalRepo, 'listForVehicle'>
   schedule: ScheduleRepo
   files: Pick<DataFiles, 'read' | 'share'>
   clock: Clock
@@ -61,6 +63,7 @@ export interface ExportResult {
   warranties: number
   fillUps: number
   tireSets: number
+  renewals: number
   documents: number
   /** Documents left out because their file could not be read, usually offline. */
   missing: number
@@ -78,7 +81,7 @@ export const exportData = async (deps: ExportDeps, ownerId: string): Promise<Exp
   const cars: CarData[] = []
   const files = new Map<string, Uint8Array>()
   for (const vehicle of vehicles) {
-    const [allReadings, services, attachments, warranties, fillUps, tireSets, items] =
+    const [allReadings, services, attachments, warranties, fillUps, tireSets, renewals, items] =
       await Promise.all([
         deps.odometer.listForVehicle(vehicle.id),
         deps.services.listForVehicle(vehicle.id),
@@ -86,6 +89,7 @@ export const exportData = async (deps: ExportDeps, ownerId: string): Promise<Exp
         deps.warranties.listForVehicle(vehicle.id),
         deps.fillUps.listForVehicle(vehicle.id),
         deps.tireSets.listForVehicle(vehicle.id),
+        deps.renewals.listForVehicle(vehicle.id),
         vehicle.configId ? deps.schedule.itemsForConfig(vehicle.configId) : Promise.resolve([]),
       ])
     // One at a time, so a garage of large files is never all downloading at once.
@@ -100,7 +104,17 @@ export const exportData = async (deps: ExportDeps, ownerId: string): Promise<Exp
     // it themselves, so importing it as a reading too would make a copy that outlives an edit.
     const fromFillUps = new Set(fillUps.map((f) => `${f.filledOn}:${f.odometerMiles}`))
     const readings = allReadings.filter((r) => !fromFillUps.has(`${r.date}:${r.miles}`))
-    cars.push({ vehicle, readings, services, attachments, warranties, fillUps, tireSets, items })
+    cars.push({
+      vehicle,
+      readings,
+      services,
+      attachments,
+      warranties,
+      fillUps,
+      tireSets,
+      renewals,
+      items,
+    })
   }
   const today = deps.clock.today()
   const archive = buildArchive(cars, files, today)
@@ -111,6 +125,7 @@ export const exportData = async (deps: ExportDeps, ownerId: string): Promise<Exp
     warranties: cars.reduce((n, c) => n + c.warranties.length, 0),
     fillUps: cars.reduce((n, c) => n + c.fillUps.length, 0),
     tireSets: cars.reduce((n, c) => n + c.tireSets.length, 0),
+    renewals: cars.reduce((n, c) => n + c.renewals.length, 0),
     documents: cars.reduce((n, c) => n + c.attachments.length, 0),
     missing: archive.missing.length,
   }
@@ -169,6 +184,7 @@ export interface ImportDeps {
   warranties: Pick<WarrantyRepo, 'save'>
   fillUps: Pick<FillUpRepo, 'save'>
   tireSets: Pick<TireSetRepo, 'save'>
+  renewals: Pick<RenewalRepo, 'save'>
   files: Pick<DataFiles, 'stage'>
   ids: IdGenerator
 }
@@ -179,6 +195,7 @@ export interface ImportResult {
   warranties: number
   fillUps: number
   tireSets: number
+  renewals: number
   documents: number
   /** Cars left out because they were already in the garage. */
   skipped: number
@@ -188,8 +205,9 @@ export interface ImportResult {
 
 /**
  * Adds the export's cars that are not already in the garage, with their odometer readings,
- * services, warranties, fill-ups, tire sets and documents, under new ids: the originals may still exist in
- * another account. Works offline; everything uploads like anything the owner adds.
+ * services, warranties, fill-ups, tire sets, renewals and documents, under new ids: the originals
+ * may still exist in another account. Works offline; everything uploads like anything the owner
+ * adds.
  */
 export const importData = async (
   deps: ImportDeps,
@@ -204,6 +222,7 @@ export const importData = async (
     warranties: 0,
     fillUps: 0,
     tireSets: 0,
+    renewals: 0,
     documents: 0,
     skipped: plan.skipping.length,
     missing: 0,
@@ -309,6 +328,19 @@ export const importData = async (
         ...(t.notes && { notes: t.notes }),
       })
       result.tireSets++
+    }
+
+    for (const r of car.renewals) {
+      await deps.renewals.save({
+        id: deps.ids.next(),
+        vehicleId: vehicle.id,
+        kind: r.kind,
+        ...(r.title && { title: r.title }),
+        dueOn: r.dueOn,
+        ...(r.everyMonths !== undefined && { everyMonths: r.everyMonths }),
+        ...(r.notes && { notes: r.notes }),
+      })
+      result.renewals++
     }
 
     for (const { document: d, bytes, file } of documents) {
