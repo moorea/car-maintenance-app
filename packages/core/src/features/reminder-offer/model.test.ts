@@ -63,7 +63,8 @@ describe('reminder offer model', () => {
     model.getState().start()
     await settle()
     await model.getState().accept()
-    expect(current(settings)).toEqual({ enabled: false })
+    // Kept on, so allowing notifications in Settings is all it takes for reminders to start.
+    expect(current(settings)).toEqual({ enabled: true })
     expect(current(preferences).remindersOffered).toBe(true)
     expect(model.getState().status).toBe('blocked')
     expect(REMINDERS_BLOCKED_NOTE).toMatch(/turn them on in Settings/)

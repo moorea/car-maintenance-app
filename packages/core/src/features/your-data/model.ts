@@ -142,6 +142,8 @@ export const createYourDataModel = (deps: YourDataDeps): YourDataModel => {
   let ownerId: string | undefined
   let picked: OpenedArchive | undefined
   let lastExport: SharedZip | undefined
+  // What the export said, shown again once sharing it again works.
+  let exportedMessage: YourDataState['message']
 
   return createStore<YourDataState & YourDataActions>()((set, get) => ({
     status: 'ready',
@@ -170,9 +172,10 @@ export const createYourDataModel = (deps: YourDataDeps): YourDataModel => {
       try {
         const result = await exportData({ ...deps, files }, ownerId)
         lastExport = built.zip
+        exportedMessage = { tone: 'success', text: exportedText(result) }
         set({
           status: 'ready',
-          message: { tone: 'success', text: exportedText(result) },
+          message: exportedMessage,
           canShareAgain: lastExport !== undefined,
         })
       } catch {
@@ -186,7 +189,7 @@ export const createYourDataModel = (deps: YourDataDeps): YourDataModel => {
       set({ status: 'sharing' })
       try {
         await deps.files.share(again.bytes, again.name)
-        set({ status: 'ready' })
+        set({ status: 'ready', message: exportedMessage })
       } catch {
         set({ status: 'ready', message: ERROR("Couldn't share your export. Try again.") })
       }

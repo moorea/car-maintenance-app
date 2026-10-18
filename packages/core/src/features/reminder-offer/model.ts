@@ -112,8 +112,10 @@ export const createReminderOfferModel = (deps: ReminderOfferDeps): ReminderOffer
         let refused = false
         try {
           const answer = await deps.notifier.requestPermission()
-          if (answer === 'granted') await deps.settings.set({ enabled: true })
-          else refused = answer === 'denied'
+          // A refusal still records the owner's yes: nothing is planned without permission, and
+          // reminders start once Settings allows them, as the note says.
+          refused = answer === 'denied'
+          if (answer === 'granted' || refused) await deps.settings.set({ enabled: true })
         } catch {
           // Left off, which the reminders screen shows; the owner can try again there.
         }

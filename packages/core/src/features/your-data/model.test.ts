@@ -282,6 +282,9 @@ describe('your data model', () => {
         canShareAgain: true,
         message: { tone: 'error', text: "Couldn't share your export. Try again." },
       })
+
+      await model.getState().shareAgain()
+      expect(model.getState().message).toMatchObject({ tone: 'success' })
     })
 
     it('has nothing to share again before an export, after a failed one, or once an import starts', async () => {
