@@ -122,6 +122,16 @@ describe('applyCrud', () => {
     expect(calls).toEqual([['update', 'fill_ups', 'row1', { odometer_miles: 41_100 }]])
   })
 
+  it('uploads a renewal as an update, since renewing moves its date on', async () => {
+    const { backend, calls } = fakeBackend()
+    await applyCrud(
+      backend,
+      entry(UpdateType.PATCH, 'renewals', { due_on: '2027-11-01' }),
+      context(),
+    )
+    expect(calls).toEqual([['update', 'renewals', 'row1', { due_on: '2027-11-01' }]])
+  })
+
   it('never uploads tables that are read-only on the device', async () => {
     const { backend, calls } = fakeBackend()
     const dropped = await applyCrud(

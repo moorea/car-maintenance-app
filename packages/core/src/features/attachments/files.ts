@@ -17,6 +17,7 @@ export const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024
 const KIND_TITLES: Record<Exclude<AttachmentKind, 'other'>, string> = {
   receipt: 'Receipt',
   registration: 'Registration',
+  inspection: 'Inspection report',
   insurance: 'Insurance card',
 }
 
@@ -50,6 +51,7 @@ const baseName = (name: string) => name.replace(/\.[A-Za-z0-9]{1,5}$/, '') || na
 /** One attachment as a list shows it. */
 export interface AttachmentItem {
   id: string
+  kind: AttachmentKind
   serviceRecordId?: string | undefined
   /** "Registration", "Receipt", or the file's name for anything else. */
   title: string
@@ -60,6 +62,7 @@ export interface AttachmentItem {
 
 export const describeAttachment = (a: Attachment, today: IsoDate): AttachmentItem => ({
   id: a.id,
+  kind: a.kind,
   serviceRecordId: a.serviceRecordId,
   title: a.kind === 'other' ? baseName(a.name) : KIND_TITLES[a.kind],
   detail: [isPdf(a) ? 'PDF' : 'Photo', formatBytes(a.sizeBytes), formatDay(a.addedOn, today)].join(

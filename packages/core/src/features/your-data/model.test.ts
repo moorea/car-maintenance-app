@@ -1,12 +1,20 @@
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate'
 import { describe, expect, it } from 'vitest'
-import type { Attachment, FillUp, ServiceRecord, Vehicle, Warranty } from '../../domain/types'
+import type {
+  Attachment,
+  FillUp,
+  Renewal,
+  ServiceRecord,
+  Vehicle,
+  Warranty,
+} from '../../domain/types'
 import {
   fixedClock,
   memoryAttachments,
   memoryAuth,
   memoryDataFiles,
   memoryFillUps,
+  memoryRenewals,
   memoryOdometer,
   memorySchedule,
   memoryServiceRecords,
@@ -89,6 +97,7 @@ const phone = (
     attachments?: Attachment[]
     warranties?: Warranty[]
     fillUps?: FillUp[]
+    renewals?: Renewal[]
     remote?: string[]
     files?: Record<string, Uint8Array>
   } = {},
@@ -107,6 +116,7 @@ const phone = (
   const attachments = memoryAttachments(data.attachments ?? [], { remote: data.remote ?? [] })
   const warranties = memoryWarranties(data.warranties ?? [])
   const fillUps = memoryFillUps(data.fillUps ?? [])
+  const renewals = memoryRenewals(data.renewals ?? [])
   const files = memoryDataFiles(data.files ?? {})
   const schedule = memorySchedule([
     { id: 'item-oil', configId: 'cfg-civic', task: 'Engine oil', kind: 'engine-oil' },
@@ -119,13 +129,25 @@ const phone = (
     attachments,
     warranties,
     fillUps,
+    renewals,
     schedule,
     files,
     clock: fixedClock('2026-10-17'),
     ids: sequentialIds('new'),
   })
   model.getState().start()
-  return { auth, vehicles, odometer, services, attachments, warranties, fillUps, files, model }
+  return {
+    auth,
+    vehicles,
+    odometer,
+    services,
+    attachments,
+    warranties,
+    fillUps,
+    renewals,
+    files,
+    model,
+  }
 }
 
 const samsPhone = () =>
@@ -327,6 +349,34 @@ describe('your data model', () => {
       expect(await alex.odometer.listForVehicle('new-1')).toEqual([])
       expect(alex.model.getState().message?.text).toBe(
         'Added 1 car with 0 services, 0 warranties, 1 fill-up and 0 documents.',
+      )
+    })
+
+    it('carries renewal dates over under new ids', async () => {
+      const insurance: Renewal = {
+        id: 'r-1',
+        vehicleId: 'civic',
+        kind: 'insurance',
+        dueOn: '2027-01-15',
+        everyMonths: 6,
+        notes: 'Policy 77',
+      }
+      const sam = phone(SAM, { vehicles: [civic], renewals: [insurance] })
+      await sam.model.getState().exportAll()
+      expect(sam.model.getState().message?.text).toBe(
+        'Exported 1 car, 0 services, 0 warranties, 1 renewal date and 0 documents.',
+      )
+      const alex = phone({ id: 'alex' })
+      alex.files.queueArchive(got(sam.files.shared[0]).bytes)
+
+      await alex.model.getState().chooseImport()
+      await alex.model.getState().confirmImport()
+
+      expect(await alex.renewals.listForVehicle('new-1')).toEqual([
+        { ...insurance, id: 'new-2', vehicleId: 'new-1' },
+      ])
+      expect(alex.model.getState().message?.text).toBe(
+        'Added 1 car with 0 services, 0 warranties, 1 renewal date and 0 documents.',
       )
     })
 

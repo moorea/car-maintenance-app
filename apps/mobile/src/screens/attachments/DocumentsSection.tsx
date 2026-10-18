@@ -16,6 +16,7 @@ const OVERLINE = { fontSize: 13, fontWeight: '600', letterSpacing: 0.5 } as cons
 
 const KINDS: { kind: AttachmentKind; title: string; symbol: SymbolName }[] = [
   { kind: 'registration', title: 'Registration', symbol: 'document' },
+  { kind: 'inspection', title: 'Inspection report', symbol: 'document' },
   { kind: 'insurance', title: 'Insurance card', symbol: 'document' },
   { kind: 'other', title: 'Other document', symbol: 'paperclip' },
 ]
