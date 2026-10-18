@@ -16,30 +16,36 @@ adb install -r "$apk" || exit 1
 adb shell settings put global hide_error_dialogs 1
 adb shell settings put secure anr_show_background 0
 adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS > /dev/null || true
-maestro test --test-output-dir "$out/maestro" --debug-output "$out/maestro/debug" --flatten-debug-output apps/mobile/e2e/android
-status=$?
-# The emulator sometimes drops off adb for a moment while the first flow launches the app
-# ("device offline"), which fails that flow before it has tested anything. When every failed flow
-# lost the device that way, run all the flows again once, after the device is back, so a failure
+# The emulator sometimes drops off adb for a moment as a Maestro run launches the app ("device
+# offline"), which fails that flow before it has tested anything. When every failed flow of a run
+# lost the device that way, the whole run goes again once, after the device is back, so a failure
 # Maestro did not log against a flow still counts.
-if [ "$status" != 0 ]; then
-  failed=$(grep -l 'onCommandFinished: .* FAILED$' "$out"/maestro/debug/*/logs/maestro.log 2> /dev/null)
+#   run_flows <output dir> <flows>
+run_flows() {
+  local dir=$1 flows=$2 status failed lost
+  maestro test --test-output-dir "$dir" --debug-output "$dir/debug" --flatten-debug-output "$flows"
+  status=$?
+  [ "$status" = 0 ] && return 0
+  failed=$(grep -l 'onCommandFinished: .* FAILED$' "$dir"/debug/*/logs/maestro.log 2> /dev/null)
   # shellcheck disable=SC2086 # One log path per word.
   lost=$(grep -l 'device offline' $failed /dev/null)
   if [ -n "$failed" ] && [ "$failed" = "$lost" ]; then
-    echo "The device went offline during $(sed -E 's|.*/debug/([^/]+)/logs/.*|\1|' <<< "$lost" | paste -sd " " -). Running every flow again."
+    echo "The device went offline during $(sed -E 's|.*/debug/([^/]+)/logs/.*|\1|' <<< "$lost" | paste -sd " " -). Running $flows again."
+    # A device that does not come back fails the job here, rather than in every later run.
     timeout 120 adb wait-for-device || exit 1
-    maestro test --test-output-dir "$out/maestro/retry" --debug-output "$out/maestro/retry/debug" \
-      --flatten-debug-output apps/mobile/e2e/android
+    maestro test --test-output-dir "$dir/retry" --debug-output "$dir/retry/debug" --flatten-debug-output "$flows"
     status=$?
   fi
-fi
+  return "$status"
+}
+
+run_flows "$out/maestro" apps/mobile/e2e/android
+status=$?
 # The same screens as iOS's largest text size check, at Android's largest font scale.
 trap 'adb shell settings put system font_scale 1.0' EXIT
 adb shell settings put system font_scale 2.0
 adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS > /dev/null || true
-maestro test --test-output-dir "$out/maestro/large-text" --debug-output "$out/maestro/large-text/debug" --flatten-debug-output \
-  apps/mobile/e2e-large-text || status=1
+run_flows "$out/maestro/large-text" apps/mobile/e2e-large-text || status=1
 
 # takeScreenshot writes to the working directory; failure screenshots go to the output dir.
 find . "$out/maestro" \( -name node_modules -o -name .expo -o -path ./apps/mobile/android \) -prune \
