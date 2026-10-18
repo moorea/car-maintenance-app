@@ -55,8 +55,10 @@ export function ReminderOfferView(props: Props) {
               text="onAccent"
             />
           </Row>
-          <Row style={{ justifyContent: 'center' } as UniversalStyle}>
+          <Row alignment="center">
+            <Spacer flexible />
             <Button variant="text" label="Not now" disabled={saving} onPress={props.decline} />
+            <Spacer flexible />
           </Row>
         </Column>
       </Column>
