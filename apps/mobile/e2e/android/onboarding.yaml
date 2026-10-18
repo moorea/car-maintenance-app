@@ -78,3 +78,14 @@ appId: com.moorea.carmaintenance
     visible: 'Garage'
     timeout: 10000
 - takeScreenshot: 29-first-garage
+# A new car's history is unknown, so the garage asks when each service was last done, oil first.
+- scrollUntilVisible:
+    element: 'When was the last oil & filter change\?'
+    centerElement: true
+- takeScreenshot: 29b-history-ask
+- tapOn: 'Add last time'
+- extendedWaitUntil:
+    visible: 'Odometer \(miles\)'
+    timeout: 10000
+- waitForAnimationToEnd
+- takeScreenshot: 29c-history-log

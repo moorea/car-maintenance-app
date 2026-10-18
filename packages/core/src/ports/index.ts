@@ -267,6 +267,8 @@ export interface DevicePreferences {
   aiSharingOwner: string | null
   /** Reminders were offered after a car was added on this phone, and turned on or declined. */
   remindersOffered: boolean
+  /** Cars whose service history the owner chose not to fill in from the garage. */
+  historyDismissed: string[]
 }
 
 export interface DevicePreferencesRepo {

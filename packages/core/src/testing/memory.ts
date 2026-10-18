@@ -425,6 +425,7 @@ export const memoryPreferences = (
     onboarded: false,
     aiSharingOwner: null,
     remindersOffered: false,
+    historyDismissed: [],
     ...initial,
   }
   let fail = false
