@@ -1,0 +1,69 @@
+# A car added without its mileage: items due by mileage can't be dated, so the garage asks for a
+# first odometer reading rather than calling them due. As apps/mobile/e2e/no-mileage.yaml on iOS.
+appId: com.moorea.carmaintenance
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      '-demoSignedOut': true
+- extendedWaitUntil:
+    visible: 'Your car, explained'
+    timeout: 60000
+- tapOn: 'Continue'
+- extendedWaitUntil:
+    visible: 'Answers you can check'
+    timeout: 5000
+- tapOn: 'Continue'
+- extendedWaitUntil:
+    visible: 'Walk into the shop knowing more'
+    timeout: 5000
+- tapOn: 'Continue'
+- extendedWaitUntil:
+    visible: "A heads-up when it's due"
+    timeout: 5000
+- tapOn: 'Get started'
+- extendedWaitUntil:
+    visible: 'Email me a code'
+    timeout: 5000
+- tapOn: 'you@example.com'
+- inputText: 'nomiles@example.com'
+- hideKeyboard
+- tapOn: 'Email me a code'
+- extendedWaitUntil:
+    visible: 'Enter the code we sent to nomiles@example.com.'
+    timeout: 10000
+- tapOn: 'Code from the email'
+- inputText: '123456'
+- extendedWaitUntil:
+    visible: 'Add your first car'
+    timeout: 10000
+- tapOn: 'Enter year, make and model instead'
+- tapOn: 'e.g. 2019'
+- inputText: '2021'
+- tapOn: 'e.g. Toyota'
+- inputText: 'Toyota'
+- tapOn: 'e.g. RAV4'
+- inputText: 'RAV4'
+- hideKeyboard
+# No mileage: the odometer field stays empty.
+- scrollUntilVisible:
+    element: 'Save car'
+    centerElement: true
+- tapOn: 'Save car'
+- extendedWaitUntil:
+    visible: '2021 Toyota RAV4 is in your garage'
+    timeout: 10000
+- tapOn: 'Not now'
+- extendedWaitUntil:
+    visible: 'Garage'
+    timeout: 10000
+- waitForAnimationToEnd
+- takeScreenshot: 70-garage-no-mileage
+- scrollUntilVisible:
+    element: 'What does the odometer say\?'
+    centerElement: true
+    timeout: 30000
+- waitForAnimationToEnd
+- takeScreenshot: 70-garage-no-mileage-ask
