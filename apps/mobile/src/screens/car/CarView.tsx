@@ -3,6 +3,8 @@ import type {
   CarSection,
   CarState,
   DueStatus,
+  EditCarActions,
+  EditCarState,
   SafetyActions,
   SafetyState,
   ScheduleItemActions,
@@ -19,9 +21,18 @@ import { SegmentedControl } from '../../ui/SegmentedControl'
 import { Symbol } from '../../ui/Symbol'
 import { TAB_BAR_CLEARANCE } from '../../ui/TabBar'
 import { TextField } from '../../ui/TextField'
-import { Card, Dot, FillColumn, PillButton, Separator, TappableRow } from '../../ui/surfaces'
+import {
+  Card,
+  Dot,
+  FillColumn,
+  GlassIconButton,
+  PillButton,
+  Separator,
+  TappableRow,
+} from '../../ui/surfaces'
 import type { AttachmentsProps } from '../attachments/AttachmentList'
 import { DocumentsSection } from '../attachments/DocumentsSection'
+import { EditCarSheet } from './EditCarSheet'
 import { KnownIssuesSection } from './KnownIssues'
 import { RecallsSection } from './SafetySections'
 import { ScheduleItemSheet } from './ScheduleItemSheet'
@@ -32,6 +43,7 @@ interface Props {
   car: CarState & CarActions
   safety: SafetyState & Pick<SafetyActions, 'toggle'>
   scheduleItem: ScheduleItemState & ScheduleItemActions
+  editCar: EditCarState & EditCarActions
   documents: AttachmentsProps
   onCheckQuote: () => void
   onTroubleCodes: () => void
@@ -49,6 +61,7 @@ export function CarView({
   car,
   safety,
   scheduleItem,
+  editCar,
   documents,
   onCheckQuote,
   onTroubleCodes,
@@ -74,12 +87,17 @@ export function CarView({
           spacing={14}
           style={{ padding: 16, paddingTop: 60, paddingBottom: TAB_BAR_CLEARANCE }}
         >
-          <Column spacing={4}>
-            <Text textStyle={{ fontSize: 30, fontWeight: '700' }}>{car.title}</Text>
-            {car.subtitle ? (
-              <Text textStyle={{ fontSize: 15, color: colors.textSecondary }}>{car.subtitle}</Text>
-            ) : null}
-          </Column>
+          <Row alignment="center" spacing={12}>
+            <FillColumn spacing={4}>
+              <Text textStyle={{ fontSize: 30, fontWeight: '700' }}>{car.title}</Text>
+              {car.subtitle ? (
+                <Text textStyle={{ fontSize: 15, color: colors.textSecondary }}>
+                  {car.subtitle}
+                </Text>
+              ) : null}
+            </FillColumn>
+            <GlassIconButton symbol="compose" label="Edit car" onPress={editCar.open} />
+          </Row>
           <OdometerCard {...car} onPrivacyPolicy={onPrivacyPolicy} />
           <QuoteCard onPress={onCheckQuote} />
           <TroubleCodesCard onPress={onTroubleCodes} />
@@ -103,6 +121,7 @@ export function CarView({
         </Column>
       </ScrollView>
       <ScheduleItemSheet {...scheduleItem} />
+      <EditCarSheet {...editCar} />
     </Host>
   )
 }

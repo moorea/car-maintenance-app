@@ -316,6 +316,22 @@ export const createPowerSyncRepositories = (db: CommonPowerSyncDatabase): PowerS
           [value?.cents ?? null, value?.valuedOn ?? null, now(), id],
         )
       },
+      rename: async (id, nickname) => {
+        await db.execute('update vehicles set nickname = ?, updated_at = ? where id = ?', [
+          nickname,
+          now(),
+          id,
+        ])
+      },
+      // The server deletes the rest of the car's history with it, and sync then clears it here.
+      // Its attachments go first, in the same transaction, so the upload deletes their files in
+      // Storage too rather than leaving them for the sweep.
+      remove: async (id) => {
+        await db.writeTransaction(async (tx) => {
+          await tx.execute('delete from attachments where vehicle_id = ?', [id])
+          await tx.execute('delete from vehicles where id = ?', [id])
+        })
+      },
     },
 
     records: {
