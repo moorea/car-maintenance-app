@@ -20,6 +20,8 @@ const RAV4: Vehicle = {
   vin: '2T3P1RFV8MW123456',
   nickname: 'Blue "Bessie"',
   severeDuty: true,
+  valueCents: 1_850_000,
+  valuedOn: '2026-09-01',
 }
 
 const receipt: Attachment = {
@@ -201,7 +203,7 @@ describe('buildArchive', () => {
       'Blue -Bessie-,2026-03-01,30500',
     ])
     expect(textOf(bytes, 'cars.csv')).toContain(
-      'Blue -Bessie-,2021,Toyota,RAV4,XLE,,,2T3P1RFV8MW123456,"Blue ""Bessie""",yes',
+      'Blue -Bessie-,2021,Toyota,RAV4,XLE,,,2T3P1RFV8MW123456,"Blue ""Bessie""",yes,18500.00,2026-09-01',
     )
     expect(textOf(bytes, 'warranties.csv')).toContain(
       'Blue -Bessie-,powertrain,Toyota,2021-06-01,60,60000,,',
@@ -287,7 +289,12 @@ describe('readArchive', () => {
   it('reads back what buildArchive wrote, with its files', () => {
     const archive = readArchive(buildArchive([rav4], files, '2026-10-17').bytes)
 
-    expect(archive.data.cars[0]).toMatchObject({ vin: RAV4.vin, nickname: RAV4.nickname })
+    expect(archive.data.cars[0]).toMatchObject({
+      vin: RAV4.vin,
+      nickname: RAV4.nickname,
+      valueCents: 1_850_000,
+      valuedOn: '2026-09-01',
+    })
     expect(archive.data.cars[0]?.fillUps).toEqual([
       expect.objectContaining({ filledOn: '2026-02-01', quantity: 12.5, costCents: 4250 }),
       expect.objectContaining({ filledOn: '2026-02-20', full: false, missedPrevious: true }),
@@ -357,6 +364,18 @@ describe('readArchive', () => {
     delete json.cars[0].renewals
 
     expect(readArchive(zipOf(json)).data.cars[0]?.renewals).toEqual([])
+  })
+
+  it('reads an export made before car values existed as a car without a value', () => {
+    const json = JSON.parse(
+      textOf(buildArchive([rav4], files, '2026-10-17').bytes, 'car-data.json'),
+    )
+    delete json.cars[0].valueCents
+    delete json.cars[0].valuedOn
+
+    const car = readArchive(zipOf(json)).data.cars[0]
+    expect(car?.valueCents).toBeUndefined()
+    expect(car?.valuedOn).toBeUndefined()
   })
 
   it('reads an export made before fill-ups existed as a car without fill-ups', () => {

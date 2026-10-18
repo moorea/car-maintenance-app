@@ -3,6 +3,7 @@ import type { MaintenanceItem, OdometerReading, ServiceRecord, Vehicle } from '.
 import {
   fixedClock,
   memoryOdometer,
+  memoryPreferences,
   memorySafety,
   memorySchedule,
   memoryServiceRecords,
@@ -49,6 +50,7 @@ const setup = (
     items?: MaintenanceItem[]
     records?: ServiceRecord[]
     odometer?: OdometerReading[]
+    preferences?: ReturnType<typeof memoryPreferences>
   } = {},
 ) => {
   const vehicle = options.vehicle ?? car
@@ -63,6 +65,7 @@ const setup = (
     odometer,
     clock: fixedClock(TODAY),
     safety,
+    ...(options.preferences && { preferences: options.preferences }),
   })
   return { model, records, odometer, safety }
 }
@@ -234,5 +237,62 @@ describe('garage model', () => {
       comingUp: [],
       error: 'Unknown vehicle v1',
     })
+  })
+})
+
+describe('garage model, filling in the history', () => {
+  const engineOil = { ...oil, kind: 'engine-oil' }
+
+  it('asks about oil first when the car has no service records', async () => {
+    const { model } = setup({ items: [tires, engineOil, brakeFluid] })
+    model.getState().start()
+    await settle()
+    expect(model.getState().catchUp).toEqual({
+      itemId: 'oil',
+      task: 'Oil & filter change',
+      others: 2,
+    })
+  })
+
+  it('moves on to the next item once one is logged, and stops once all are', async () => {
+    const { model, records } = setup({ items: [engineOil, tires] })
+    model.getState().start()
+    await settle()
+    await records.add(done('r1', 'oil', '2026-09-01', 34_000))
+    await settle()
+    expect(model.getState().catchUp).toEqual({ itemId: 'tires', task: 'Tire rotation', others: 0 })
+    await records.add(done('r2', 'tires', '2026-08-01', 33_000))
+    await settle()
+    expect(model.getState().catchUp).toBeUndefined()
+  })
+
+  it('only asks about services the car is old enough or has driven far enough to have needed', async () => {
+    const plugs = item('plugs', 'Spark plugs', 60_000)
+    const coolant = item('coolant', 'Engine coolant', undefined, 120)
+    const { model } = setup({ items: [engineOil, plugs, coolant, brakeFluid] })
+    model.getState().start()
+    await settle()
+    // 36,000 miles on a 2021: oil (10,000) and brake fluid (36 months) have come round; spark
+    // plugs (60,000) and coolant (10 years) have not.
+    expect(model.getState().catchUp).toMatchObject({ itemId: 'oil', others: 1 })
+  })
+
+  it('stops asking about a car once the owner says not now, and remembers it', async () => {
+    const preferences = memoryPreferences({ historyDismissed: ['other-car'] })
+    const { model } = setup({ items: [engineOil], preferences })
+    model.getState().start()
+    await settle()
+    expect(model.getState().catchUp).toBeDefined()
+    model.getState().dismissCatchUp()
+    expect(model.getState().catchUp).toBeUndefined()
+    await settle()
+    let saved: string[] = []
+    preferences.watch((p) => (saved = p.historyDismissed))()
+    expect(saved).toEqual(['other-car', 'v1'])
+
+    const again = setup({ items: [engineOil], preferences }).model
+    again.getState().start()
+    await settle()
+    expect(again.getState().catchUp).toBeUndefined()
   })
 })

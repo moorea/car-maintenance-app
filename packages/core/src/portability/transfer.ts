@@ -174,6 +174,8 @@ const toVehicle = (car: ExportedCar, id: string): Vehicle => ({
   ...(car.vin && { vin: car.vin }),
   nickname: car.nickname,
   severeDuty: car.severeDuty,
+  ...(car.valueCents !== undefined &&
+    car.valuedOn !== undefined && { valueCents: car.valueCents, valuedOn: car.valuedOn }),
 })
 
 export interface ImportDeps {

@@ -17,6 +17,7 @@ export function quoteModelFor(vehicle: Vehicle): QuoteCheckModel {
   kept?.model.getState().dispose()
   const model = createQuoteCheckModel({
     vehicle,
+    vehicles: deps.vehicles,
     schedule: deps.schedule,
     records: deps.records,
     odometer: deps.odometer,

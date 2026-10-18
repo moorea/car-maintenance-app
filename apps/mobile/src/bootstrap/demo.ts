@@ -449,6 +449,10 @@ export const createDemoRepositories = () => {
       severeDuty: false,
     },
   ])
+  const odometer = memoryOdometer([
+    { vehicleId: 'demo', date: '2026-04-02', miles: 24_150 },
+    { vehicleId: 'demo', date: '2026-10-10', miles: 35_780 },
+  ])
   return {
     auth,
     // Deleting the demo account only signs out; the sample data stays for the next sign-in.
@@ -457,13 +461,17 @@ export const createDemoRepositories = () => {
     vehicles: {
       ...vehicles,
       // The server matches a new car to its schedule; the demo gives every car the sample one.
-      add: (ownerId: string, vehicle: Vehicle, firstReading?: OdometerReading) =>
-        vehicles.add(ownerId, { ...vehicle, configId: vehicle.configId ?? 'demo' }, firstReading),
+      // The mileage typed in becomes the car's first reading, as the real database stores it.
+      add: async (ownerId: string, vehicle: Vehicle, firstReading?: OdometerReading) => {
+        await vehicles.add(
+          ownerId,
+          { ...vehicle, configId: vehicle.configId ?? 'demo' },
+          firstReading,
+        )
+        if (firstReading) await odometer.add(firstReading)
+      },
     },
-    odometer: memoryOdometer([
-      { vehicleId: 'demo', date: '2026-04-02', miles: 24_150 },
-      { vehicleId: 'demo', date: '2026-10-10', miles: 35_780 },
-    ]),
+    odometer,
     fillUps: memoryFillUps(demoFillUps()),
     schedule: memorySchedule(DEMO_SCHEDULE),
     safety: memorySafety({ demo: DEMO_SAFETY }),
@@ -583,6 +591,32 @@ export const createDemoRepositories = () => {
         performedOn: '2026-03-14',
         odometerMiles: 23_400,
         costCents: 2_400,
+        shop: 'Demo Garage',
+      },
+      {
+        id: 'seed-5',
+        vehicleId: 'demo',
+        itemId: 'demo-brakes',
+        performedOn: '2026-03-14',
+        odometerMiles: 23_400,
+        shop: 'Demo Garage',
+        notes: 'Checked with the tire rotation',
+      },
+      {
+        id: 'seed-6',
+        vehicleId: 'demo',
+        itemId: 'demo-battery',
+        performedOn: '2026-03-14',
+        odometerMiles: 23_400,
+        shop: 'Demo Garage',
+      },
+      {
+        id: 'seed-7',
+        vehicleId: 'demo',
+        itemId: 'demo-brake-fluid',
+        performedOn: '2025-04-12',
+        odometerMiles: 12_900,
+        costCents: 11_995,
         shop: 'Demo Garage',
       },
       {

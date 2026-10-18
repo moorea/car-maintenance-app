@@ -5,6 +5,7 @@ import {
   type QuoteCheckActions,
   type QuoteCheckState,
   type QuoteVerdict,
+  type RepairWeighing,
 } from '@car/core'
 import { Button, Column, Row, ScrollView, Spacer } from '@expo/ui'
 import { Fragment } from 'react'
@@ -27,7 +28,15 @@ import { Text } from '../../ui/Text'
 type Props = QuoteCheckState &
   Pick<
     QuoteCheckActions,
-    'setDraft' | 'takePhoto' | 'choosePhoto' | 'cancelReading' | 'check' | 'edit' | 'startOver'
+    | 'setDraft'
+    | 'takePhoto'
+    | 'choosePhoto'
+    | 'cancelReading'
+    | 'check'
+    | 'edit'
+    | 'startOver'
+    | 'setValueDraft'
+    | 'saveValue'
   > & {
     onBack: () => void
     /** Asks the assistant about the line at this index. */
@@ -231,6 +240,8 @@ function Result(props: Props & { result: QuoteCheck }) {
         </Card>
       ) : null}
 
+      {props.weighing ? <Weighing {...props} weighing={props.weighing} /> : null}
+
       <Row spacing={10}>
         <PillButton label="Edit lines" onPress={props.edit} fill="surface" text="accent" />
         <PillButton
@@ -241,6 +252,51 @@ function Result(props: Props & { result: QuoteCheck }) {
         />
       </Row>
     </>
+  )
+}
+
+/** Whether to pay for a big quote or replace the car, with the car's value to weigh it against. */
+function Weighing(props: Props & { weighing: RepairWeighing }) {
+  const colors = useColors()
+  const { weighing } = props
+  const known = weighing.share !== undefined
+  return (
+    <Card spacing={10}>
+      <Row alignment="center" spacing={10}>
+        <Symbol name="car" size={20} color={colors.accent} />
+        <Text textStyle={{ fontSize: 16, fontWeight: '600' }}>Repair or replace?</Text>
+      </Row>
+      <Text textStyle={{ fontSize: 17, fontWeight: '600' }}>{weighing.headline}</Text>
+      {weighing.points.map((point) => (
+        <Text key={point} textStyle={{ fontSize: 15, color: colors.textSecondary }}>
+          {point}
+        </Text>
+      ))}
+      {weighing.dueNextYear.length > 0 ? (
+        <Text textStyle={{ fontSize: 15, color: colors.textSecondary }}>
+          {`Also due in the next 12 months: ${weighing.dueNextYear.join(', ')}.`}
+        </Text>
+      ) : null}
+      <TextField
+        label={known ? 'What the car is worth' : 'What’s the car worth?'}
+        value={props.valueDraft}
+        onChangeText={props.setValueDraft}
+        error={props.valueError}
+        placeholder="Dollars, like 9,500"
+        keyboardType="decimal-pad"
+      />
+      {weighing.valueStale ? (
+        <Note>You gave this value over a year ago. Cars lose value every year, so update it.</Note>
+      ) : (
+        <Note>Your own estimate, such as a dealer’s trade-in offer. It stays with this car.</Note>
+      )}
+      <Row>
+        <Button
+          label={known ? 'Update value' : 'Weigh against value'}
+          onPress={() => void props.saveValue()}
+        />
+      </Row>
+    </Card>
   )
 }
 
