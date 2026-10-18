@@ -1,9 +1,12 @@
-import type { LocalNotification, NotificationPermission, Notifier } from '@car/core'
+import {
+  isPlannedNotification,
+  type LocalNotification,
+  type NotificationPermission,
+  type Notifier,
+} from '@car/core'
 import * as Notifications from 'expo-notifications'
 import { Linking, Platform } from 'react-native'
 
-/** Every reminder id starts with this, so the app never touches notifications it did not plan. */
-const PREFIX = 'reminder:'
 const ANDROID_CHANNEL = 'reminders'
 
 const toPermission = (s: Notifications.NotificationPermissionsStatus): NotificationPermission => {
@@ -22,7 +25,8 @@ const toPermission = (s: Notifications.NotificationPermissionsStatus): Notificat
 
 const fromRequest = (r: Notifications.NotificationRequest): LocalNotification[] => {
   const data = r.content.data as Partial<Record<'vehicleId' | 'date' | 'hour', unknown>> | null
-  if (!r.identifier.startsWith(PREFIX) || !data) return []
+  // Only the app's own, so it never touches notifications it did not plan.
+  if (!isPlannedNotification(r.identifier) || !data) return []
   const { vehicleId, date, hour } = data
   if (typeof vehicleId !== 'string' || typeof date !== 'string' || typeof hour !== 'number')
     return []

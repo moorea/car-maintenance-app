@@ -29,6 +29,8 @@ type Props = SessionState &
     | 'openTab'
     | 'back'
     | 'openCar'
+    | 'updateOdometer'
+    | 'odometerRequestHandled'
     | 'logService'
     | 'logRequestHandled'
     | 'addCar'
@@ -134,6 +136,7 @@ function TabContent(props: Props & { vehicle: Vehicle }) {
           vehicles={props.vehicles}
           vehicle={vehicle}
           onOpenCar={props.openCar}
+          onUpdateOdometer={() => props.updateOdometer(vehicle.id)}
           onAddCar={props.addCar}
           onReminders={() => props.openTab('reminders')}
           onLogService={props.logService}
@@ -153,6 +156,8 @@ function TabContent(props: Props & { vehicle: Vehicle }) {
       return (
         <CarScreen
           vehicle={vehicle}
+          odometerRequest={props.odometerRequest}
+          onOdometerRequestHandled={props.odometerRequestHandled}
           onCheckQuote={() => props.openTab('quote')}
           onTroubleCodes={() => props.openTab('codes')}
           onWarranty={() => props.openTab('warranty')}

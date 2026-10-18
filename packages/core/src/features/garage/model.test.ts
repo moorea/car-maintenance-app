@@ -295,4 +295,31 @@ describe('garage model, filling in the history', () => {
     await settle()
     expect(again.getState().catchUp).toBeUndefined()
   })
+
+  it('asks for a reading when the next mileage item is close and rests on an old one', async () => {
+    // Last read eight weeks ago at 60 miles a day: the tire rotation at 40,000 is about 19 days off.
+    const old: OdometerReading[] = [
+      { vehicleId: 'v1', date: '2026-05-23', miles: 30_000 },
+      { vehicleId: 'v1', date: '2026-08-21', miles: 35_400 },
+    ]
+    const { model, odometer } = setup({ items: [tires], odometer: old })
+    model.getState().start()
+    await settle()
+    expect(model.getState().checkOdometer).toEqual({
+      task: 'Tire rotation',
+      dueMiles: 'around 40,000 mi',
+      readAgo: '8 weeks ago',
+    })
+
+    await odometer.add({ vehicleId: 'v1', date: TODAY, miles: 38_900 })
+    await settle()
+    expect(model.getState().checkOdometer).toBeUndefined()
+  })
+
+  it('does not ask for a reading while the last one is recent', async () => {
+    const { model } = setup()
+    model.getState().start()
+    await settle()
+    expect(model.getState().checkOdometer).toBeUndefined()
+  })
 })

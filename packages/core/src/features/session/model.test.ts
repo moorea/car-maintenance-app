@@ -459,4 +459,22 @@ describe('session model, adding a car', () => {
     model.getState().logService('tires')
     expect(model.getState().logRequest).toEqual({ itemId: 'tires', seq: 2 })
   })
+
+  it("opens a car's page with its odometer editor, and forgets the request once handled", () => {
+    const { model } = setup(true, [civic, accord])
+    model.getState().start()
+    model.getState().updateOdometer('v-accord')
+    expect(model.getState()).toMatchObject({
+      tab: 'car',
+      selectedVehicleId: 'v-accord',
+      odometerRequest: { seq: 1 },
+    })
+    model.getState().odometerRequestHandled()
+    expect(model.getState().odometerRequest).toBeUndefined()
+    model.getState().updateOdometer('v-unknown')
+    expect(model.getState().odometerRequest).toBeUndefined()
+    model.getState().updateOdometer('v-civic')
+    model.getState().openTab('garage')
+    expect(model.getState().odometerRequest).toBeUndefined()
+  })
 })
