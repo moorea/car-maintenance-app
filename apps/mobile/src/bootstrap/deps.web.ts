@@ -5,6 +5,7 @@ import {
   type IdGenerator,
 } from '@car/core'
 import {
+  demoOdometerReader,
   demoQuoteReader,
   memoryNotifier,
   memoryPhotoPicker,
@@ -18,6 +19,7 @@ import { localClock } from './clock'
 import {
   createDemoAssistant,
   createDemoRepositories,
+  DEMO_ODOMETER_PHOTO_MILES,
   demoAttachments,
   demoVinDecoder,
 } from './demo'
@@ -48,6 +50,7 @@ const ai = guardAiSharing(
   {
     assistant: createDemoAssistant(repositories, clock),
     quoteReader: demoQuoteReader({ delayMs: 1_500 }),
+    odometerReader: demoOdometerReader({ miles: DEMO_ODOMETER_PHOTO_MILES, delayMs: 1_500 }),
   },
 )
 
@@ -57,7 +60,7 @@ export const deps = {
   vinDecoder: demoVinDecoder(),
   ...repositories,
   ...ai,
-  // The preview has no camera; every photo is a sample dealer quote.
+  // The preview has no camera; every photo reads as a sample dealer quote or the demo odometer.
   photos: memoryPhotoPicker(),
   notifier,
   reminderSettings,
