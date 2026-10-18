@@ -10,6 +10,7 @@ import {
   background,
   clickable,
   clip,
+  defaultMinSize,
   dropShadow,
   fillMaxWidth,
   height,
@@ -183,14 +184,20 @@ export function PillButton({ label, onPress, fill, text, disabled = false }: Pil
       alignment="center"
       modifiers={[
         weight(1),
-        height(44),
+        // At least 44dp tall, and taller when a large font scale wraps the label.
+        defaultMinSize({ minHeight: 44 }),
         ...filled(colors[fill], 22, disabled ? undefined : onPress),
         // Material fades disabled controls to 38%.
         ...(disabled ? [alpha(0.38)] : []),
+        padding(12, 8, 12, 8),
       ]}
     >
       <Spacer flexible />
-      <Text textStyle={{ fontSize: 16, fontWeight: '600', color: colors[text] }}>{label}</Text>
+      <Text
+        textStyle={{ fontSize: 16, fontWeight: '600', color: colors[text], textAlign: 'center' }}
+      >
+        {label}
+      </Text>
       <Spacer flexible />
     </Row>
   )
@@ -293,7 +300,12 @@ export function GlassPill({ label, onPress }: { label: string; onPress: () => vo
   return (
     <Row
       alignment="center"
-      modifiers={[height(36), ...glass(colors), clickable(onPress), padding(14, 0, 14, 0)]}
+      modifiers={[
+        defaultMinSize({ minHeight: 36 }),
+        ...glass(colors),
+        clickable(onPress),
+        padding(14, 6, 14, 6),
+      ]}
     >
       <Text textStyle={{ fontSize: 14, color: colors.textPrimary }}>{label}</Text>
     </Row>
