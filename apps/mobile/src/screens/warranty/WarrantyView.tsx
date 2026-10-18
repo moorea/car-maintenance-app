@@ -10,6 +10,7 @@ import { TextField } from '../../ui/TextField'
 import { ChoiceField } from '../../ui/ChoiceField'
 import { Symbol } from '../../ui/Symbol'
 import { Card, FillColumn, GlassIconButton, PillButton, ProgressBar } from '../../ui/surfaces'
+import { PAGE_TOP } from '../../ui/layout'
 import { Text } from '../../ui/Text'
 import { Button } from '../../ui/Button'
 
@@ -46,7 +47,7 @@ export function WarrantyView(props: Props) {
       <ScrollView>
         <Column
           spacing={16}
-          style={{ padding: 16, paddingTop: 60, paddingBottom: TAB_BAR_CLEARANCE }}
+          style={{ padding: 16, paddingTop: PAGE_TOP, paddingBottom: TAB_BAR_CLEARANCE }}
         >
           <Row alignment="center">
             <GlassIconButton symbol="back" label="Back" onPress={props.onBack} />
