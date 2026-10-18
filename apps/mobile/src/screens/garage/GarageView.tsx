@@ -19,6 +19,8 @@ import { Text } from '../../ui/Text'
 
 export interface GarageNavigation {
   onOpenCar: (id: string) => void
+  /** Opens the selected car's page with its odometer editor. */
+  onUpdateOdometer: () => void
   onAddCar: () => void
   onReminders: () => void
   /** Opens the service log form, for a scheduled task if given. */
@@ -70,6 +72,7 @@ export function GarageView(props: Props) {
           ))}
 
           <CatchUpCard {...props} />
+          <CheckOdometerCard {...props} />
           <NextUpCard {...props} />
           <RecallBanner {...props} />
           <ComingUp {...props} />
@@ -144,6 +147,42 @@ function CatchUpCard(props: Props) {
           onPress={props.dismissCatchUp}
           fill="neutralSubtle"
           text="textPrimary"
+        />
+      </Row>
+    </Card>
+  )
+}
+
+/** Asks for a reading only when the next mileage reminder rests on an old one. */
+function CheckOdometerCard(props: Props) {
+  const colors = useColors()
+  const { checkOdometer } = props
+  if (!checkOdometer) return null
+  return (
+    <Card padding={18} spacing={12}>
+      <Row alignment="center" spacing={12}>
+        <Column
+          alignment="center"
+          style={{ padding: 8, borderRadius: 12, backgroundColor: colors.accentSubtle }}
+        >
+          <Symbol name="gauge" size={22} color={colors.accent} />
+        </Column>
+        <FillColumn spacing={2}>
+          <Text textStyle={{ fontSize: 17, fontWeight: '600' }}>What does the odometer say?</Text>
+          <Text textStyle={{ fontSize: 14, color: colors.textSecondary }}>
+            {`${checkOdometer.task} is due ${checkOdometer.dueMiles}`}
+          </Text>
+        </FillColumn>
+      </Row>
+      <Text textStyle={{ fontSize: 15, color: colors.textSecondary }}>
+        {`The last reading was ${checkOdometer.readAgo}, so the due date is an estimate. A new reading keeps the reminder on the right day.`}
+      </Text>
+      <Row spacing={10}>
+        <PillButton
+          label="Update odometer"
+          onPress={props.onUpdateOdometer}
+          fill="accent"
+          text="onAccent"
         />
       </Row>
     </Card>

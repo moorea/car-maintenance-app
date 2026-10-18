@@ -4,6 +4,7 @@ import { formatAgo, formatMiles, formatWeekday } from '../../lib/format'
 import type { OdometerReading, Vehicle } from '../../domain/types'
 import type { DevicePreferencesRepo, SafetyRepo, Unsubscribe } from '../../ports'
 import { getDueItems, type GetDueItemsDeps } from '../../reminders/getDueItems'
+import { checkInShowing, odometerCheckIn } from '../../reminders/odometerCheckIn'
 import { currentOdometer } from './odometer'
 import { describeNext, intervalUsed, toDueRow, type DueRow } from './describeDue'
 
@@ -42,6 +43,11 @@ export interface GarageState {
    * not now for this car.
    */
   catchUp?: { itemId: string; task: string; others: number } | undefined
+  /**
+   * Asks for an odometer reading when the next mileage reminder rests on an old one: "Oil change"
+   * is due "around 45,000 mi", going by a reading from "5 weeks ago". Absent otherwise.
+   */
+  checkOdometer?: { task: string; dueMiles: string; readAgo: string } | undefined
   /** Set when the schedule could not be read. */
   error?: string | undefined
 }
@@ -106,7 +112,9 @@ export const createGarageModel = (deps: GarageDeps): GarageModel => {
         ])
         if (mine !== generation) return
 
-        const { latest, miles: currentMiles } = currentOdometer(odometer, records, today)
+        const estimate = currentOdometer(odometer, records, today)
+        const { latest, miles: currentMiles } = estimate
+        const checkIn = odometerCheckIn(due, estimate)
         // Oil first: the service owners most often know, and the one that comes round soonest.
         const isOil = (itemId: string) =>
           items.some((i) => i.id === itemId && i.kind === 'engine-oil')
@@ -152,6 +160,14 @@ export const createGarageModel = (deps: GarageDeps): GarageModel => {
               : undefined,
           nextUp,
           comingUp: rest.slice(0, COMING_UP_COUNT).map((d) => toDueRow(d, currentMiles, today)),
+          checkOdometer:
+            checkIn && checkInShowing(checkIn, today)
+              ? {
+                  task: checkIn.task,
+                  dueMiles: `around ${formatMiles(checkIn.dueMiles)}`,
+                  readAgo: formatAgo(checkIn.readOn, today),
+                }
+              : undefined,
           error: undefined,
         })
         showCatchUp()
@@ -160,6 +176,7 @@ export const createGarageModel = (deps: GarageDeps): GarageModel => {
         set({
           status: 'ready',
           nextUp: undefined,
+          checkOdometer: undefined,
           comingUp: [],
           error: e instanceof Error ? e.message : 'Could not read the schedule',
         })

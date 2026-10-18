@@ -49,6 +49,11 @@ export interface SessionState {
    * log has opened its form. `seq` changes with every request.
    */
   logRequest?: { itemId?: string | undefined; seq: number } | undefined
+  /**
+   * Set when the owner asked to update the odometer from elsewhere (such as the garage asking for
+   * a reading), until the car's page has opened its editor. `seq` changes with every request.
+   */
+  odometerRequest?: { seq: number } | undefined
 }
 
 export interface SessionActions {
@@ -71,6 +76,10 @@ export interface SessionActions {
   logRequestHandled: () => void
   /** Selects a car and opens its page. */
   openCar: (id: string) => void
+  /** Selects a car and opens its page with the odometer editor open. */
+  updateOdometer: (id: string) => void
+  /** The car's page has opened its odometer editor for the request. */
+  odometerRequestHandled: () => void
   /** Opens "add your car" over the selected car. */
   addCar: () => void
   cancelAddCar: () => void
@@ -119,6 +128,7 @@ export const createSessionModel = (deps: {
   let currentUserId: string | null | undefined
   // Counts requests to log a service, so each one differs from the last even once handled.
   let logRequests = 0
+  let odometerRequests = 0
   // A car just added, to select once the vehicle list includes it.
   let justAdded: string | undefined
   // The tabs Ask, the quote checker and the code lookup were opened from, newest last, for going back.
@@ -223,10 +233,15 @@ export const createSessionModel = (deps: {
         if (tab === 'ask' || tab === 'quote' || tab === 'codes') {
           if (tab !== get().tab) openedFrom.push(get().tab)
         } else openedFrom = []
-        set({ tab, logRequest: undefined })
+        set({ tab, logRequest: undefined, odometerRequest: undefined })
       },
 
-      back: () => set({ tab: openedFrom.pop() ?? 'garage', logRequest: undefined }),
+      back: () =>
+        set({
+          tab: openedFrom.pop() ?? 'garage',
+          logRequest: undefined,
+          odometerRequest: undefined,
+        }),
 
       systemBack: () => {
         const { status, tab, addingCar } = get()
@@ -256,6 +271,13 @@ export const createSessionModel = (deps: {
           set({ tab: 'car' })
         }
       },
+
+      updateOdometer: (id) => {
+        get().openCar(id)
+        if (get().selectedVehicleId === id) set({ odometerRequest: { seq: ++odometerRequests } })
+      },
+
+      odometerRequestHandled: () => set({ odometerRequest: undefined }),
 
       addCar: () => {
         if (!get().user) return
