@@ -2,7 +2,7 @@
 -- that a service can count as one of them, but not as another car's.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(13);
+select plan(14);
 
 insert into auth.users (id) values
   ('00000000-0000-0000-0000-00000000000a'),
@@ -100,6 +100,11 @@ select is(
   (select count(*) from public.custom_items
     where id = '70000000-0000-0000-0000-00000000000a')::int,
   0, 'an interval goes with the schedule item it replaced'
+);
+select is(
+  (select count(*) from public.service_records
+    where vehicle_id = '20000000-0000-0000-0000-00000000000a' and item_id is null)::int,
+  1, 'a service that counted as a deleted schedule item stays, without the link'
 );
 
 select * from finish();

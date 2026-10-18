@@ -49,3 +49,18 @@ $$;
 
 create trigger check_service_item before insert or update of item_id, vehicle_id
   on public.service_records for each row execute function public.check_service_item();
+
+-- The foreign key also stopped a schedule item being deleted while services counted as it. Now
+-- the services forget the link instead, as set_config_schedule already does before replacing a
+-- schedule, so none is left pointing at nothing.
+create function public.forget_service_item() returns trigger
+  language plpgsql set search_path = ''
+as $$
+begin
+  update public.service_records set item_id = null where item_id = old.id;
+  return old;
+end;
+$$;
+
+create trigger forget_service_item after delete on public.maintenance_items
+  for each row execute function public.forget_service_item();

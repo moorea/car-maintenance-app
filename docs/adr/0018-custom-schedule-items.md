@@ -24,7 +24,8 @@ rotation can be reminded and only at fixed intervals; this answers both.
 - **A service can count as an owner's item.** `service_records.item_id` no longer has a foreign key
   to `maintenance_items`; a trigger accepts a schedule item or one of the same car's own items,
   and fails anything else with the foreign key's code (23503), so the uploader still keeps the
-  service without the link. Deleting an owner's item keeps its services, named by their notes.
+  service without the link. Deleting an owner's item keeps its services, named by their notes;
+  deleting a schedule item clears the link, as replacing a schedule already did.
 - An unmatched car (not synced back with a configuration) can have its owner's items before its
   schedule arrives.
 

@@ -92,7 +92,7 @@ export function CarView({
             <Schedule
               {...car}
               onDriving={onDriving}
-              onItem={scheduleItem.openItem}
+              onItem={(id) => void scheduleItem.openItem(id)}
               onAdd={scheduleItem.openNew}
             />
           ) : car.section === 'recalls' ? (

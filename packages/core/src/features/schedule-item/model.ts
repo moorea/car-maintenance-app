@@ -45,7 +45,8 @@ export interface ScheduleItemActions {
   /** Opens the sheet to add an item of the owner's own. */
   openNew: () => void
   /** Opens the sheet for a line of the car's schedule, as the car page lists it. */
-  openItem: (itemId: string) => void
+  /** Resolves once the sheet is open, or straight away for an item no longer on the schedule. */
+  openItem: (itemId: string) => Promise<void>
   setField: (field: CustomItemField, value: string) => void
   close: () => void
   /** Validates and saves the form. Resolves true on success. */
@@ -108,8 +109,20 @@ export const createScheduleItemModel = (deps: ScheduleItemDeps): ScheduleItemMod
       form: Omit<ScheduleItemForm, 'fieldErrors' | 'saving' | 'confirmingDelete'>,
     ) => set({ form: { ...form, fieldErrors: {}, saving: false, confirmingDelete: false } })
 
-    const replacementOf = (itemId: string) =>
-      custom.filter((c) => c.replacesItemId === itemId).sort((a, b) => a.id.localeCompare(b.id))[0]
+    const replacementsOf = (itemId: string) =>
+      custom.filter((c) => c.replacesItemId === itemId).sort((a, b) => a.id.localeCompare(b.id))
+    const replacementOf = (itemId: string) => replacementsOf(itemId)[0]
+    // Two phones can each replace an item before they sync; going back removes them all, or the
+    // other would take over and the reset would look like it did nothing.
+    const removeReplacements = async (itemId: string) => {
+      for (const c of replacementsOf(itemId)) await deps.customItems.remove(c.id)
+    }
+
+    const loadOriginal = async () => {
+      if (vehicle.configId === undefined) return
+      const configItems = await deps.schedule.itemsForConfig(vehicle.configId)
+      original = new Map(configItems.map((i) => [i.id, i]))
+    }
 
     /** Runs a write with the form showing it is saving; closes the form once it succeeds. */
     const write = async (run: () => Promise<void>, failure: string) => {
@@ -135,14 +148,8 @@ export const createScheduleItemModel = (deps: ScheduleItemDeps): ScheduleItemMod
             custom = next
           }),
         )
-        if (vehicle.configId !== undefined)
-          deps.schedule.itemsForConfig(vehicle.configId).then(
-            (configItems) => {
-              original = new Map(configItems.map((i) => [i.id, i]))
-            },
-            // Without it, the sheet just doesn't say what the schedule's interval was.
-            () => {},
-          )
+        // Without it, the sheet just doesn't say what the schedule's interval was.
+        loadOriginal().catch(() => {})
       },
 
       openNew: () =>
@@ -152,7 +159,20 @@ export const createScheduleItemModel = (deps: ScheduleItemDeps): ScheduleItemMod
           canReset: false,
         }),
 
-      openItem: (itemId) => {
+      openItem: async (itemId) => {
+        // The configuration's schedule can gain an item while the page is open; the page may show
+        // it before this model has heard, so read again rather than ignore the tap.
+        if (!items.some((i) => i.id === itemId && (i.owner === 'added' || original.has(itemId)))) {
+          try {
+            const [next] = await Promise.all([
+              deps.schedule.itemsForVehicle(vehicle),
+              loadOriginal(),
+            ])
+            items = next
+          } catch {
+            // Opens with what is known, if anything.
+          }
+        }
         const item = items.find((i) => i.id === itemId)
         if (!item) return
         if (item.owner === 'added') {
@@ -221,9 +241,7 @@ export const createScheduleItemModel = (deps: ScheduleItemDeps): ScheduleItemMod
         const schedule = original.get(itemId)
         // Typing the schedule's own interval back in is the same as going back to it.
         if (schedule && sameInterval(draftFor(schedule, vehicle.severeDuty), d)) {
-          return write(async () => {
-            if (existing) await deps.customItems.remove(existing.id)
-          }, 'Could not save. Try again.')
+          return write(() => removeReplacements(itemId), 'Could not save. Try again.')
         }
         const replacement: CustomItem = {
           id: existing?.id ?? deps.ids.next(),
@@ -239,10 +257,8 @@ export const createScheduleItemModel = (deps: ScheduleItemDeps): ScheduleItemMod
         const form = get().form
         if (!form || form.saving || form.mode !== 'change' || form.itemId === undefined)
           return false
-        const existing = replacementOf(form.itemId)
-        return write(async () => {
-          if (existing) await deps.customItems.remove(existing.id)
-        }, 'Could not save. Try again.')
+        const itemId = form.itemId
+        return write(() => removeReplacements(itemId), 'Could not save. Try again.')
       },
 
       remove: async () => {
