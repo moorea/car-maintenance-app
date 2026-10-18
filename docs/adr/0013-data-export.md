@@ -8,9 +8,9 @@ Account → Your data exports everything stored about the owner's cars as one zi
 a zip into the signed-in account.
 
 - **The zip is in open formats.** `car-data.json` holds everything (cars, odometer readings,
-  services, warranties, fill-ups, renewal dates and documents) with a `format` and `version`, and is what import reads.
+  services, warranties, fill-ups, tire sets, renewal dates and documents) with a `format` and `version`, and is what import reads.
   `cars.csv`, `service-log.csv`, `odometer.csv`, `warranties.csv`, `fill-ups.csv`,
-  `renewals.csv` and `documents.csv` hold the
+  `tires.csv`, `renewals.csv` and `documents.csv` hold the
   same data for a spreadsheet (UTF-8 with a byte order mark, so Excel reads it, and money in
   dollars). `documents/<car>/` holds every attached photo and PDF under its own name. A README
   says what each file is.

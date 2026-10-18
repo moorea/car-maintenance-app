@@ -21,7 +21,7 @@ tracking**, and used only for **App Functionality**.
 | Contact Info       | Email Address      | The sign-in address                                                                                                                                                               |
 | Identifiers        | User ID            | The account id every row is stored under                                                                                                                                          |
 | User Content       | Photos or Videos   | Receipts and documents attached to cars and services; shop quote photos sent to be read                                                                                           |
-| User Content       | Other User Content | Cars (including a VIN if entered), odometer readings, service records, fill-ups and charging, warranties, registration, inspection and insurance dates, Ask questions and answers |
+| User Content       | Other User Content | Cars (including a VIN if entered), odometer readings, service records, fill-ups and charging, warranties, tire sets, registration, inspection and insurance dates, Ask questions and answers |
 
 Leave everything else unchecked. In particular the app does **not** collect: location, contacts,
 health, financial info (service costs are the owner's own notes, not payment details),

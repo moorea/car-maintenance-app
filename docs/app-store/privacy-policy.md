@@ -67,7 +67,7 @@ about safety, have the car checked by a professional.
 
 We keep your data for as long as you have an account. When you delete your account in the app
 (**Account → Delete account**), we delete your account and everything stored for it from our
-database straight away: cars, odometer readings, service records, fill-ups, warranties, renewal dates, reminders
+database straight away: cars, odometer readings, service records, fill-ups, warranties, tire sets, renewal dates, reminders
 and Ask conversations. Attached files are deleted from storage within a few hours. Copies in our
 providers' routine backups are overwritten on their normal schedule, within **[BACKUP PERIOD]**.
 
@@ -75,7 +75,7 @@ providers' routine backups are overwritten on their normal schedule, within **[B
 
 - **See and take your data.** Account → Export or import data gives you a zip with everything, as
   open CSV and JSON files and the original photos and documents.
-- **Correct or delete it.** Edit or delete warranties, renewal dates and documents in the app, or delete your
+- **Correct or delete it.** Edit or delete warranties, tire sets, renewal dates and documents in the app, or delete your
   whole account in Account. To correct or remove anything else, email us.
 - **Stop sharing with Anthropic.** Turn it off in Account → Privacy.
 - **Notifications, camera and photos** are only used if you allow them, and can be turned off in
