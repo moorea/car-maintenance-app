@@ -11,6 +11,7 @@ import signOutIcon from '@expo/material-symbols/logout.xml'
 import trashIcon from '@expo/material-symbols/delete.xml'
 import plusIcon from '@expo/material-symbols/add.xml'
 import chevronIcon from '@expo/material-symbols/chevron_right.xml'
+import dropdownIcon from '@expo/material-symbols/arrow_drop_down.xml'
 import backIcon from '@expo/material-symbols/chevron_left.xml'
 import clockIcon from '@expo/material-symbols/schedule.xml'
 import warningIcon from '@expo/material-symbols/warning.xml'
@@ -55,6 +56,7 @@ const MATERIAL: Record<SymbolName, ImageSourcePropType> = {
   trash: trashIcon,
   plus: plusIcon,
   chevron: chevronIcon,
+  dropdown: dropdownIcon,
   back: backIcon,
   clock: clockIcon,
   warning: warningIcon,
