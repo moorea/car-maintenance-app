@@ -213,6 +213,33 @@ describe('two phones signed in as one owner', () => {
     expect([...a.dropped, ...b.dropped]).toEqual([])
   })
 
+  it('each see a correction the other made to a logged service', async () => {
+    const owner = await createUser()
+    const [a, b] = [await open(owner), await open(owner)]
+    const { id: vehicleId } = await addCar(a)
+    const oilChange = service(vehicleId, { odometerMiles: 412_500 })
+    await a.records.add(oilChange)
+    await eventually(
+      () => b.records.listForVehicle(vehicleId),
+      (r) => r.length === 1,
+      'the service on the second phone',
+    )
+
+    const corrected = { ...oilChange, odometerMiles: 41_250, costCents: 7_999 }
+    await b.records.update(corrected)
+    expect(
+      await eventually(
+        () => a.records.listForVehicle(vehicleId),
+        (r) => r[0]?.odometerMiles === 41_250,
+        'the correction',
+      ),
+    ).toEqual([corrected])
+    expect(await serverRows('service_records', 'id', oilChange.id)).toMatchObject([
+      { odometer_miles: 41_250, cost_cents: 7_999 },
+    ])
+    expect([...a.dropped, ...b.dropped]).toEqual([])
+  })
+
   it('each see the edits, the car value and the deletions the other made', async () => {
     const owner = await createUser()
     const [a, b] = [await open(owner), await open(owner)]
@@ -245,7 +272,7 @@ describe('two phones signed in as one owner', () => {
     await b.vehicles.setValue(vehicleId, { cents: 1_150_000, valuedOn: '2026-10-17' })
     await b.vehicles.reorder([vehicleId])
     await b.fillUps.remove(fill.id)
-    await b.db.execute('delete from service_records where id = ?', [oilChange.id])
+    await b.records.remove(oilChange.id)
 
     expect(
       await eventually(

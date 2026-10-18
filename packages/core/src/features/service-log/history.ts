@@ -1,5 +1,5 @@
 import type { IsoDate } from '../../lib/date'
-import { formatCents, formatMiles } from '../../lib/format'
+import { formatCents, formatLongDate, formatMiles } from '../../lib/format'
 import type { ServiceRecord } from '../../domain/types'
 
 const MONTHS = [
@@ -28,6 +28,10 @@ export interface LogEntry {
   /** "Main St Auto · 41,250 mi", leaving out what is unknown. */
   where: string
   cost?: string | undefined
+  /** "Mar 14, 2025", for the service on its own. */
+  date: string
+  /** The owner's notes, when `what` is the task rather than the notes themselves. */
+  notes?: string | undefined
 }
 
 /** A month of history: "October", or "October 2025" outside the current year. */
@@ -80,6 +84,8 @@ export const groupHistory = (
         .filter(Boolean)
         .join(' · '),
       cost: r.costCents !== undefined ? formatCents(r.costCents) : undefined,
+      date: formatLongDate(r.performedOn),
+      notes: r.notes !== what ? r.notes : undefined,
     }
     const last = groups[groups.length - 1]
     if (last?.label === label) last.entries.push(entry)
