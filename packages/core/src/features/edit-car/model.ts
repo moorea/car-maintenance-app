@@ -48,7 +48,8 @@ export interface EditCarDeps {
 
 /** Screen model for renaming a car, choosing how the app draws it, or removing one the owner sold or no longer has. */
 export const createEditCarModel = (deps: EditCarDeps): EditCarModel => {
-  const { vehicle } = deps
+  // What was last saved, so the sheet reopens with it and the next save compares against it.
+  let vehicle = deps.vehicle
   return createStore<EditCarState & EditCarActions>()((set, get) => {
     const update = (patch: Partial<EditCarForm>) => {
       const form = get().form
@@ -129,6 +130,12 @@ export const createEditCarModel = (deps: EditCarDeps): EditCarModel => {
           return false
         } finally {
           writing = false
+        }
+        vehicle = {
+          ...vehicle,
+          nickname: parsed.data,
+          ...(form.bodyStyle && { bodyStyle: form.bodyStyle }),
+          ...(form.paint && { paint: form.paint }),
         }
         set({ form: undefined })
         return true

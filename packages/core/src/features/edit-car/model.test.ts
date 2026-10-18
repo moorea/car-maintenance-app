@@ -98,6 +98,18 @@ describe('edit car', () => {
     expect(model.getState().form).toBeUndefined()
   })
 
+  it('reopens with the look it saved, and keeps the paint when only the body changes next', async () => {
+    const { model, vehicles } = setup()
+    model.getState().open()
+    model.getState().setPaint('red')
+    await model.getState().save()
+    model.getState().open()
+    expect(model.getState().form).toMatchObject({ paint: 'red' })
+    model.getState().setBodyStyle('pickup')
+    await model.getState().save()
+    expect(await vehicles.get('v1')).toMatchObject({ bodyStyle: 'pickup', paint: 'red' })
+  })
+
   it('saves a new name and a new paint together', async () => {
     const { model, vehicles } = setup()
     model.getState().open()
