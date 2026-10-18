@@ -10,8 +10,10 @@ appId: com.moorea.carmaintenance
     visible: 'Demo car'
     timeout: 60000
 - tapOn: 'Car'
+# Centred, so the add button can't sit under the tab bar floating over the bottom of the page.
 - scrollUntilVisible:
     element: 'DOCUMENTS'
+    centerElement: true
 - takeScreenshot: 30-car-documents
 - tapOn: 'Add a document'
 - extendedWaitUntil:
