@@ -18,7 +18,7 @@ skip+='|^scripts/(push-auth-emails|smoke-assistant|start-local-sync)\.sh$'
 skip+='|\.md$|\.test\.tsx?$|(^|/)vitest(\.[a-z0-9]+)?\.config\.ts$'
 skip+='|^(eslint\.config\.mjs|\.prettierrc\.json|\.prettierignore)$'
 
-changed=$(git diff --name-only HEAD^1 HEAD)
+changed=$(git diff --name-only --no-renames HEAD^1 HEAD)
 native=$(printf '%s\n' "$changed" | grep -vE "$skip" | grep -v '^$' || true)
 if [ -n "$native" ]; then
   echo "Changes the native jobs depend on:" >&2

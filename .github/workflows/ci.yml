@@ -8,8 +8,9 @@ on:
 permissions:
   contents: read
 
-# A new push to a pull request cancels the run it supersedes. Runs on main queue instead, so each
-# merge is checked and saves the caches pull requests start from.
+# A new push to a pull request cancels the run it supersedes. Runs on main are not cancelled once
+# started, so they finish and save the caches pull requests start from; GitHub still keeps only
+# the newest waiting run, so a merge that lands while two others run may not get its own run.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -115,10 +116,12 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ${{ runner.temp }}/native
-          key: ${{ steps.native.outputs.key }}
+          # Never an exact hit: the newest build saved under this prefix wins.
+          key: ${{ steps.native.outputs.key }}-${{ github.run_id }}
+          restore-keys: ${{ steps.native.outputs.key }}-
       - name: Reuse it with this commit's JavaScript
         id: reuse
-        if: steps.cached.outputs.cache-hit == 'true'
+        if: steps.cached.outputs.cache-matched-key != ''
         # Anything unexpected falls back to a full build below.
         continue-on-error: true
         run: |
@@ -140,11 +143,11 @@ jobs:
         run: scripts/reuse-native-build.sh keep android "$RUNNER_TEMP/native"
       - uses: actions/cache/save@v4
         if: steps.reuse.outcome != 'success'
-        # Fails harmlessly when another run already saved this key.
+        # A cache outage should not fail the build.
         continue-on-error: true
         with:
           path: ${{ runner.temp }}/native
-          key: ${{ steps.native.outputs.key }}
+          key: ${{ steps.native.outputs.key }}-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Enable KVM for the emulator
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
@@ -296,10 +299,12 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ${{ runner.temp }}/native
-          key: ${{ steps.native.outputs.key }}
+          # Never an exact hit: the newest build saved under this prefix wins.
+          key: ${{ steps.native.outputs.key }}-${{ github.run_id }}
+          restore-keys: ${{ steps.native.outputs.key }}-
       - name: Reuse it with this commit's JavaScript
         id: reuse
-        if: steps.cached.outputs.cache-hit == 'true'
+        if: steps.cached.outputs.cache-matched-key != ''
         # Anything unexpected falls back to a full build below.
         continue-on-error: true
         run: |
@@ -327,11 +332,11 @@ jobs:
         run: scripts/reuse-native-build.sh keep ios "$RUNNER_TEMP/native"
       - uses: actions/cache/save@v4
         if: steps.reuse.outcome != 'success'
-        # Fails harmlessly when another run already saved this key.
+        # A cache outage should not fail the build.
         continue-on-error: true
         with:
           path: ${{ runner.temp }}/native
-          key: ${{ steps.native.outputs.key }}
+          key: ${{ steps.native.outputs.key }}-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Install the app on the simulator
         run: |
           xcrun simctl bootstatus "$SIMULATOR"

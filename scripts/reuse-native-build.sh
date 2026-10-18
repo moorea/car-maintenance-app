@@ -3,11 +3,12 @@
 # build is kept in the Actions cache under a key from @expo/fingerprint, which hashes everything
 # that goes into the native project (native packages, app.json, config plugins). A later run with
 # the same key takes that build and swaps in its own JavaScript bundle and assets, which is what
-# the native build would have done. Pushes to main always build from scratch, so a fingerprint
-# that missed something is caught there.
+# the native build would have done. Pushes to main always build from scratch and save the result
+# as the newest entry for their key, so a fingerprint that missed something fails there and the
+# next main build replaces the entry.
 #
 #   reuse-native-build.sh bundle <ios|android> <dir>   Bundles this commit's JavaScript into <dir>.
-#   reuse-native-build.sh key <ios|android> <dir>      Prints the cache key for this commit.
+#   reuse-native-build.sh key <ios|android> <dir>      Prints the cache key prefix for this commit.
 #   reuse-native-build.sh keep <ios|android> <dir>     Copies a fresh native build into <dir>.
 #   reuse-native-build.sh apply <ios|android> <dir> <bundle dir>
 #                                                      Swaps the bundle into the cached build.
@@ -46,15 +47,20 @@ case "$command" in
     fingerprint=$(node -e "
       const { createFingerprintAsync } = require(require.resolve('@expo/fingerprint', { paths: [require.resolve('expo/package.json')] }))
       createFingerprintAsync('.', { platforms: ['$platform'] }).then((f) => console.log(f.hash))")
+    # How the build is made, and the version fields the fingerprint leaves out, so a change to
+    # either builds afresh rather than testing an old build.
+    recipe="$root/.github/workflows/ci.yml $root/scripts/reuse-native-build.sh $mobile/app.json"
     if [ "$platform" = ios ]; then
-      toolchain=$(xcodebuild -version | shasum -a 256 | cut -c1-12)
-      echo "ios-app-$version-$fingerprint-$toolchain"
+      # shellcheck disable=SC2086
+      inputs=$({ xcodebuild -version; cat $recipe; } | shasum -a 256 | cut -c1-12)
+      echo "ios-app-$version-$fingerprint-$inputs"
     else
-      toolchain=$(java -version 2>&1 | sha256sum | cut -c1-12)
       # Android compiles image assets into its resource table, which a swap cannot change, so a
       # change to any asset needs a new build.
-      assets=$(cd "$dir/assets" && find . -type f -print0 | sort -z | xargs -0 -r sha256sum | sha256sum | cut -c1-12)
-      echo "android-apk-$version-$fingerprint-$toolchain-$assets"
+      assets=$(cd "$dir/assets" && find . -type f -print0 | sort -z | xargs -0 -r sha256sum)
+      # shellcheck disable=SC2086
+      inputs=$({ java -version 2>&1; cat $recipe; echo "$assets"; } | sha256sum | cut -c1-12)
+      echo "android-apk-$version-$fingerprint-$inputs"
     fi
     ;;
 
@@ -79,7 +85,10 @@ case "$command" in
       app="$dir/CarMaintenance.app"
       hermesc="$dir/hermesc"
       # RCTUseAssetCatalog builds images into a compiled catalog that a swap cannot update.
-      [ ! -e "$app/RNAssets.bundle" ] || { echo "The app uses an asset catalog"; exit 1; }
+      if /usr/libexec/PlistBuddy -c 'Print :RCTUseAssetCatalog' "$app/Info.plist" > /dev/null 2>&1; then
+        echo "The app uses an asset catalog"
+        exit 1
+      fi
       old="$app/main.jsbundle"
     else
       apk="$dir/app-release.apk"
