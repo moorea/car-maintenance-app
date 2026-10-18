@@ -1,0 +1,97 @@
+# The pages that open from the Car tab, as apps/mobile/e2e/car-pages.yaml does on iOS.
+appId: com.moorea.carmaintenance
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+- extendedWaitUntil:
+    visible: 'Demo car.*'
+    timeout: 90000
+- tapOn: 'Car'
+- scrollUntilVisible:
+    element: 'DOCUMENTS'
+    centerElement: true
+- takeScreenshot: 30-car-documents
+- tapOn: 'Add a document'
+- extendedWaitUntil:
+    visible: 'Insurance card'
+    timeout: 5000
+- takeScreenshot: 30-car-documents-menu
+- tapOn: 'Insurance card'
+- extendedWaitUntil:
+    visible: 'Take Photo'
+    timeout: 5000
+- takeScreenshot: 30-car-documents-submenu
+- back
+
+# Centred, so the tap can't land on the tab bar floating over the bottom of the page.
+- scrollUntilVisible:
+    element: 'Known issues'
+    centerElement: true
+- tapOn: 'Known issues'
+- waitForAnimationToEnd
+- takeScreenshot: 31-car-known-issues
+- scrollUntilVisible:
+    element: 'Recalls · 2'
+    direction: UP
+    centerElement: true
+- tapOn: 'Recalls · 2'
+- waitForAnimationToEnd
+- takeScreenshot: 32-car-recalls
+
+- scrollUntilVisible:
+    element: 'Fuel & costs'
+    centerElement: true
+- tapOn: 'Fuel & costs'
+- waitForAnimationToEnd
+- takeScreenshot: 33-fuel
+- scroll
+- takeScreenshot: 34-fuel-charts
+- tapOn: 'Costs'
+- waitForAnimationToEnd
+- takeScreenshot: 34-fuel-costs
+- tapOn: 'Log a fill-up'
+- waitForAnimationToEnd
+- takeScreenshot: 34-fuel-form
+- back
+- back
+
+- scrollUntilVisible:
+    element: 'Warranty & care report'
+    centerElement: true
+- tapOn: 'Warranty & care report'
+- extendedWaitUntil:
+    visible: 'Care report'
+    timeout: 5000
+- takeScreenshot: 35-warranty
+- scroll
+- waitForAnimationToEnd
+- takeScreenshot: 35-warranty-care-report
+- back
+
+- scrollUntilVisible:
+    element: 'Check a shop.s quote'
+    centerElement: true
+- tapOn: 'Check a shop.s quote'
+- extendedWaitUntil:
+    visible: 'Before you check a quote'
+    timeout: 5000
+- takeScreenshot: 36-quote-consent
+- back
+
+- scrollUntilVisible:
+    element: 'Check-engine light on.'
+    centerElement: true
+- tapOn: 'Check-engine light on.'
+- extendedWaitUntil:
+    visible: 'Check-engine light'
+    timeout: 5000
+- takeScreenshot: 37-trouble-codes
+- back
+
+- tapOn: 'Ask'
+- extendedWaitUntil:
+    visible: 'Before you ask'
+    timeout: 5000
+- takeScreenshot: 38-ask-consent

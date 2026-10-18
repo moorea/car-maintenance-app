@@ -9,6 +9,7 @@ import {
   background,
   clickable,
   clip,
+  dropShadow,
   fillMaxWidth,
   height,
   padding,
@@ -28,7 +29,8 @@ import { Text } from './Text'
 
 // Android has no Liquid Glass or background blur, so content scrolling under a translucent fill
 // would show through and clash with the labels on it. Glass surfaces are the opaque `surface` fill
-// instead, as Material draws its floating bars. Compose takes no percentage sizes or flex, so
+// instead, lifted by a soft shadow as Material draws its floating bars, so they stand apart from a
+// card of the same fill scrolling under them. Compose takes no percentage sizes or flex, so
 // filling space uses `fillMaxWidth` (in a column) and `weight` (for a share of a row) instead.
 
 const capsule = Shapes.RoundedCorner(999)
@@ -42,6 +44,7 @@ const filled = (color: string, radius: number, onPress?: () => void): ModifierCo
 ]
 
 const glass = (colors: ReturnType<typeof useColors>, shape = capsule): ModifierConfig[] => [
+  dropShadow(shape, { radius: 12, offsetY: 3, color: colors.glassShadow }),
   clip(shape),
   background(colors.surface),
 ]
@@ -103,6 +106,7 @@ export function GlassIconButton({
       colors={{ containerColor: colors.surface, contentColor: colors[tint] }}
       modifiers={[
         sizeModifier(size, size),
+        dropShadow(Shapes.Circle, { radius: 12, offsetY: 3, color: colors.glassShadow }),
         clip(Shapes.Circle),
         semantics({ contentDescription: label }),
       ]}

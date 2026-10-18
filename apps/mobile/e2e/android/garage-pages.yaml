@@ -1,0 +1,53 @@
+# The pages that open from the Garage and Log buttons, as apps/mobile/e2e/garage-pages.yaml does on
+# iOS. Android reads the round buttons' labels, so they are tapped by name.
+appId: com.moorea.carmaintenance
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+- extendedWaitUntil:
+    visible: 'Demo car.*'
+    timeout: 90000
+- tapOn: 'Account'
+- scrollUntilVisible:
+    element: 'Export or import data'
+    centerElement: true
+- tapOn: 'Export or import data'
+- extendedWaitUntil:
+    visible: 'Your data'
+    timeout: 5000
+- waitForAnimationToEnd
+- takeScreenshot: 40-your-data
+# System back steps from your data to the account, then to the garage.
+- back
+- assertVisible: 'Export or import data'
+- back
+- extendedWaitUntil:
+    visible: 'Demo car.*'
+    timeout: 5000
+
+- tapOn: 'Reminders'
+- extendedWaitUntil:
+    visible: 'Reminders'
+    timeout: 5000
+- waitForAnimationToEnd
+- takeScreenshot: 41-reminders
+- back
+
+- tapOn: 'Add car'
+- extendedWaitUntil:
+    visible: 'Add your car'
+    timeout: 5000
+- waitForAnimationToEnd
+- takeScreenshot: 42-add-car
+- back
+- extendedWaitUntil:
+    visible: 'Demo car.*'
+    timeout: 5000
+
+- tapOn: 'Log'
+- assertVisible: 'Service log'
+- tapOn: 'Log service'
+- waitForAnimationToEnd
+- takeScreenshot: 43-log-form
