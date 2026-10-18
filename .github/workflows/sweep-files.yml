@@ -18,24 +18,29 @@ concurrency:
 jobs:
   sweep:
     runs-on: ubuntu-latest
+    # The access token is given only to the step that reads the key, never to `pnpm install` or
+    # the build, where a compromised dependency's code could read the environment.
     env:
-      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       PROJECT_REF: vdklyvktmbcocwmiqkze
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @car/server build
-      - uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb # v1.7.3
         with:
           version: 2.121.0
       # The service role key comes from the project itself, through the access token the deploy
       # workflows already use, so there is no second copy of it to keep in sync.
       - name: Read the service role key
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
           key=$(supabase projects api-keys --project-ref "$PROJECT_REF" --reveal --output json \
             | jq -r '.[] | select(.name == "service_role") | .api_key')
