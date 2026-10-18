@@ -192,7 +192,7 @@ function PhotoPermission(
   return (
     <Card spacing={12}>
       <Row alignment="center" spacing={10}>
-        <Symbol name="shield" size={22} color={colors.accent} leading />
+        <Symbol name="shield" size={22} color={colors.accent} />
         <Text textStyle={{ fontSize: 17, fontWeight: '600' }}>Read the miles with Claude?</Text>
       </Row>
       <Text>

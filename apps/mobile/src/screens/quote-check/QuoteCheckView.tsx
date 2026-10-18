@@ -336,6 +336,7 @@ function LineRow({ line, onPress }: { line: CheckedLine; onPress: () => void }) 
             name={b.mayBeFree ? 'shield' : 'bulletin'}
             size={14}
             color={b.mayBeFree ? colors.accent : colors.textSecondary}
+            leading
           />
           <FillColumn>
             <Text
