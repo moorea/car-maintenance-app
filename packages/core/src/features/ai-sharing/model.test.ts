@@ -86,6 +86,7 @@ describe('guardAiSharing', () => {
         ask: async (request: { question: string }) => void sent.push(request.question),
       },
       quoteReader: { read: async () => (sent.push('photo'), []) },
+      odometerReader: { read: async () => (sent.push('odometer'), undefined) },
     }
   }
 
@@ -96,6 +97,7 @@ describe('guardAiSharing', () => {
     const ask = guarded.assistant.ask({ vehicleId: 'v1', question: 'Due?' }, () => {})
     await expect(ask).rejects.toEqual(new AssistantError('not-allowed'))
     await expect(guarded.quoteReader.read(photo)).rejects.toBeInstanceOf(AssistantError)
+    await expect(guarded.odometerReader.read(photo)).rejects.toBeInstanceOf(AssistantError)
     expect(s.sent).toEqual([])
   })
 
@@ -105,8 +107,10 @@ describe('guardAiSharing', () => {
     const guarded = guardAiSharing({ preferences, auth }, s)
     await guarded.assistant.ask({ vehicleId: 'v1', question: 'Due?' }, () => {})
     await guarded.quoteReader.read(photo)
+    await guarded.odometerReader.read(photo)
     await preferences.update({ aiSharingOwner: null })
     await expect(guarded.quoteReader.read(photo)).rejects.toBeInstanceOf(AssistantError)
-    expect(s.sent).toEqual(['Due?', 'photo'])
+    await expect(guarded.odometerReader.read(photo)).rejects.toBeInstanceOf(AssistantError)
+    expect(s.sent).toEqual(['Due?', 'photo', 'odometer'])
   })
 })

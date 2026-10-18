@@ -17,7 +17,7 @@ import { SegmentedControl } from '../../ui/SegmentedControl'
 import { Symbol } from '../../ui/Symbol'
 import { TAB_BAR_CLEARANCE } from '../../ui/TabBar'
 import { TextField } from '../../ui/TextField'
-import { Card, Dot, FillColumn, Separator } from '../../ui/surfaces'
+import { Card, Dot, FillColumn, PillButton, Separator } from '../../ui/surfaces'
 import type { AttachmentsProps } from '../attachments/AttachmentList'
 import { DocumentsSection } from '../attachments/DocumentsSection'
 import { KnownIssuesSection } from './KnownIssues'
@@ -35,6 +35,7 @@ interface Props {
   onFuel: () => void
   onDriving: () => void
   onRenewals: () => void
+  onPrivacyPolicy: () => void
 }
 
 const OVERLINE = { fontSize: 13, fontWeight: '600', letterSpacing: 0.5 } as const
@@ -50,6 +51,7 @@ export function CarView({
   onFuel,
   onDriving,
   onRenewals,
+  onPrivacyPolicy,
 }: Props) {
   const colors = useColors()
   if (car.status === 'loading') return <ActivityIndicator style={styles.fill} />
@@ -73,7 +75,7 @@ export function CarView({
               <Text textStyle={{ fontSize: 15, color: colors.textSecondary }}>{car.subtitle}</Text>
             ) : null}
           </Column>
-          <OdometerCard {...car} />
+          <OdometerCard {...car} onPrivacyPolicy={onPrivacyPolicy} />
           <QuoteCard onPress={onCheckQuote} />
           <TroubleCodesCard onPress={onTroubleCodes} />
           <FuelCard onPress={onFuel} />
@@ -94,10 +96,12 @@ export function CarView({
   )
 }
 
-function OdometerCard(car: CarState & CarActions) {
+function OdometerCard(car: CarState & CarActions & { onPrivacyPolicy: () => void }) {
   const colors = useColors()
   const editing = car.editingOdometer
+  if (editing?.asking) return <PhotoPermission {...car} allowing={editing.allowing ?? false} />
   if (editing) {
+    const busy = editing.saving || editing.reading
     return (
       <Card spacing={12}>
         <TextField
@@ -108,10 +112,34 @@ function OdometerCard(car: CarState & CarActions) {
           placeholder="Miles on the dashboard"
           keyboardType="number-pad"
         />
+        {editing.note ? <Note>{editing.note}</Note> : null}
+        {editing.reading ? (
+          <Row alignment="center" spacing={10} style={{ height: 44 }}>
+            <ActivityIndicator color={colors.accent} />
+            <Text textStyle={{ fontSize: 15, color: colors.textSecondary }}>
+              Reading the odometer…
+            </Text>
+          </Row>
+        ) : (
+          <Row spacing={10}>
+            <PillButton
+              label="Take photo"
+              onPress={() => void car.takeOdometerPhoto()}
+              fill="accentSubtle"
+              text="accent"
+            />
+            <PillButton
+              label="Choose photo"
+              onPress={() => void car.chooseOdometerPhoto()}
+              fill="accentSubtle"
+              text="accent"
+            />
+          </Row>
+        )}
         <Row spacing={8}>
           <Button
             label={editing.saving ? 'Saving…' : 'Save'}
-            disabled={editing.saving}
+            disabled={busy}
             onPress={() => void car.saveOdometer()}
           />
           <Button
@@ -138,6 +166,50 @@ function OdometerCard(car: CarState & CarActions) {
         </FillColumn>
         <Button variant="outlined" label="Update" onPress={car.editOdometer} />
       </Reflow>
+    </Card>
+  )
+}
+
+/**
+ * Asks before the first odometer photo goes to Anthropic: what is sent, to whom and how it is
+ * handled (App Store guideline 5.1.2(i)). Allowing it is the same choice Ask and quotes use.
+ */
+function PhotoPermission(
+  car: CarState & CarActions & { allowing: boolean; onPrivacyPolicy: () => void },
+) {
+  const colors = useColors()
+  return (
+    <Card spacing={12}>
+      <Row alignment="center" spacing={10}>
+        <Symbol name="shield" size={22} color={colors.accent} />
+        <Text textStyle={{ fontSize: 17, fontWeight: '600' }}>Read the miles with Claude?</Text>
+      </Row>
+      <Text>
+        Photos are read by Claude, an AI model made by Anthropic. Only the photo is sent, to read
+        the odometer, and we don’t store it. Under its commercial terms, Anthropic doesn’t use it to
+        train its models and generally deletes it within 30 days.
+      </Text>
+      <Note>
+        This is the same choice Ask and the quote checker use: Ask sends your question with this
+        car’s details (including its VIN), odometer readings and service log with costs, shops and
+        notes, and the quote checker sends quote photos. You can turn it off in Account at any time.
+      </Note>
+      {car.editingOdometer?.error ? <ErrorText>{car.editingOdometer.error}</ErrorText> : null}
+      <Row spacing={10}>
+        <PillButton
+          label="Not now"
+          onPress={car.declinePhotoReading}
+          fill="neutralSubtle"
+          text="textPrimary"
+        />
+        <PillButton
+          label={car.allowing ? 'Saving…' : 'Allow'}
+          onPress={car.allowing ? () => {} : () => void car.allowPhotoReading()}
+          fill="accent"
+          text="onAccent"
+        />
+      </Row>
+      <Button variant="text" label="Privacy policy" onPress={car.onPrivacyPolicy} />
     </Card>
   )
 }
