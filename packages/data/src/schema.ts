@@ -107,7 +107,8 @@ export const schema = new Schema({
       receipt_path: column.text,
       created_at: column.text,
     },
-    { indexes: { by_vehicle: ['vehicle_id', 'performed_on'] } },
+    // Ordered as the log lists them, so years of history read without a sort.
+    { indexes: { by_vehicle: ['vehicle_id', 'performed_on', 'created_at'] } },
   ),
   reminders: new Table(
     {
@@ -148,7 +149,7 @@ export const schema = new Schema({
       notes: column.text,
       updated_at: column.text,
     },
-    { indexes: { by_vehicle: ['vehicle_id'] } },
+    { indexes: { by_vehicle: ['vehicle_id', 'filled_on', 'odometer_miles'] } },
   ),
   renewals: new Table(
     {
@@ -174,7 +175,7 @@ export const schema = new Schema({
       added_on: column.text,
       created_at: column.text,
     },
-    { indexes: { by_vehicle: ['vehicle_id'] } },
+    { indexes: { by_vehicle: ['vehicle_id', 'added_on', 'created_at'] } },
   ),
   // Never synced or uploaded: facts about this phone's copy, such as whose data it holds.
   device_state: new Table({ value: column.text }, { localOnly: true }),

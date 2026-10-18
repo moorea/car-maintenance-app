@@ -14,6 +14,7 @@ import { formatCents, formatDay, formatMiles, formatMonth } from '../../lib/form
 import { fillUpDraftSchema, type FillUpDraft } from '../../schemas/fillUp'
 import { MAX_PLAUSIBLE_MILES_PER_DAY } from '../../reminders/mileage'
 import { currentOdometer } from '../garage/odometer'
+import { LIST_PAGE } from '../service-log/history'
 import { climbing, runningCosts, type PeriodCost } from './costs'
 import {
   formatEconomy,
@@ -99,8 +100,12 @@ export interface FuelState {
   lastYear: CostRow
   /** One per kind of energy with a measured stretch, fuel first. */
   economy: EconomyTrend[]
-  /** Newest first. */
+  /** The newest fill-ups, newest first: at most `rowLimit` of them. */
   rows: FillUpRow[]
+  /** How many fill-ups `rows` may hold; grows with "Show earlier". */
+  rowLimit: number
+  /** How many older fill-ups are left out of `rows`. */
+  hiddenRows: number
   /** The twelve months to this one, oldest first. */
   months: MonthBar[]
   /** Each year with a cost, newest first. */
@@ -114,6 +119,8 @@ export interface FuelState {
 export interface FuelActions {
   start: () => void
   showSection: (section: FuelSection) => void
+  /** Shows another page of older fill-ups. */
+  showMoreRows: () => void
   openNew: () => void
   openEdit: (id: string) => void
   setField: (field: FillUpField, value: string) => void
@@ -216,6 +223,13 @@ export const createFuelModel = (deps: FuelDeps): FuelModel => {
     let odometerHint = ''
     /** Mileages from readings and services that a fill-up must not contradict. */
     let checkpoints: { date: IsoDate; miles: number; what: string }[] = []
+    // Every fill-up's row, newest first; the screen lists a page of them at a time.
+    let allRows: FillUpRow[] = []
+    const pageOfRows = (rowLimit: number) => ({
+      rowLimit,
+      rows: allRows.slice(0, rowLimit),
+      hiddenRows: Math.max(0, allRows.length - rowLimit),
+    })
 
     /** Recomputes economy and costs from the fill-ups, services and readings. */
     const refresh = async () => {
@@ -248,7 +262,7 @@ export const createFuelModel = (deps: FuelDeps): FuelModel => {
         })
       }
 
-      const rows = [...fillUps].sort(newestFirst).map((f): FillUpRow => {
+      allRows = [...fillUps].sort(newestFirst).map((f): FillUpRow => {
         const measured = stretches.get(f.id)
         const note = measured?.stretch.implausible
           ? 'Check the odometer and amount'
@@ -306,7 +320,7 @@ export const createFuelModel = (deps: FuelDeps): FuelModel => {
       set({
         status: 'ready',
         economy,
-        rows,
+        ...pageOfRows(get().rowLimit),
         lastYear: costRow('Last 12 months', costs.lastYear),
         months: costs.months.map((m) => ({
           label: formatMonth(m.month),
@@ -395,11 +409,15 @@ export const createFuelModel = (deps: FuelDeps): FuelModel => {
       lastYear: costRow('Last 12 months', { fuelCents: 0, serviceCents: 0, totalCents: 0 }),
       economy: [],
       rows: [],
+      rowLimit: LIST_PAGE,
+      hiddenRows: 0,
       months: [],
       years: [],
       energies,
 
       showSection: (section) => set({ section }),
+
+      showMoreRows: () => set((s) => pageOfRows(s.rowLimit + LIST_PAGE)),
 
       openNew: () => {
         // A new fill-up is usually like the last one: same energy, same station.

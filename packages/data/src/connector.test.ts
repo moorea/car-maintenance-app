@@ -45,7 +45,7 @@ describe('SupabaseConnector', () => {
   it('holds uploads while signed out instead of sending them without a token', async () => {
     let read = false
     const db = {
-      getNextCrudTransaction: async () => {
+      getCrudBatch: async () => {
         read = true
         return null
       },
@@ -58,7 +58,7 @@ describe('SupabaseConnector', () => {
     let session: object | null = signedIn
     const tokens: string[] = []
     const db = {
-      getNextCrudTransaction: async () => {
+      getCrudBatch: async () => {
         session = null // signed out while the upload runs
         return null
       },
@@ -88,7 +88,7 @@ describe('SupabaseConnector', () => {
       },
     ]
     const db = {
-      getNextCrudTransaction: async () => pending.shift() ?? null,
+      getCrudBatch: async () => pending.shift() ?? null,
     } as unknown as CommonPowerSyncDatabase
     const stored: unknown[] = []
     const backend = {

@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { attachmentDownloadUrl, supabaseStorage } from './storage'
+import { attachmentDownloadUrl, supabaseStorage, transferTimeoutMs } from './storage'
 
 interface Sent {
   url: string
   method: string | undefined
   headers: Record<string, string>
   body: unknown
+  signal?: AbortSignal
 }
 
 /** Answers every request with `status` and `body`, recording what was sent. */
@@ -17,6 +18,7 @@ const fakeFetch = (status: number, body: unknown = {}) => {
       method: init.method,
       headers: init.headers as Record<string, string>,
       body: init.body,
+      ...(init.signal ? { signal: init.signal } : {}),
     })
     return new Response(JSON.stringify(body), { status })
   }) as typeof fetch
@@ -29,7 +31,32 @@ const offline = (async () => {
 
 const project = { url: 'https://p.supabase.co', anonKey: 'anon' }
 
+/** A connection that never answers, until the request is aborted. */
+const hanging = (async (_url: string, init: RequestInit = {}) =>
+  new Promise<Response>((_, reject) => {
+    init.signal?.addEventListener('abort', () => reject(init.signal?.reason as Error))
+  })) as typeof fetch
+
 describe('supabaseStorage', () => {
+  it('gives up on an upload with no response in time, as a network failure that is retried', async () => {
+    const asked: number[] = []
+    const storage = supabaseStorage(
+      { ...project, fetch: hanging, timeoutMs: (bytes) => (asked.push(bytes), 20) },
+      'jwt',
+    )
+    expect(await storage.put('u/a1', new Uint8Array(3), 'image/jpeg')).toEqual({
+      status: 0,
+      message: expect.stringMatching(/No response/),
+    })
+    expect(await storage.remove('u/a1')).toMatchObject({ status: 0 })
+    expect(asked).toEqual([3, 0])
+  })
+
+  it('allows a large file more time than a small one', () => {
+    expect(transferTimeoutMs(0)).toBe(30_000)
+    expect(transferTimeoutMs(25_000_000)).toBe(280_000)
+  })
+
   it('uploads into the attachments bucket as the owner of the token, never replacing a file', async () => {
     const { doFetch, sent } = fakeFetch(200, { Key: 'attachments/u/a1' })
     const bytes = new Uint8Array([1, 2, 3])
@@ -46,6 +73,7 @@ describe('supabaseStorage', () => {
           'x-upsert': 'false',
         },
         body: bytes,
+        signal: expect.any(AbortSignal),
       },
     ])
   })

@@ -15,6 +15,28 @@ const toError = ({ error, status }: PostgrestResult): BackendError | null =>
   error ? { code: error.code, status, message: error.message } : null
 
 /**
+ * How long one write to PostgREST may take. PowerSync waits for an upload to finish before it
+ * starts another, so a request stuck on a dead connection (a captive portal, a train going into a
+ * tunnel) would hold every later change until the app restarts. Past this, the write fails as a
+ * network error and is retried.
+ */
+export const WRITE_TIMEOUT_MS = 30_000
+
+/** Runs a request with a signal that aborts it after `ms`, and clears the timer either way. */
+export const withDeadline = async <T>(
+  ms: number,
+  send: (signal: AbortSignal) => PromiseLike<T>,
+) => {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(new Error(`No response in ${ms / 1000}s`)), ms)
+  try {
+    return await send(controller.signal)
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/**
  * Writes local changes through PostgREST, and attachment files to Storage, as the user who owns
  * `accessToken`, so row-level security applies to every upload. The token is fixed for the whole
  * upload: if the user signs out or switches account midway, supabase-js would otherwise send the
@@ -24,31 +46,48 @@ export const supabaseBackend = (
   supabase: SupabaseClient,
   storage: StorageOptions,
   accessToken: string,
+  timeoutMs = WRITE_TIMEOUT_MS,
 ): CrudBackend => {
-  const from = (table: string) => supabase.from(table)
   const auth = `Bearer ${accessToken}`
+  const from = (table: string) => supabase.from(table)
+  // An aborted request resolves with status 0, like any network failure, so it is retried.
+  const write = async (
+    request: (signal: AbortSignal) => PromiseLike<PostgrestResult>,
+  ): Promise<BackendError | null> => toError(await withDeadline(timeoutMs, request))
   const files = supabaseStorage(storage, accessToken)
+  const insertRows = (table: string, rows: Record<string, unknown> | Record<string, unknown>[]) =>
+    write((signal) =>
+      from(table)
+        .upsert(rows, { ignoreDuplicates: true })
+        .setHeader('Authorization', auth)
+        .abortSignal(signal),
+    )
+  const upsertRows = (table: string, rows: Record<string, unknown> | Record<string, unknown>[]) =>
+    write((signal) => from(table).upsert(rows).setHeader('Authorization', auth).abortSignal(signal))
   return {
     putFile: (path, bytes, contentType) => files.put(path, bytes, contentType),
     removeFile: (path) => files.remove(path),
-    insert: async (table, row) =>
-      toError(
-        await from(table).upsert(row, { ignoreDuplicates: true }).setHeader('Authorization', auth),
-      ),
-    upsert: async (table, row) =>
-      toError(await from(table).upsert(row).setHeader('Authorization', auth)),
+    insert: insertRows,
+    insertMany: insertRows,
+    upsert: upsertRows,
+    upsertMany: upsertRows,
     update: async (table, id, changes) => {
       // RLS filters a refused update down to zero rows without an error, so count them.
-      const result = await from(table)
-        .update(changes)
-        .eq('id', id)
-        .select('id')
-        .setHeader('Authorization', auth)
+      const result = await withDeadline(timeoutMs, (signal) =>
+        from(table)
+          .update(changes)
+          .eq('id', id)
+          .select('id')
+          .setHeader('Authorization', auth)
+          .abortSignal(signal),
+      )
       if (result.error || (result.data?.length ?? 0) > 0) return toError(result)
       return { status: 404, message: `No ${table} row ${id} could be updated` }
     },
-    remove: async (table, id) =>
-      toError(await from(table).delete().eq('id', id).setHeader('Authorization', auth)),
+    remove: (table, id) =>
+      write((signal) =>
+        from(table).delete().eq('id', id).setHeader('Authorization', auth).abortSignal(signal),
+      ),
   }
 }
 
