@@ -10,7 +10,7 @@ export interface ChatComposerProps {
   onSubmit: () => void
   placeholder: string
   /** The round button at the end: send, or stop while an answer streams. */
-  action: { symbol: SymbolName; onPress: () => void; disabled: boolean }
+  action: { symbol: SymbolName; label: string; onPress: () => void; disabled: boolean }
 }
 
 /** The floating Liquid Glass field at the bottom of a chat, with its send button. */

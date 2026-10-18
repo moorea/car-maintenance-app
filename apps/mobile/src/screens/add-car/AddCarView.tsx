@@ -1,9 +1,10 @@
 import type { AddCarActions, AddCarState } from '@car/core'
-import { Button, Column, Row, ScrollView, Spacer, Switch, Text } from '@expo/ui'
+import { Button, Column, Row, ScrollView, Spacer, Switch } from '@expo/ui'
 import { Host } from '../../ui/Host'
 import { ErrorText, Note } from '../../ui/Note'
 import { GlassIconButton } from '../../ui/surfaces'
 import { TextField } from '../../ui/TextField'
+import { Text } from '../../ui/Text'
 
 type Props = AddCarState &
   Pick<
@@ -26,7 +27,7 @@ export function AddCarView(props: Props) {
           {props.onAccount ? (
             <Row alignment="center">
               <Spacer flexible />
-              <GlassIconButton symbol="person" onPress={props.onAccount} />
+              <GlassIconButton symbol="person" label="Account" onPress={props.onAccount} />
             </Row>
           ) : null}
           {props.step === 'vin' ? <VinStep {...props} /> : <DetailsStep {...props} />}

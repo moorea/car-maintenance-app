@@ -1,7 +1,8 @@
-import { Column, Row, Spacer, Text } from '@expo/ui'
+import { Column, Row, Spacer } from '@expo/ui'
 import { frame } from '@expo/ui/swift-ui/modifiers'
 import { useColors } from '../theme'
 import type { StackedBarsProps } from './StackedBars'
+import { Text } from './Text'
 
 const barHeight = (share: number, height: number) => {
   const h = Math.max(2, share * height)

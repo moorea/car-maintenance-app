@@ -1,5 +1,5 @@
 import type { DueRow, DueStatus, GarageState, Vehicle } from '@car/core'
-import { Button, Column, Row, ScrollView, Spacer, Text } from '@expo/ui'
+import { Button, Column, Row, ScrollView, Spacer } from '@expo/ui'
 import { Fragment } from 'react'
 import { ActivityIndicator, StyleSheet } from 'react-native'
 import { useColors, type ColorRole } from '../../theme'
@@ -15,6 +15,7 @@ import {
   Separator,
 } from '../../ui/surfaces'
 import { Symbol } from '../../ui/Symbol'
+import { Text } from '../../ui/Text'
 
 export interface GarageNavigation {
   onOpenCar: (id: string) => void
@@ -45,9 +46,9 @@ export function GarageView(props: Props) {
           <Row alignment="center">
             <Spacer flexible />
             <Row spacing={10}>
-              <GlassIconButton symbol="person" onPress={props.onAccount} />
-              <GlassIconButton symbol="bell" onPress={props.onReminders} />
-              <GlassIconButton symbol="plus" onPress={props.onAddCar} />
+              <GlassIconButton symbol="person" label="Account" onPress={props.onAccount} />
+              <GlassIconButton symbol="bell" label="Reminders" onPress={props.onReminders} />
+              <GlassIconButton symbol="plus" label="Add car" onPress={props.onAddCar} />
             </Row>
           </Row>
           <Column spacing={2}>

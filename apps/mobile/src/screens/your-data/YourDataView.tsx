@@ -1,5 +1,5 @@
 import type { YourDataActions, YourDataState } from '@car/core'
-import { Column, Row, ScrollView, Text } from '@expo/ui'
+import { Column, Row, ScrollView } from '@expo/ui'
 import { StyleSheet } from 'react-native'
 import { useColors } from '../../theme'
 import { Host } from '../../ui/Host'
@@ -8,6 +8,7 @@ import { TAB_BAR_CLEARANCE } from '../../ui/TabBar'
 import { Card, FillColumn, GlassIconButton, PillButton } from '../../ui/surfaces'
 import { Symbol } from '../../ui/Symbol'
 import type { SymbolName } from '../../ui/symbols'
+import { Text } from '../../ui/Text'
 
 type Props = YourDataState &
   Pick<YourDataActions, 'exportAll' | 'chooseImport' | 'confirmImport' | 'cancelImport'> & {
@@ -27,7 +28,7 @@ export function YourDataView(props: Props) {
           style={{ padding: 16, paddingTop: 60, paddingBottom: TAB_BAR_CLEARANCE }}
         >
           <Row>
-            <GlassIconButton symbol="back" onPress={props.onBack} />
+            <GlassIconButton symbol="back" label="Back" onPress={props.onBack} />
           </Row>
           <Column spacing={6}>
             <Text textStyle={{ fontSize: 34, fontWeight: '700' }}>Your data</Text>

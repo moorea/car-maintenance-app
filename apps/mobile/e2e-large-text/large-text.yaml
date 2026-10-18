@@ -1,0 +1,19 @@
+# Run by the CI job `ios` after the smoke test, with the simulator set to the largest accessibility
+# text size, so the screenshots show Dynamic Type at its limit.
+appId: com.moorea.carmaintenance
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+# Tappable cards are one accessibility element, so the car card reads "Demo car, …".
+- extendedWaitUntil:
+    visible: 'Demo car.*'
+    timeout: 60000
+- takeScreenshot: 7-large-text-garage
+- tapOn: 'Log'
+- waitForAnimationToEnd
+- takeScreenshot: 8-large-text-service-log
+- tapOn: 'Car'
+- waitForAnimationToEnd
+- takeScreenshot: 9-large-text-car

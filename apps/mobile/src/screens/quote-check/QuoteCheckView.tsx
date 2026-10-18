@@ -6,7 +6,7 @@ import {
   type QuoteCheckState,
   type QuoteVerdict,
 } from '@car/core'
-import { Button, Column, Row, ScrollView, Spacer, Text } from '@expo/ui'
+import { Button, Column, Row, ScrollView, Spacer } from '@expo/ui'
 import { Fragment } from 'react'
 import { ActivityIndicator, KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native'
 import { useColors, type ColorRole } from '../../theme'
@@ -22,6 +22,7 @@ import {
   Separator,
   TappableRow,
 } from '../../ui/surfaces'
+import { Text } from '../../ui/Text'
 
 type Props = QuoteCheckState &
   Pick<
@@ -59,7 +60,7 @@ export function QuoteCheckView(props: Props) {
       <View style={styles.header}>
         <Host matchContents={{ vertical: true }} style={styles.bar}>
           <Row alignment="center">
-            <GlassIconButton symbol="back" onPress={props.onBack} />
+            <GlassIconButton symbol="back" label="Back" onPress={props.onBack} />
             <Spacer flexible />
             <Column alignment="center">
               <Text textStyle={{ fontSize: 17, fontWeight: '600' }}>Check a quote</Text>
