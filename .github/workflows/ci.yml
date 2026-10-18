@@ -8,11 +8,29 @@ on:
 permissions:
   contents: read
 
+# A new push to a pull request cancels the run it supersedes. Runs on main are not cancelled once
+# started, so they finish and save the caches pull requests start from; GitHub still keeps only
+# the newest waiting run, so a merge that lands while two others run may not get its own run.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # Whether the iOS and Android jobs need to run: a pull request that changes nothing the app is
+  # built from (only docs, the server, the database, tests) skips them. They are skipped with a job
+  # condition rather than a workflow path filter, so their required checks still report.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      native: ${{ steps.diff.outputs.native }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - id: diff
+        run: scripts/needs-native.sh >> "$GITHUB_OUTPUT"
+
   check:
     runs-on: ubuntu-latest
     steps:
@@ -68,6 +86,9 @@ jobs:
   # but this keeps the app launching and laying out on Android. Needs no Google Play account: the
   # release build is signed with the debug key that `expo prebuild` generates.
   android:
+    needs: changes
+    # Runs unless the changes job decided it can skip, so a failure there never skips a build.
+    if: ${{ !cancelled() && needs.changes.outputs.native != 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 75
     env:
@@ -88,24 +109,72 @@ jobs:
         with:
           distribution: zulu
           java-version: 17
-      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4.4.3
       - run: pnpm install --frozen-lockfile
+      # A change to JavaScript only reuses a cached native build; see scripts/reuse-native-build.sh.
+      # Android bundles first because its image assets are part of the key.
+      - name: Bundle the JavaScript
+        run: scripts/reuse-native-build.sh bundle android "$RUNNER_TEMP/js"
+      - name: Fingerprint the native build
+        id: native
+        run: |
+          key=$(scripts/reuse-native-build.sh key android "$RUNNER_TEMP/js")
+          echo "key=$key" >> "$GITHUB_OUTPUT"
+      - name: Restore a native build with the same fingerprint
+        id: cached
+        if: github.event_name == 'pull_request'
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ runner.temp }}/native
+          # Never an exact hit: the newest build saved under this prefix wins.
+          key: ${{ steps.native.outputs.key }}-${{ github.run_id }}
+          restore-keys: ${{ steps.native.outputs.key }}-
+      - name: Reuse it with this commit's JavaScript
+        id: reuse
+        if: steps.cached.outputs.cache-matched-key != ''
+        # Anything unexpected falls back to a full build below.
+        continue-on-error: true
+        run: |
+          scripts/reuse-native-build.sh apply android "$RUNNER_TEMP/native" "$RUNNER_TEMP/js"
+          echo "APK=$RUNNER_TEMP/native/app.apk" >> "$GITHUB_ENV"
+      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4.4.3
+        if: steps.reuse.outcome != 'success'
       - name: Generate the native project
+        if: steps.reuse.outcome != 'success'
         working-directory: apps/mobile
         run: npx expo prebuild --platform android
       # Only the emulator's architecture, which roughly quarters the native build.
       - name: Build the release APK
+        if: steps.reuse.outcome != 'success'
         working-directory: apps/mobile/android
         run: ./gradlew assembleRelease -PreactNativeArchitectures=x86_64 --no-daemon
+      - name: Keep the build for reuse
+        if: steps.reuse.outcome != 'success'
+        run: scripts/reuse-native-build.sh keep android "$RUNNER_TEMP/native"
+      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        if: steps.reuse.outcome != 'success'
+        # A cache outage should not fail the build.
+        continue-on-error: true
+        with:
+          path: ${{ runner.temp }}/native
+          key: ${{ steps.native.outputs.key }}-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Enable KVM for the emulator
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
             | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+      - name: Restore Maestro
+        id: maestro
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/.maestro/bin
+            ~/.maestro/lib
+          key: maestro-${{ runner.os }}-${{ env.MAESTRO_VERSION }}
       - name: Install Maestro
-        run: |
-          curl -fsSL "https://get.maestro.mobile.dev" | bash
+        if: steps.maestro.outputs.cache-hit != 'true'
+        run: curl -fsSL "https://get.maestro.mobile.dev" | bash
+      - run: |
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
           "$HOME/.maestro/bin/maestro" --version
       - name: Smoke test on the emulator
@@ -133,7 +202,7 @@ jobs:
   android-screenshots:
     needs: android
     # Dependabot's PRs get a read-only token, so they skip publishing too.
-    if: ${{ !cancelled() && github.actor != 'dependabot[bot]' && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
+    if: ${{ !cancelled() && needs.android.result != 'skipped' && github.actor != 'dependabot[bot]' && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -162,7 +231,8 @@ jobs:
           for attempt in 1 2 3; do
             git rm -rqf --ignore-unmatch . && rm -rf -- * && lease=""
             if git fetch -q --depth 1 "$remote" android-screenshots; then
-              git checkout -q --detach FETCH_HEAD
+              # -f: a retry starts from the commit the rejected push made, so local changes are expected.
+              git checkout -qf --detach FETCH_HEAD
               lease="$(git rev-parse HEAD)"
             fi
             rm -rf "$SHA" && mkdir "$SHA" && cp "$shots"/*.png "$SHA/"
@@ -259,6 +329,9 @@ jobs:
   # Builds the app for the iOS simulator and launches it, since screens are otherwise only run on
   # the web build. Needs no Apple account: simulator builds are not code signed.
   ios:
+    needs: changes
+    # Runs unless the changes job decided it can skip, so a failure there never skips a build.
+    if: ${{ !cancelled() && needs.changes.outputs.native != 'false' }}
     runs-on: macos-26
     timeout-minutes: 75
     env:
@@ -272,6 +345,18 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
+      # Boots while the app builds; the install step waits for it.
+      - name: Boot a simulator
+        run: |
+          # The UI flows tap round buttons by screen position, so prefer one standard size and
+          # only fall back to whichever iPhone the runner image has.
+          udid=$(xcrun simctl list devices available --json \
+            | jq -r '[.devices[][] | select(.name | startswith("iPhone"))]
+                | ([.[] | select(.name == "iPhone 17 Pro")] + .)[0].udid')
+          [ "$udid" != null ] || { echo "No iPhone simulator available"; xcrun simctl list; exit 1; }
+          echo "Booting $udid"
+          echo "SIMULATOR=$udid" >> "$GITHUB_ENV"
+          xcrun simctl boot "$udid"
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
@@ -279,10 +364,35 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: xcodebuild -version
+      # A change to JavaScript only reuses a cached native build; see scripts/reuse-native-build.sh.
+      - name: Fingerprint the native build
+        id: native
+        run: |
+          key=$(scripts/reuse-native-build.sh key ios)
+          echo "key=$key" >> "$GITHUB_OUTPUT"
+      - name: Restore a native build with the same fingerprint
+        id: cached
+        if: github.event_name == 'pull_request'
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ runner.temp }}/native
+          # Never an exact hit: the newest build saved under this prefix wins.
+          key: ${{ steps.native.outputs.key }}-${{ github.run_id }}
+          restore-keys: ${{ steps.native.outputs.key }}-
+      - name: Reuse it with this commit's JavaScript
+        id: reuse
+        if: steps.cached.outputs.cache-matched-key != ''
+        # Anything unexpected falls back to a full build below.
+        continue-on-error: true
+        run: |
+          scripts/reuse-native-build.sh bundle ios "$RUNNER_TEMP/js"
+          scripts/reuse-native-build.sh apply ios "$RUNNER_TEMP/native" "$RUNNER_TEMP/js"
       - name: Generate the native project
+        if: steps.reuse.outcome != 'success'
         working-directory: apps/mobile
         run: npx expo prebuild --platform ios
       - name: Build for the simulator
+        if: steps.reuse.outcome != 'success'
         working-directory: apps/mobile/ios
         run: |
           set -o pipefail
@@ -294,21 +404,32 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath "$RUNNER_TEMP/derived" \
             CODE_SIGNING_ALLOWED=NO | tail -n 200
-      - name: Boot a simulator and install the app
+      - name: Keep the build for reuse
+        if: steps.reuse.outcome != 'success'
+        run: scripts/reuse-native-build.sh keep ios "$RUNNER_TEMP/native"
+      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        if: steps.reuse.outcome != 'success'
+        # A cache outage should not fail the build.
+        continue-on-error: true
+        with:
+          path: ${{ runner.temp }}/native
+          key: ${{ steps.native.outputs.key }}-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Install the app on the simulator
         run: |
-          # The UI flows tap round buttons by screen position, so prefer one standard size and
-          # only fall back to whichever iPhone the runner image has.
-          udid=$(xcrun simctl list devices available --json \
-            | jq -r '[.devices[][] | select(.name | startswith("iPhone"))]
-                | ([.[] | select(.name == "iPhone 17 Pro")] + .)[0].udid')
-          [ "$udid" != null ] || { echo "No iPhone simulator available"; xcrun simctl list; exit 1; }
-          echo "Booting $udid"
-          xcrun simctl boot "$udid"
-          xcrun simctl bootstatus "$udid"
-          xcrun simctl install "$udid" "$RUNNER_TEMP/derived/Build/Products/Release-iphonesimulator/CarMaintenance.app"
+          xcrun simctl bootstatus "$SIMULATOR"
+          xcrun simctl install "$SIMULATOR" "$RUNNER_TEMP/native/CarMaintenance.app"
+      - name: Restore Maestro
+        id: maestro
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/.maestro/bin
+            ~/.maestro/lib
+          key: maestro-${{ runner.os }}-${{ env.MAESTRO_VERSION }}
       - name: Install Maestro
-        run: |
-          curl -fsSL "https://get.maestro.mobile.dev" | bash
+        if: steps.maestro.outputs.cache-hit != 'true'
+        run: curl -fsSL "https://get.maestro.mobile.dev" | bash
+      - run: |
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
           "$HOME/.maestro/bin/maestro" --version
       - name: UI flows (smoke test and screen sweep)
@@ -340,7 +461,7 @@ jobs:
   # never shares a runner with install scripts or app code. Skipped for forks (no write token).
   ios-screenshots:
     needs: ios
-    if: ${{ !cancelled() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
+    if: ${{ !cancelled() && needs.ios.result != 'skipped' && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
