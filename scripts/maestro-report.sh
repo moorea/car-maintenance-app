@@ -15,7 +15,9 @@ for dir in "$@"; do
       | "\($flow): \(.command | tostring | .[:300])\n  \(.metadata.error.message? // "no message")"
     ' "$file" 2> /dev/null
   done
-  find "$dir" -name 'maestro.log' -print0 | while IFS= read -r -d '' log; do
+  # Each flow's own log, for the flows that failed: the failed step and what led up to it.
+  find "$dir" -path '*/logs/maestro.log' -print0 | while IFS= read -r -d '' log; do
+    grep -q 'onCommandFinished: .* FAILED$' "$log" || continue
     echo "--- last lines of $log"
     tail -n 40 "$log"
   done

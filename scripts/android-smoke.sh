@@ -18,6 +18,23 @@ adb shell settings put secure anr_show_background 0
 adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS > /dev/null || true
 maestro test --test-output-dir "$out/maestro" --debug-output "$out/maestro/debug" --flatten-debug-output apps/mobile/e2e/android
 status=$?
+# The emulator sometimes drops off adb for a moment while the first flow launches the app
+# ("device offline"), which fails that flow before it has tested anything. When that is the only
+# kind of failure, run those flows again once, after the device is back.
+if [ "$status" != 0 ]; then
+  failed=$(grep -l 'onCommandFinished: .* FAILED$' "$out"/maestro/debug/*/logs/maestro.log 2> /dev/null)
+  # shellcheck disable=SC2086 # One log path per word.
+  lost=$(grep -l 'device offline' $failed /dev/null)
+  if [ -n "$failed" ] && [ "$failed" = "$lost" ]; then
+    flows=$(sed -E 's|.*/debug/([^/]+)/logs/maestro.log|apps/mobile/e2e/android/\1.yaml|' <<< "$lost")
+    echo "The device went offline during $(tr '\n' ' ' <<< "$flows"); running them again."
+    adb wait-for-device
+    # shellcheck disable=SC2086 # One flow path per word.
+    maestro test --test-output-dir "$out/maestro/retry" --debug-output "$out/maestro/retry/debug" \
+      --flatten-debug-output $flows
+    status=$?
+  fi
+fi
 # The same screens as iOS's largest text size check, at Android's largest font scale.
 trap 'adb shell settings put system font_scale 1.0' EXIT
 adb shell settings put system font_scale 2.0
