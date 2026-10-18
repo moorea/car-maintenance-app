@@ -21,11 +21,13 @@ import {
 /**
  * - `ready`: nothing running.
  * - `exporting`: gathering everything (downloading files this phone lacks) and sharing the zip.
+ * - `sharing`: offering the last export's zip in the share sheet again.
  * - `reading`: picking an export and opening it.
  * - `confirming-import`: showing what the export would add, for the owner to confirm.
  * - `importing`: adding it to the garage.
  */
-export type YourDataStatus = 'ready' | 'exporting' | 'reading' | 'confirming-import' | 'importing'
+export type YourDataStatus =
+  'ready' | 'exporting' | 'sharing' | 'reading' | 'confirming-import' | 'importing'
 
 export interface YourDataState {
   status: YourDataStatus
@@ -33,12 +35,19 @@ export interface YourDataState {
   plan?: { adding: string[]; skipping: string[] } | undefined
   /** The outcome of the last export or import, until the next one starts. */
   message?: { tone: 'success' | 'error'; text: string } | undefined
+  /**
+   * The last export's zip can be offered again. The share sheet cannot say whether the owner
+   * saved or sent it, so the export is kept for another try until something else starts.
+   */
+  canShareAgain: boolean
 }
 
 export interface YourDataActions {
   start: () => void
   /** Exports everything and opens the share sheet with the zip. */
   exportAll: () => Promise<void>
+  /** Opens the share sheet again with the last export's zip, without gathering it again. */
+  shareAgain: () => Promise<void>
   /** Opens the file picker for an export and shows what importing it would add. */
   chooseImport: () => Promise<void>
   /** Adds the confirmed export's cars to the garage. */
@@ -73,7 +82,8 @@ const list = (items: string[]) =>
 const carName = (car: ExportedCar) => car.nickname.trim() || `${car.year} ${car.make} ${car.model}`
 
 const exportedText = (r: ExportResult) => {
-  if (r.cars === 0) return 'Exported your account. There are no cars in it yet.'
+  // The share sheet cannot say whether the zip was saved or sent, so this claims neither.
+  if (r.cars === 0) return 'Your export is ready. There are no cars in your account yet.'
   const parts = [
     count(r.cars, 'car'),
     count(r.services, 'service'),
@@ -87,7 +97,7 @@ const exportedText = (r: ExportResult) => {
     r.missing > 0
       ? ` ${count(r.missing, 'document')} ${r.missing === 1 ? "isn't" : "aren't"} on this phone and couldn't be downloaded, so ${r.missing === 1 ? 'it was' : 'they were'} left out. Connect to the internet and export again to include ${r.missing === 1 ? 'it' : 'them'}.`
       : ''
-  return `Exported ${list(parts)}.${missing}`
+  return `Your export is ready: ${list(parts)}.${missing}`
 }
 
 const importedText = (r: ImportResult) => {
@@ -115,6 +125,12 @@ const IMPORT_ERRORS: Record<ImportError['kind'], string> = {
   damaged: 'That export is damaged and cannot be imported.',
 }
 
+/** A zip as it was offered in the share sheet. */
+interface SharedZip {
+  bytes: Uint8Array
+  name: string
+}
+
 const ERROR = (text: string) => ({ tone: 'error' as const, text })
 
 /**
@@ -125,9 +141,13 @@ export const createYourDataModel = (deps: YourDataDeps): YourDataModel => {
   let stop: Unsubscribe | undefined
   let ownerId: string | undefined
   let picked: OpenedArchive | undefined
+  let lastExport: SharedZip | undefined
+  // What the export said, shown again once sharing it again works.
+  let exportedMessage: YourDataState['message']
 
   return createStore<YourDataState & YourDataActions>()((set, get) => ({
     status: 'ready',
+    canShareAgain: false,
 
     start: () => {
       if (stop) return
@@ -138,12 +158,40 @@ export const createYourDataModel = (deps: YourDataDeps): YourDataModel => {
 
     exportAll: async () => {
       if (get().status !== 'ready' || !ownerId) return
-      set({ status: 'exporting', message: undefined })
+      lastExport = undefined
+      set({ status: 'exporting', message: undefined, canShareAgain: false })
+      // Set by the share below; a holder, since TypeScript cannot see the callback assign it.
+      const built: { zip?: SharedZip } = {}
+      const files: ExportDeps['files'] = {
+        read: (uri) => deps.files.read(uri),
+        share: (bytes, name) => {
+          built.zip = { bytes, name }
+          return deps.files.share(bytes, name)
+        },
+      }
       try {
-        const result = await exportData(deps, ownerId)
-        set({ status: 'ready', message: { tone: 'success', text: exportedText(result) } })
+        const result = await exportData({ ...deps, files }, ownerId)
+        lastExport = built.zip
+        exportedMessage = { tone: 'success', text: exportedText(result) }
+        set({
+          status: 'ready',
+          message: exportedMessage,
+          canShareAgain: lastExport !== undefined,
+        })
       } catch {
         set({ status: 'ready', message: ERROR("Couldn't export your data. Try again.") })
+      }
+    },
+
+    shareAgain: async () => {
+      const again = lastExport
+      if (get().status !== 'ready' || !again) return
+      set({ status: 'sharing' })
+      try {
+        await deps.files.share(again.bytes, again.name)
+        set({ status: 'ready', message: exportedMessage })
+      } catch {
+        set({ status: 'ready', message: ERROR("Couldn't share your export. Try again.") })
       }
     },
 
@@ -151,7 +199,8 @@ export const createYourDataModel = (deps: YourDataDeps): YourDataModel => {
       if (get().status !== 'ready' || !ownerId) return
       const owner = ownerId
       // Reading from the moment the picker opens, so a second tap cannot open another.
-      set({ status: 'reading', message: undefined })
+      lastExport = undefined
+      set({ status: 'reading', message: undefined, canShareAgain: false })
       let bytes: Uint8Array | undefined
       try {
         bytes = await deps.files.pickArchive()

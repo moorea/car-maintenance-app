@@ -20,7 +20,7 @@ describe('sign-in screen model', () => {
     expect(model.getState()).toMatchObject({
       step: 'code',
       email: 'owner@example.com',
-      busy: false,
+      busy: undefined,
     })
   })
 
@@ -43,7 +43,7 @@ describe('sign-in screen model', () => {
     await settle()
     expect(users.at(-1)).toBeNull()
     model.getState().setCode('123 456')
-    expect(model.getState().busy).toBe(true)
+    expect(model.getState().busy).toBe('verifying')
     await settle()
     expect(users.at(-1)).toEqual({ id: 'user-owner@example.com', email: 'owner@example.com' })
   })
@@ -55,7 +55,7 @@ describe('sign-in screen model', () => {
     model.getState().setEmail('owner@example.com')
     await model.getState().submitEmail()
     model.getState().setCode('123456')
-    expect(model.getState().busy).toBe(false)
+    expect(model.getState().busy).toBeUndefined()
     expect(await model.getState().submitCode()).toBe(true)
     expect(users.at(-1)).toMatchObject({ email: 'owner@example.com' })
   })
@@ -80,7 +80,7 @@ describe('sign-in screen model', () => {
     model.getState().setCode('123456')
     expect(model.getState().error).toBeUndefined()
     await settle()
-    expect(model.getState()).toMatchObject({ busy: false, error: undefined })
+    expect(model.getState()).toMatchObject({ busy: undefined, error: undefined })
   })
 
   it.each([
@@ -91,7 +91,7 @@ describe('sign-in screen model', () => {
     auth.failNext(kind)
     model.getState().setEmail('owner@example.com')
     expect(await model.getState().submitEmail()).toBe(false)
-    expect(model.getState()).toMatchObject({ step: 'email', busy: false })
+    expect(model.getState()).toMatchObject({ step: 'email', busy: undefined })
     expect(model.getState().error).toMatch(message)
   })
 
@@ -127,6 +127,17 @@ describe('sign-in screen model', () => {
     expect(model.getState().notice).toBeUndefined()
   })
 
+  it('says it is sending, not signing in, while a new code is on its way', async () => {
+    const { model } = setup()
+    model.getState().setEmail('owner@example.com')
+    await model.getState().submitEmail()
+    const resent = model.getState().resend()
+    expect(model.getState().busy).toBe('sending')
+    expect(await model.getState().submitCode()).toBe(false)
+    await resent
+    expect(model.getState().busy).toBeUndefined()
+  })
+
   it('goes back to fix the email', async () => {
     const { model } = setup()
     model.getState().setEmail('typo@example.com')
@@ -139,7 +150,7 @@ describe('sign-in screen model', () => {
     const { auth, model } = setup()
     model.getState().setEmail('owner@example.com')
     const first = model.getState().submitEmail()
-    expect(model.getState().busy).toBe(true)
+    expect(model.getState().busy).toBe('sending')
     expect(await model.getState().submitEmail()).toBe(false)
     await first
     expect(auth.sent).toEqual(['owner@example.com'])

@@ -67,16 +67,38 @@ describe('account model', () => {
   })
 
   describe('signing out', () => {
-    it('signs the owner out', async () => {
+    it('asks for a second tap before signing out', async () => {
       const { model, auth } = setup()
       await model.getState().signOut()
+      expect(model.getState().status).toBe('confirming-sign-out')
+      expect(signedIn(auth)).toBe(true)
+    })
+
+    it('signs the owner out on the second tap', async () => {
+      const { model, auth } = setup()
+      await model.getState().signOut()
+      const signingOut = model.getState().signOut()
+      expect(model.getState().status).toBe('signing-out')
+      await signingOut
       expect(signedIn(auth)).toBe(false)
       expect(model.getState().status).toBe('ready')
+    })
+
+    it('stays signed in when the owner moves on to deleting the account instead', async () => {
+      const { model, auth } = setup()
+      await model.getState().signOut()
+      model.getState().askToDelete()
+      expect(model.getState().status).toBe('confirming-delete')
+      model.getState().cancelDelete()
+      await model.getState().signOut()
+      expect(model.getState().status).toBe('confirming-sign-out')
+      expect(signedIn(auth)).toBe(true)
     })
 
     it('does not report a server failure, since the phone is signed out regardless', async () => {
       const { model, auth } = setup()
       auth.failNext('network')
+      await model.getState().signOut()
       await model.getState().signOut()
       expect(signedIn(auth)).toBe(false)
       expect(model.getState().error).toBeUndefined()
@@ -154,6 +176,7 @@ describe('account model', () => {
 
     it('cannot start while signing out', async () => {
       const { model } = setup()
+      await model.getState().signOut()
       const signingOut = model.getState().signOut()
       model.getState().askToDelete()
       expect(model.getState().status).toBe('signing-out')

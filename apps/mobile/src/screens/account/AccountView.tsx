@@ -40,7 +40,8 @@ const REMINDERS: Record<RemindersSummary, string> = {
 export function AccountView(props: Props) {
   const colors = useColors()
   const { status } = props
-  const idle = status === 'ready'
+  // Asking for a second tap on sign out leaves everything else as it was.
+  const idle = status === 'ready' || status === 'confirming-sign-out'
 
   return (
     <Host style={styles.fill}>
@@ -106,12 +107,19 @@ export function AccountView(props: Props) {
             <Card padding={0} {...(idle && { onPress: () => void props.signOut() })}>
               <SettingRow
                 symbol="signOut"
-                label={status === 'signing-out' ? 'Signing out…' : 'Sign out'}
+                label={
+                  status === 'signing-out'
+                    ? 'Signing out…'
+                    : status === 'confirming-sign-out'
+                      ? 'Tap again to sign out'
+                      : 'Sign out'
+                }
                 tint="accent"
               />
             </Card>
             <Note>
-              Your cars and service history stay in your account, ready for when you sign back in.
+              Your cars and everything logged for them stay in your account, ready for when you sign
+              back in.
             </Note>
           </Column>
 
@@ -204,8 +212,9 @@ function ConfirmDelete(props: Props) {
     <Card padding={18} spacing={12}>
       <Text textStyle={{ fontSize: 20, fontWeight: '700' }}>Delete your account?</Text>
       <Text>
-        This permanently deletes your account and everything in it: your cars, service history,
-        odometer readings and assistant conversations, on our servers and on this phone. It can't be
+        This permanently deletes your account and everything in it, on our servers and on this
+        phone: your cars with their services, odometer readings, fill-ups, warranties, renewal
+        dates, schedule items, documents and photos, and your assistant conversations. It can't be
         undone.
       </Text>
       {props.error ? <ErrorText>{props.error}</ErrorText> : null}

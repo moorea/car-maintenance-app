@@ -180,7 +180,7 @@ const exported = async () => {
 
 describe('your data model', () => {
   describe('export', () => {
-    it('shares one zip of every car, named for the day, and says what it holds', async () => {
+    it('shares one zip of every car, named for the day, and says what it holds without claiming it was saved', async () => {
       const { model, files } = samsPhone()
 
       await model.getState().exportAll()
@@ -194,7 +194,7 @@ describe('your data model', () => {
         status: 'ready',
         message: {
           tone: 'success',
-          text: 'Exported 2 cars, 1 service, 1 warranty and 2 documents.',
+          text: 'Your export is ready: 2 cars, 1 service, 1 warranty and 2 documents.',
         },
       })
     })
@@ -223,7 +223,7 @@ describe('your data model', () => {
 
       expect(sam.files.shared).toHaveLength(1)
       expect(sam.model.getState().message?.text).toBe(
-        "Exported 1 car, 0 services, 0 warranties and 2 documents. 2 documents aren't on this phone and couldn't be downloaded, so they were left out. Connect to the internet and export again to include them.",
+        "Your export is ready: 1 car, 0 services, 0 warranties and 2 documents. 2 documents aren't on this phone and couldn't be downloaded, so they were left out. Connect to the internet and export again to include them.",
       )
     })
 
@@ -234,7 +234,7 @@ describe('your data model', () => {
 
       expect(files.shared).toHaveLength(1)
       expect(model.getState().message?.text).toBe(
-        'Exported your account. There are no cars in it yet.',
+        'Your export is ready. There are no cars in your account yet.',
       )
     })
 
@@ -248,6 +248,61 @@ describe('your data model', () => {
         status: 'ready',
         message: { tone: 'error', text: "Couldn't export your data. Try again." },
       })
+    })
+
+    it('shares the same zip again without gathering it again', async () => {
+      const { model, files } = samsPhone()
+      await model.getState().exportAll()
+      expect(model.getState().canShareAgain).toBe(true)
+      // Gathering again now would leave this document out.
+      delete files.stored['memory://att-1']
+
+      const again = model.getState().shareAgain()
+      expect(model.getState().status).toBe('sharing')
+      await again
+
+      expect(files.shared).toHaveLength(2)
+      expect(got(files.shared[1])).toEqual(got(files.shared[0]))
+      expect(model.getState()).toMatchObject({
+        status: 'ready',
+        canShareAgain: true,
+        message: { tone: 'success' },
+      })
+    })
+
+    it('says so when sharing again fails, and lets the owner try once more', async () => {
+      const { model, files } = samsPhone()
+      await model.getState().exportAll()
+      files.failNextShare('no space')
+
+      await model.getState().shareAgain()
+
+      expect(model.getState()).toMatchObject({
+        status: 'ready',
+        canShareAgain: true,
+        message: { tone: 'error', text: "Couldn't share your export. Try again." },
+      })
+
+      await model.getState().shareAgain()
+      expect(model.getState().message).toMatchObject({ tone: 'success' })
+    })
+
+    it('has nothing to share again before an export, after a failed one, or once an import starts', async () => {
+      const { model, files } = samsPhone()
+      await model.getState().shareAgain()
+      expect(files.shared).toHaveLength(0)
+
+      files.failNextShare('disk full')
+      await model.getState().exportAll()
+      expect(model.getState().canShareAgain).toBe(false)
+      await model.getState().shareAgain()
+      expect(files.shared).toHaveLength(0)
+
+      await model.getState().exportAll()
+      await model.getState().chooseImport()
+      expect(model.getState().canShareAgain).toBe(false)
+      await model.getState().shareAgain()
+      expect(files.shared).toHaveLength(1)
     })
 
     it('runs one export at a time', async () => {
@@ -344,7 +399,7 @@ describe('your data model', () => {
       const sam = phone(SAM, { vehicles: [civic], fillUps: [fill] })
       await sam.model.getState().exportAll()
       expect(sam.model.getState().message?.text).toBe(
-        'Exported 1 car, 0 services, 0 warranties, 1 fill-up and 0 documents.',
+        'Your export is ready: 1 car, 0 services, 0 warranties, 1 fill-up and 0 documents.',
       )
       const alex = phone({ id: 'alex' })
       alex.files.queueArchive(got(sam.files.shared[0]).bytes)
@@ -373,7 +428,7 @@ describe('your data model', () => {
       const sam = phone(SAM, { vehicles: [civic], renewals: [insurance] })
       await sam.model.getState().exportAll()
       expect(sam.model.getState().message?.text).toBe(
-        'Exported 1 car, 0 services, 0 warranties, 1 renewal date and 0 documents.',
+        'Your export is ready: 1 car, 0 services, 0 warranties, 1 renewal date and 0 documents.',
       )
       const alex = phone({ id: 'alex' })
       alex.files.queueArchive(got(sam.files.shared[0]).bytes)
