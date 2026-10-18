@@ -31,7 +31,7 @@ export interface Colors {
   onDanger: string
   /** Quiet grey fill behind low-priority labels, such as a "later" status pill. */
   neutralSubtle: string
-  /** Liquid Glass fill where the platform draws no native glass (web, Android). */
+  /** Liquid Glass fill where the platform draws no native glass (the web preview). */
   glass: string
   /** The bright edge of a glass control. */
   glassEdge: string

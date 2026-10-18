@@ -1,7 +1,8 @@
 import { Column, TextInput, useNativeState, type TextInputProps } from '@expo/ui'
 import { useEffect, useRef } from 'react'
 import { useColors } from '../theme'
-import { fieldModifiers } from './fieldModifiers'
+import { fullWidth } from './fullWidth'
+import { labelled } from './labelled'
 import { Text } from './Text'
 
 interface Props {
@@ -47,12 +48,13 @@ export function TextField({ label, value, onChangeText, error, ...input }: Props
         {...(input.lines !== undefined && input.lines > 1
           ? { multiline: true, numberOfLines: input.lines }
           : {})}
-        modifiers={fieldModifiers(label)}
+        // Screen readers read the field by the label shown above it, not just its placeholder.
+        modifiers={[...labelled(label), ...fullWidth.modifiers]}
         // Filled like an iOS search field. Without a fill the native field draws nothing, so an
         // empty field with no placeholder is invisible on iOS. Padding rather than a fixed height
         // so multiline fields and large text sizes still fit.
         style={{
-          width: '100%',
+          ...fullWidth.style,
           paddingVertical: 11,
           paddingHorizontal: 14,
           borderRadius: 12,

@@ -60,6 +60,115 @@ jobs:
       - run: pnpm --filter @car/server build
       - run: scripts/smoke-assistant.sh
 
+  # Builds a release APK and drives it on an Android emulator with Maestro. iOS is the main target,
+  # but this keeps the app launching and laying out on Android. Needs no Google Play account: the
+  # release build is signed with the debug key that `expo prebuild` generates.
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    env:
+      CI: 1
+      # Pinned so a Maestro release cannot change or break CI unannounced.
+      MAESTRO_VERSION: 2.11.0
+      MAESTRO_CLI_NO_ANALYTICS: 1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - run: pnpm install --frozen-lockfile
+      - name: Generate the native project
+        working-directory: apps/mobile
+        run: npx expo prebuild --platform android
+      # Only the emulator's architecture, which roughly quarters the native build.
+      - name: Build the release APK
+        working-directory: apps/mobile/android
+        run: ./gradlew assembleRelease -PreactNativeArchitectures=x86_64 --no-daemon
+      - name: Enable KVM for the emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Install Maestro
+        run: |
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+          "$HOME/.maestro/bin/maestro" --version
+      - name: Smoke test on the emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          profile: pixel_7
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          # The emulator runner runs each script line on its own, so the steps live in one script.
+          script: scripts/android-smoke.sh
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: android-emulator
+          path: |
+            ${{ runner.temp }}/screenshots
+            ${{ runner.temp }}/maestro
+
+  # Keeps the latest emulator screenshots on the android-screenshots branch, one folder per commit,
+  # so a PR can show them inline and they can be fetched with plain git. A separate job so the
+  # write token never shares a runner with install scripts or app code. Skipped for forks.
+  android-screenshots:
+    needs: android
+    # Dependabot's PRs get a read-only token, so they skip publishing too.
+    if: ${{ !cancelled() && github.actor != 'dependabot[bot]' && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      KEEP: 40
+    steps:
+      # Missing when the build failed before the emulator ran; the step below then finds nothing.
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: android-emulator
+          path: ${{ runner.temp }}/artifact
+      - name: Publish to the android-screenshots branch
+        env:
+          TOKEN: ${{ github.token }}
+        run: |
+          shots="$RUNNER_TEMP/artifact/screenshots"
+          compgen -G "$shots/*.png" > /dev/null || { echo "No screenshots to publish"; exit 0; }
+          remote="https://x-access-token:$TOKEN@github.com/$GITHUB_REPOSITORY.git"
+          git init -q branch && cd branch
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Each publish replaces the branch with one commit holding the newest $KEEP folders, so
+          # clones never carry the screenshot history.
+          for attempt in 1 2 3; do
+            git rm -rqf --ignore-unmatch . && rm -rf -- * && lease=""
+            if git fetch -q --depth 1 "$remote" android-screenshots; then
+              git checkout -q --detach FETCH_HEAD
+              lease="$(git rev-parse HEAD)"
+            fi
+            rm -rf "$SHA" && mkdir "$SHA" && cp "$shots"/*.png "$SHA/"
+            grep -vx "$SHA" order.txt 2> /dev/null > order.new || true
+            echo "$SHA" >> order.new && tail -n "$KEEP" order.new > order.txt && rm order.new
+            for dir in */; do grep -qx "${dir%/}" order.txt || rm -rf "$dir"; done
+            git checkout -q --orphan "publish-$attempt"
+            git add -A && git commit -qm "Android emulator screenshots, latest $SHA"
+            git push -q --force-with-lease="android-screenshots:$lease" "$remote" HEAD:refs/heads/android-screenshots && exit 0
+          done
+          exit 1
+
   database:
     runs-on: ubuntu-latest
     steps:
@@ -77,6 +186,31 @@ jobs:
       - name: Lint SQL
         run: supabase db lint --level warning --fail-on warning
       - run: supabase test db
+
+  # Real sync, end to end: the app's data layer on Node, as two or more phones, against a local
+  # Supabase (this repo's migrations, RLS, Storage) and a self-hosted PowerSync serving this repo's
+  # sync rules. Covers what mocks cannot: offline queues, other owners, and deletes propagating.
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.121.0
+      # Only what the data layer talks to: Postgres, Auth, PostgREST, Storage and the gateway.
+      - run: supabase start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor,mailpit,realtime,postgres-meta
+      - run: scripts/start-local-sync.sh
+      - run: pnpm --filter @car/data test:e2e
+      - name: PowerSync logs
+        if: ${{ failure() }}
+        run: docker logs powersync_car-maintenance-app 2>&1 | tail -n 300
 
   # Builds the app for the iOS simulator and launches it, since screens are otherwise only run on
   # the web build. Needs no Apple account: simulator builds are not code signed.
@@ -116,8 +250,11 @@ jobs:
             CODE_SIGNING_ALLOWED=NO | tail -n 200
       - name: Boot a simulator and install the app
         run: |
+          # The UI flows tap round buttons by screen position, so prefer one standard size and
+          # only fall back to whichever iPhone the runner image has.
           udid=$(xcrun simctl list devices available --json \
-            | jq -r '[.devices[][] | select(.name | startswith("iPhone"))][0].udid')
+            | jq -r '[.devices[][] | select(.name | startswith("iPhone"))]
+                | ([.[] | select(.name == "iPhone 17 Pro")] + .)[0].udid')
           [ "$udid" != null ] || { echo "No iPhone simulator available"; xcrun simctl list; exit 1; }
           echo "Booting $udid"
           xcrun simctl boot "$udid"
@@ -128,7 +265,7 @@ jobs:
           curl -fsSL "https://get.maestro.mobile.dev" | bash
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
           "$HOME/.maestro/bin/maestro" --version
-      - name: Smoke test
+      - name: UI flows (smoke test and screen sweep)
         run: maestro test --test-output-dir "$RUNNER_TEMP/maestro" apps/mobile/e2e
       # Screens again at the largest accessibility text size, to see Dynamic Type at its limit.
       - name: Largest text size
@@ -141,7 +278,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/screenshots"
           # takeScreenshot writes to the working directory; failure screenshots go to the output dir.
           find . "$RUNNER_TEMP/maestro" -name '*.png' -newer package.json \
-            -not -path '*/node_modules/*' -not -path '*/ios/*' \
+            -not -path '*/node_modules/*' -not -path '*/ios/*' -not -name 'App-Icon*' \
             -exec cp {} "$RUNNER_TEMP/screenshots/" \; || true
           xcrun simctl io booted screenshot "$RUNNER_TEMP/screenshots/last.png" || true
       - uses: actions/upload-artifact@v4

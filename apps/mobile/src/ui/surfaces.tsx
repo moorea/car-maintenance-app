@@ -1,6 +1,5 @@
 import { Button, Column, Row, type UniversalStyle } from '@expo/ui'
 import type { ReactNode } from 'react'
-import { Platform } from 'react-native'
 import { useColors, type ColorRole } from '../theme'
 import { Symbol } from './Symbol'
 import type { SymbolName } from './symbols'
@@ -97,8 +96,7 @@ export function GlassIconButton({
 }
 
 /**
- * A thin bar showing how far along something is, from 0 to 1. Android is not built yet: Compose
- * cannot take a percentage width, so it draws nothing there for now.
+ * A thin bar showing how far along something is, from 0 to 1.
  */
 export function ProgressBar({
   value,
@@ -111,7 +109,6 @@ export function ProgressBar({
 }) {
   const colors = useColors()
   const clamped = Math.min(1, Math.max(0, value))
-  if (Platform.OS === 'android') return null
   return (
     <Row style={{ height: 6, borderRadius: 3, backgroundColor: colors[track] }}>
       <Row
