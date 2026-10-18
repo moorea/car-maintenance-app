@@ -4,7 +4,8 @@
 set -uo pipefail
 
 out="${RUNNER_TEMP:-/tmp}"
-apk=apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+# APK is set when CI reused a cached build instead of building one.
+apk=${APK:-apps/mobile/android/app/build/outputs/apk/release/app-release.apk}
 mkdir -p "$out/screenshots" "$out/maestro"
 
 adb install -r "$apk" || exit 1
