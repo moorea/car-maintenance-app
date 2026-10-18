@@ -27,6 +27,7 @@ appId: com.moorea.carmaintenance
     element: 'Fuel & costs'
     centerElement: true
     timeout: 30000
+- waitForAnimationToEnd
 - tapOn: 'Fuel & costs'
 - waitForAnimationToEnd
 - takeScreenshot: 4-fuel
@@ -40,6 +41,7 @@ appId: com.moorea.carmaintenance
     element: 'Sign out'
     centerElement: true
     timeout: 30000
+- waitForAnimationToEnd
 - takeScreenshot: 5-account
 - tapOn: 'Sign out'
 - extendedWaitUntil:

@@ -30,6 +30,7 @@ appId: com.moorea.carmaintenance
     element: 'Recalls · 2'
     centerElement: true
     timeout: 30000
+- waitForAnimationToEnd
 - tapOn: 'Garage'
 - extendedWaitUntil:
     visible: 'Demo car.*'
@@ -39,6 +40,7 @@ appId: com.moorea.carmaintenance
     element: 'Sign out'
     centerElement: true
     timeout: 30000
+- waitForAnimationToEnd
 - takeScreenshot: 4-account
 - tapOn: 'Sign out'
 - extendedWaitUntil:
