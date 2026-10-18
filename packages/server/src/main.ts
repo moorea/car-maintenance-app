@@ -4,6 +4,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@supabase/supabase-js'
 import { anthropicModel } from './anthropic'
 import { createAssistantHandler } from './handler'
+import { anthropicOdometerReader, createOdometerHandler } from './odometer'
 import { anthropicQuoteReader, createQuoteHandler } from './quotes'
 import { supabaseStore } from './supabase'
 
@@ -65,6 +66,18 @@ const readQuote = createQuoteHandler({
   log,
 })
 
-Deno.serve((request) =>
-  new URL(request.url).pathname.endsWith('/read-quote') ? readQuote(request) : answer(request),
-)
+// So does reading the odometer from a photo of the dashboard.
+const readOdometer = createOdometerHandler({
+  userFor,
+  storeFor,
+  reader: anthropic && anthropicOdometerReader(anthropic, { model: modelName }),
+  dailyLimit,
+  log,
+})
+
+Deno.serve((request) => {
+  const path = new URL(request.url).pathname
+  if (path.endsWith('/read-quote')) return readQuote(request)
+  if (path.endsWith('/read-odometer')) return readOdometer(request)
+  return answer(request)
+})

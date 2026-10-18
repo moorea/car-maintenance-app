@@ -1,5 +1,5 @@
 import type { QuoteLine, QuotePhoto } from '../domain/types'
-import type { CancelSignal, PhotoPicker, QuoteReader } from '../ports'
+import type { CancelSignal, OdometerReader, PhotoPicker, QuoteReader } from '../ports'
 
 declare const setTimeout: (callback: () => void, ms: number) => unknown
 
@@ -71,6 +71,41 @@ export const demoQuoteReader = (options: { delayMs?: number } = {}): QuoteReader
       // An aborted read never settles, as a cancelled request would not.
       setTimeout(() => {
         if (!signal?.aborted) resolve(DEMO_QUOTE)
+      }, options.delayMs ?? 0)
+    }),
+})
+
+/** One call to a `controlledOdometerReader`, which the test settles by hand. */
+export interface OdometerReaderCall {
+  photo: QuotePhoto
+  signal: CancelSignal | undefined
+  resolve: (miles: number | undefined) => void
+  reject: (error: unknown) => void
+}
+
+/** An odometer reader whose calls the test answers through `calls`. */
+export const controlledOdometerReader = (): OdometerReader & { calls: OdometerReaderCall[] } => {
+  const calls: OdometerReaderCall[] = []
+  return {
+    calls,
+    read: (photo, signal) =>
+      new Promise((resolve, reject) => calls.push({ photo, signal, resolve, reject })),
+  }
+}
+
+/**
+ * Reads every photo as `miles` after `delayMs`, so the demo and web preview show the whole flow
+ * without a server.
+ */
+export const demoOdometerReader = (options: {
+  miles: number
+  delayMs?: number
+}): OdometerReader => ({
+  read: (_photo, signal) =>
+    new Promise((resolve) => {
+      // An aborted read never settles, as a cancelled request would not.
+      setTimeout(() => {
+        if (!signal?.aborted) resolve(options.miles)
       }, options.delayMs ?? 0)
     }),
 })

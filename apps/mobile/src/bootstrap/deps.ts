@@ -5,14 +5,14 @@ import {
   withFillUpReadings,
   type IdGenerator,
 } from '@car/core'
-import { demoQuoteReader } from '@car/core/testing'
+import { demoOdometerReader, demoQuoteReader } from '@car/core/testing'
 import { nhtsaVinDecoder, storedDevicePreferences, storedReminderSettings } from '@car/data'
 import { randomUUID } from 'expo-crypto'
 import { pdfReportExporter } from './careReport'
 import { appDataFiles } from './dataFiles'
 import { localClock } from './clock'
 import { backendConfig } from './config'
-import { createDemoAssistant, createDemoRepositories } from './demo'
+import { createDemoAssistant, createDemoRepositories, DEMO_ODOMETER_PHOTO_MILES } from './demo'
 import { createLiveRepositories } from './live'
 import { systemFilePicker, systemFilePreview } from './files'
 import { expoNotifier } from './notifications'
@@ -39,6 +39,8 @@ function demoRepositories() {
       clock,
     ),
     quoteReader: demoQuoteReader({ delayMs: 1_500 }),
+    // A little past the demo car's last reading, as a photo taken today would show.
+    odometerReader: demoOdometerReader({ miles: DEMO_ODOMETER_PHOTO_MILES, delayMs: 1_500 }),
   }
 }
 

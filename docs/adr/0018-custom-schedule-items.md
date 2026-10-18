@@ -1,4 +1,4 @@
-# 0017 Owners add their own schedule items and set their own intervals
+# 0018 Owners add their own schedule items and set their own intervals
 
 Status: accepted, 2026-10-18
 

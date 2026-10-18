@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import type { MaintenanceItem, OdometerReading, ServiceRecord, Vehicle } from '../../domain/types'
+import { AssistantError } from '../../domain/types'
 import {
+  controlledOdometerReader,
   fixedClock,
+  memoryAuth,
   memoryCustomItems,
   memoryOdometer,
+  memoryPhotoPicker,
+  memoryPreferences,
   memorySchedule,
   memoryServiceRecords,
   memoryVehicles,
@@ -67,9 +72,18 @@ const setup = (
     odometer?: OdometerReading[]
     records?: ServiceRecord[]
     schedule?: MaintenanceItem[]
+    custom?: ReturnType<typeof memoryCustomItems>
+    /** Who allowed sharing with Anthropic on this phone; the signed-in owner by default. */
+    aiSharingOwner?: string | null | undefined
+    signedOut?: boolean
   } = {},
 ) => {
   const vehicle = options.vehicle ?? car
+  const photos = memoryPhotoPicker()
+  const preferences = memoryPreferences({
+    aiSharingOwner: options.aiSharingOwner === undefined ? 'u1' : options.aiSharingOwner,
+  })
+  const reader = controlledOdometerReader()
   const odometer = memoryOdometer([...(options.odometer ?? readings)])
   const records = memoryServiceRecords(
     options.records ?? [
@@ -81,13 +95,23 @@ const setup = (
   const model = createCarModel({
     vehicle,
     vehicles: memoryVehicles([vehicle]),
-    schedule: memorySchedule(options.schedule ?? [oil, tires, brakeFluid]),
+    schedule: memorySchedule(options.schedule ?? [oil, tires, brakeFluid], options.custom),
     records,
     odometer,
     clock: fixedClock(TODAY),
+    photos,
+    odometerReader: reader,
+    preferences,
+    auth: sharingAuth(options.signedOut),
   })
-  return { model, odometer, records }
+  return { model, odometer, records, photos, reader, preferences }
 }
+
+const sharingAuth = (signedOut = false) =>
+  memoryAuth({
+    ...(!signedOut && { user: { id: 'u1', email: 'a@example.com' } }),
+    userIdFor: (e) => `user-${e}`,
+  })
 
 // The in-memory repos resolve at once, so a few microtask turns let a refresh finish.
 const settle = async () => {
@@ -227,6 +251,7 @@ describe('car model', () => {
     expect(model.getState().editingOdometer).toEqual({
       value: '36500',
       saving: false,
+      reading: false,
       error: 'Offline',
     })
   })
@@ -244,6 +269,10 @@ describe('car model', () => {
       records: memoryServiceRecords(),
       odometer: memoryOdometer(readings),
       clock: fixedClock(TODAY),
+      photos: memoryPhotoPicker(),
+      odometerReader: controlledOdometerReader(),
+      preferences: memoryPreferences(),
+      auth: sharingAuth(),
     })
     failing.getState().start()
     await settle()
@@ -319,6 +348,10 @@ describe('car model', () => {
       },
       odometer,
       clock: fixedClock(TODAY),
+      photos: memoryPhotoPicker(),
+      odometerReader: controlledOdometerReader(),
+      preferences: memoryPreferences(),
+      auth: sharingAuth(),
     })
     model.getState().start()
     await settle()
@@ -349,14 +382,10 @@ describe('car model', () => {
 
   it("follows the owner's own items and intervals as they change", async () => {
     const custom = memoryCustomItems()
-    const vehicle = car
-    const model = createCarModel({
-      vehicle,
-      vehicles: memoryVehicles([vehicle]),
-      schedule: memorySchedule([oil, tires], custom),
-      records: memoryServiceRecords([done('oil', '2026-07-09', 30_000)]),
-      odometer: memoryOdometer(readings),
-      clock: fixedClock(TODAY),
+    const { model } = setup({
+      schedule: [oil, tires],
+      records: [done('oil', '2026-07-09', 30_000)],
+      custom,
     })
     model.getState().start()
     await settle()
@@ -395,5 +424,232 @@ describe('describeInterval', () => {
 
   it('says as needed when there is no interval', () => {
     expect(describeInterval({ id: 'x', configId: 'c1', task: 'Wipers' }, false)).toBe('As needed')
+  })
+})
+
+describe('reading the odometer from a photo', () => {
+  const started = async (aiSharingOwner?: string | null) => {
+    const s = setup({ aiSharingOwner })
+    s.model.getState().start()
+    await settle()
+    return s
+  }
+
+  it('fills in the miles a photo shows and asks the owner to check them before saving', async () => {
+    const { model, reader, photos, odometer } = await started()
+    const done = model.getState().takeOdometerPhoto()
+    await settle()
+    expect(photos.picks).toEqual(['camera'])
+    expect(model.getState().editingOdometer).toMatchObject({ reading: true })
+    reader.calls[0]?.resolve(36_012)
+    await done
+    expect(model.getState().editingOdometer).toEqual({
+      value: '36012',
+      saving: false,
+      reading: false,
+      note: 'Read from your photo. Check it matches the dashboard, then save.',
+    })
+    // Nothing is saved until the owner confirms.
+    expect(await odometer.listForVehicle('v1')).toHaveLength(2)
+    expect(await model.getState().saveOdometer()).toBe(true)
+    expect((await odometer.listForVehicle('v1')).at(-1)).toEqual({
+      vehicleId: 'v1',
+      date: TODAY,
+      miles: 36_012,
+    })
+  })
+
+  it('reads a photo from the library too', async () => {
+    const { model, reader, photos } = await started()
+    model.getState().editOdometer()
+    const done = model.getState().chooseOdometerPhoto()
+    await settle()
+    reader.calls[0]?.resolve(36_100)
+    await done
+    expect(photos.picks).toEqual(['library'])
+    expect(model.getState().editingOdometer?.value).toBe('36100')
+  })
+
+  it('says why miles read below the last reading cannot be saved', async () => {
+    const { model, reader } = await started()
+    const done = model.getState().takeOdometerPhoto()
+    await settle()
+    reader.calls[0]?.resolve(3_540)
+    await done
+    expect(model.getState().editingOdometer).toMatchObject({
+      value: '3540',
+      error: "That's less than the last reading of 35,400 mi",
+    })
+    expect(model.getState().editingOdometer?.note).toBeUndefined()
+  })
+
+  it('asks for a closer photo when no miles could be read, keeping what was typed', async () => {
+    const { model, reader } = await started()
+    model.getState().editOdometer()
+    model.getState().setOdometer('360')
+    const done = model.getState().takeOdometerPhoto()
+    await settle()
+    reader.calls[0]?.resolve(undefined)
+    await done
+    expect(model.getState().editingOdometer).toMatchObject({
+      value: '360',
+      reading: false,
+      error: "Couldn't find the miles in that photo. Try a closer photo, or type them.",
+    })
+  })
+
+  it('explains a failed read in terms of typing the miles instead', async () => {
+    const { model, reader } = await started()
+    const done = model.getState().takeOdometerPhoto()
+    await settle()
+    reader.calls[0]?.reject(new AssistantError('offline'))
+    await done
+    expect(model.getState().editingOdometer?.error).toBe(
+      "You're offline. Reading a photo needs a connection, but you can type the miles.",
+    )
+  })
+
+  it('does nothing when the owner cancels the camera', async () => {
+    const { model, reader, photos } = await started()
+    photos.next(undefined)
+    await model.getState().takeOdometerPhoto()
+    expect(reader.calls).toHaveLength(0)
+    expect(model.getState().editingOdometer).toMatchObject({ value: '', reading: false })
+  })
+
+  it('refuses a photo too large to send', async () => {
+    const { model, reader, photos } = await started()
+    photos.next({ mediaType: 'image/jpeg', base64: 'A'.repeat(5_000_004) })
+    await model.getState().takeOdometerPhoto()
+    expect(reader.calls).toHaveLength(0)
+    expect(model.getState().editingOdometer?.error).toBe(
+      'That photo is too large to read. Try a closer photo, or type the miles.',
+    )
+  })
+
+  it('stops reading when the owner cancels, and ignores the late answer', async () => {
+    const { model, reader } = await started()
+    const done = model.getState().takeOdometerPhoto()
+    await settle()
+    model.getState().cancelOdometer()
+    expect(reader.calls[0]?.signal?.aborted).toBe(true)
+    reader.calls[0]?.resolve(36_012)
+    await done
+    expect(model.getState().editingOdometer).toBeUndefined()
+  })
+
+  it('neither saves nor accepts typing while a photo is being read', async () => {
+    const { model, reader } = await started()
+    const done = model.getState().takeOdometerPhoto()
+    await settle()
+    model.getState().setOdometer('99')
+    expect(await model.getState().saveOdometer()).toBe(false)
+    expect(model.getState().editingOdometer?.value).toBe('')
+    void model.getState().takeOdometerPhoto()
+    await settle()
+    expect(reader.calls).toHaveLength(1)
+    reader.calls[0]?.resolve(36_012)
+    await done
+  })
+
+  it('clears the photo note once the owner edits the miles', async () => {
+    const { model, reader } = await started()
+    const done = model.getState().takeOdometerPhoto()
+    await settle()
+    reader.calls[0]?.resolve(36_012)
+    await done
+    model.getState().setOdometer('36013')
+    expect(model.getState().editingOdometer?.note).toBeUndefined()
+  })
+
+  it('asks before sending the first photo to Anthropic, then opens the camera', async () => {
+    const { model, reader, photos, preferences } = await started(null)
+    await model.getState().takeOdometerPhoto()
+    expect(photos.picks).toEqual([])
+    expect(model.getState().editingOdometer).toMatchObject({ asking: 'camera', reading: false })
+    const done = model.getState().allowPhotoReading()
+    await settle()
+    expect(photos.picks).toEqual(['camera'])
+    reader.calls[0]?.resolve(36_012)
+    await done
+    expect(model.getState().editingOdometer?.value).toBe('36012')
+    expect(model.getState().editingOdometer?.asking).toBeUndefined()
+    let owner: string | null | undefined
+    preferences.watch((p) => (owner = p.aiSharingOwner))()
+    expect(owner).toBe('u1')
+  })
+
+  it('goes back to typing when the owner does not allow it', async () => {
+    const { model, photos, preferences } = await started(null)
+    await model.getState().chooseOdometerPhoto()
+    model.getState().declinePhotoReading()
+    expect(model.getState().editingOdometer?.asking).toBeUndefined()
+    expect(photos.picks).toEqual([])
+    let owner: string | null | undefined
+    preferences.watch((p) => (owner = p.aiSharingOwner))()
+    expect(owner).toBeNull()
+  })
+
+  it('asks again when someone else allowed it on this phone', async () => {
+    const { model, photos } = await started('someone-else')
+    await model.getState().takeOdometerPhoto()
+    expect(model.getState().editingOdometer?.asking).toBe('camera')
+    expect(photos.picks).toEqual([])
+  })
+
+  it('keeps asking, with the reason, when the choice cannot be saved', async () => {
+    const { model, photos, preferences } = await started(null)
+    preferences.update = () => Promise.reject(new Error('disk full'))
+    await model.getState().takeOdometerPhoto()
+    await model.getState().allowPhotoReading()
+    expect(model.getState().editingOdometer).toMatchObject({
+      asking: 'camera',
+      allowing: false,
+      error: "Couldn't save that choice. Try again.",
+    })
+    expect(photos.picks).toEqual([])
+  })
+
+  it('does not open the camera when the page closes while the choice is saved', async () => {
+    const { model, photos, preferences } = await started(null)
+    let saved: (() => void) | undefined
+    const update = preferences.update
+    preferences.update = (patch) =>
+      new Promise((resolve) => (saved = () => void update(patch).then(resolve)))
+    await model.getState().takeOdometerPhoto()
+    const allowing = model.getState().allowPhotoReading()
+    model.getState().dispose()
+    saved?.()
+    await allowing
+    expect(photos.picks).toEqual([])
+  })
+
+  it('asks again once the owner turns sharing off in Account', async () => {
+    const { model, photos, preferences } = await started()
+    await preferences.update({ aiSharingOwner: null })
+    await model.getState().takeOdometerPhoto()
+    expect(model.getState().editingOdometer?.asking).toBe('camera')
+    expect(photos.picks).toEqual([])
+  })
+
+  it('says to sign in again rather than asking when nobody is signed in', async () => {
+    const s = setup({ aiSharingOwner: null, signedOut: true })
+    s.model.getState().start()
+    await settle()
+    await s.model.getState().takeOdometerPhoto()
+    expect(s.model.getState().editingOdometer).toMatchObject({
+      error: 'Sign in again to read photos.',
+    })
+    expect(s.model.getState().editingOdometer?.asking).toBeUndefined()
+  })
+
+  it('says how to fix a camera that cannot be opened', async () => {
+    const { model, photos, reader } = await started()
+    photos.take = () => Promise.reject(new Error('denied'))
+    await model.getState().takeOdometerPhoto()
+    expect(reader.calls).toHaveLength(0)
+    expect(model.getState().editingOdometer?.error).toBe(
+      "Couldn't open the photo. Check that the app may use your camera and photos.",
+    )
   })
 })
