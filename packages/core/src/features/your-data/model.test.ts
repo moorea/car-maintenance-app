@@ -1,12 +1,20 @@
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate'
 import { describe, expect, it } from 'vitest'
-import type { Attachment, FillUp, ServiceRecord, Vehicle, Warranty } from '../../domain/types'
+import type {
+  Attachment,
+  FillUp,
+  ServiceRecord,
+  TireSet,
+  Vehicle,
+  Warranty,
+} from '../../domain/types'
 import {
   fixedClock,
   memoryAttachments,
   memoryAuth,
   memoryDataFiles,
   memoryFillUps,
+  memoryTireSets,
   memoryOdometer,
   memorySchedule,
   memoryServiceRecords,
@@ -89,6 +97,7 @@ const phone = (
     attachments?: Attachment[]
     warranties?: Warranty[]
     fillUps?: FillUp[]
+    tireSets?: TireSet[]
     remote?: string[]
     files?: Record<string, Uint8Array>
   } = {},
@@ -107,6 +116,7 @@ const phone = (
   const attachments = memoryAttachments(data.attachments ?? [], { remote: data.remote ?? [] })
   const warranties = memoryWarranties(data.warranties ?? [])
   const fillUps = memoryFillUps(data.fillUps ?? [])
+  const tireSets = memoryTireSets(data.tireSets ?? [])
   const files = memoryDataFiles(data.files ?? {})
   const schedule = memorySchedule([
     { id: 'item-oil', configId: 'cfg-civic', task: 'Engine oil', kind: 'engine-oil' },
@@ -119,13 +129,25 @@ const phone = (
     attachments,
     warranties,
     fillUps,
+    tireSets,
     schedule,
     files,
     clock: fixedClock('2026-10-17'),
     ids: sequentialIds('new'),
   })
   model.getState().start()
-  return { auth, vehicles, odometer, services, attachments, warranties, fillUps, files, model }
+  return {
+    auth,
+    vehicles,
+    odometer,
+    services,
+    attachments,
+    warranties,
+    fillUps,
+    tireSets,
+    files,
+    model,
+  }
 }
 
 const samsPhone = () =>
@@ -327,6 +349,38 @@ describe('your data model', () => {
       expect(await alex.odometer.listForVehicle('new-1')).toEqual([])
       expect(alex.model.getState().message?.text).toBe(
         'Added 1 car with 0 services, 0 warranties, 1 fill-up and 0 documents.',
+      )
+    })
+
+    it('adds tire sets under new ids, with only one of them on the car', async () => {
+      const set: TireSet = {
+        id: 't-1',
+        vehicleId: 'civic',
+        name: 'All-season',
+        madeWeek: 14,
+        madeYear: 2024,
+        mounted: true,
+        mountedAtMiles: 30_000,
+        priorMiles: 0,
+        treadDepth32nds: 8,
+        treadCheckedOn: '2026-03-01',
+      }
+      const sam = phone(SAM, { vehicles: [civic], tireSets: [set] })
+      await sam.model.getState().exportAll()
+      expect(sam.model.getState().message?.text).toBe(
+        'Exported 1 car, 0 services, 0 warranties, 1 tire set and 0 documents.',
+      )
+      const alex = phone({ id: 'alex' })
+      alex.files.queueArchive(got(sam.files.shared[0]).bytes)
+
+      await alex.model.getState().chooseImport()
+      await alex.model.getState().confirmImport()
+
+      expect(await alex.tireSets.listForVehicle('new-1')).toEqual([
+        { ...set, id: 'new-2', vehicleId: 'new-1' },
+      ])
+      expect(alex.model.getState().message?.text).toBe(
+        'Added 1 car with 0 services, 0 warranties, 1 tire set and 0 documents.',
       )
     })
 

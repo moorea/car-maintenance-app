@@ -345,6 +345,15 @@ describe('session model, adding a car', () => {
     expect(model.getState().tab).toBe('garage')
   })
 
+  it('goes back from the tires page to the car', () => {
+    const { model } = setup(true, [civic])
+    model.getState().start()
+    model.getState().openTab('car')
+    model.getState().openTab('tires')
+    expect(model.getState().systemBack()).toBe(true)
+    expect(model.getState().tab).toBe('car')
+  })
+
   it('lets the system gesture close the app from the garage', () => {
     const { model } = setup(true, [civic])
     model.getState().start()

@@ -11,6 +11,7 @@ import {
   memoryVehicles,
   memoryVinDecoder,
   memoryWarranties,
+  memoryTireSets,
   OWNER,
 } from '@car/core/testing'
 import { demoModel, localAssistant } from '@car/core/testing'
@@ -487,6 +488,38 @@ export const createDemoRepositories = () => {
         startsOn: '2024-01-10',
         months: 36,
         policyNumber: 'TW-20431',
+      },
+    ]),
+    // The set on the car is young; the stored winter set is six years old and due to go, so the
+    // demo shows both what a set looks like and the warning.
+    tireSets: memoryTireSets([
+      {
+        id: 'demo-tires-all-season',
+        vehicleId: 'demo',
+        name: 'All-season',
+        brand: 'Michelin CrossClimate 2',
+        size: '225/65R17',
+        madeWeek: 11,
+        madeYear: 2024,
+        mounted: true,
+        mountedAtMiles: 24_150,
+        priorMiles: 9_800,
+        treadDepth32nds: 7,
+        treadCheckedOn: '2026-09-20',
+      },
+      {
+        id: 'demo-tires-winter',
+        vehicleId: 'demo',
+        name: 'Winter',
+        brand: 'Bridgestone Blizzak DM-V2',
+        size: '225/65R17',
+        madeWeek: 40,
+        madeYear: 2020,
+        mounted: false,
+        priorMiles: 11_200,
+        treadDepth32nds: 6,
+        treadCheckedOn: '2026-04-02',
+        notes: 'Stored at Demo Garage',
       },
     ]),
     attachments: demoAttachments(),

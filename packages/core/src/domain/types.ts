@@ -114,6 +114,38 @@ export interface FillUp {
   notes?: string
 }
 
+/**
+ * A set of tires the owner tracks: the ones on the car, or a set stored for another season. Tires
+ * age out whatever their tread, so a set is judged by how old it is as well as by its miles.
+ */
+export interface TireSet {
+  id: string
+  vehicleId: VehicleId
+  /** The owner's name for it, such as "All-season" or "Winter". */
+  name: string
+  /** Such as "Michelin CrossClimate 2". */
+  brand?: string
+  /** Such as "225/65R17". */
+  size?: string
+  /**
+   * The week (1 to 53) and year the tires were made, from the last four digits of the DOT code
+   * on the sidewall. Both or neither.
+   */
+  madeWeek?: number
+  madeYear?: number
+  /** On the car now. At most one of a car's sets is. */
+  mounted: boolean
+  /** The odometer when the set was last put on the car. Absent while it is stored. */
+  mountedAtMiles?: number
+  /** Miles driven on the set before it was last put on: earlier seasons, or a used set. */
+  priorMiles: number
+  /** The shallowest tread depth last measured, in 32nds of an inch. */
+  treadDepth32nds?: number
+  /** When the tread was measured. Present when `treadDepth32nds` is. */
+  treadCheckedOn?: IsoDate
+  notes?: string
+}
+
 /** What a warranty covers. Factory warranties usually come as several of these at once. */
 export type WarrantyKind =
   'basic' | 'powertrain' | 'corrosion' | 'emissions' | 'hybrid-battery' | 'extended' | 'other'

@@ -1,7 +1,14 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { fromAttachment, fromFillUp, fromServiceRecord, fromVehicle, fromWarranty } from './rows'
+import {
+  fromAttachment,
+  fromFillUp,
+  fromServiceRecord,
+  fromTireSet,
+  fromVehicle,
+  fromWarranty,
+} from './rows'
 import { schema } from './schema'
 
 const migrations = fileURLToPath(new URL('../../../supabase/migrations/', import.meta.url))
@@ -22,7 +29,7 @@ const postgresColumns = (table: string): string[] => {
     .map((line) => line.trim().split(/\s+/)[0] ?? '')
     .filter(
       (word) =>
-        /^[a-z_]+$/.test(word) &&
+        /^[a-z_][a-z0-9_]*$/.test(word) &&
         !['unique', 'primary', 'check', 'constraint', 'foreign'].includes(word),
     )
   return [...created, ...added]
@@ -74,6 +81,14 @@ describe('device schema', () => {
         full: true,
         missedPrevious: false,
       }),
+    )
+    expect(['id', ...(columns ?? [])]).toEqual(expect.arrayContaining(written))
+  })
+
+  it('stores every field the app writes for a tire set', () => {
+    const columns = synced.find((t) => t.name === 'tire_sets')?.columns.map((c) => c.name)
+    const written = Object.keys(
+      fromTireSet({ id: 't', vehicleId: 'v', name: 'Winter', mounted: false, priorMiles: 0 }),
     )
     expect(['id', ...(columns ?? [])]).toEqual(expect.arrayContaining(written))
   })

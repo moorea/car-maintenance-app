@@ -1,6 +1,7 @@
 import { addDays, type IsoDate } from '../lib/date'
 import { formatLongDate } from '../lib/format'
 import type { Vehicle } from '../domain/types'
+import { TIRE_AGE_NOTICE_DAYS, type TireAgeMilestone } from '../features/tires/tires'
 import type { LocalNotification } from '../ports'
 import { DUE_SOON_DAYS, type DueProjection } from './projectDue'
 
@@ -38,6 +39,8 @@ export interface VehicleDue {
   vehicle: Vehicle
   due: DueProjection[]
   warranties?: WarrantyEnding[]
+  /** Tire sets' sixth and tenth birthdays still ahead. */
+  tires?: TireAgeMilestone[]
 }
 
 const formatMiles = (miles: number) => `${Math.round(miles).toLocaleString('en-US')} mi`
@@ -98,13 +101,37 @@ const warrantyNotices = (cars: VehicleDue[], today: IsoDate): LocalNotification[
     ),
   )
 
+const tireBody = (m: TireAgeMilestone): string =>
+  m.years >= 10
+    ? `${m.name} tires turn 10 on ${formatLongDate(m.on)}. Replace them: no tire should stay in service that long.`
+    : `${m.name} tires turn 6 on ${formatLongDate(m.on)}. Most carmakers say to replace tires by then, even with tread left.`
+
+const tireNotices = (cars: VehicleDue[], today: IsoDate): LocalNotification[] =>
+  cars.flatMap(({ vehicle, tires = [] }) =>
+    tires.flatMap((m): LocalNotification[] => {
+      const date = addDays(m.on, -TIRE_AGE_NOTICE_DAYS)
+      if (date <= today) return []
+      return [
+        {
+          id: `tires:${vehicle.id}:${m.setId}:${m.years}`,
+          date,
+          hour: REMINDER_HOUR,
+          title: `${vehicle.nickname}: tires getting old`,
+          body: tireBody(m),
+          vehicleId: vehicle.id,
+        },
+      ]
+    }),
+  )
+
 /**
  * The notifications to have scheduled today: for every item with a projected due date, one two
  * weeks before it and one on the day, at REMINDER_HOUR. Items falling on the same day for the same
  * car share one notification. Only dates after today are scheduled, so planning again never
  * repeats a reminder that was due to fire already, and items that are already due are left to
  * the app's own screens. Each warranty still running gets a heads-up WARRANTY_NOTICE_DAYS before
- * it ends. Soonest first, capped at MAX_SCHEDULED_REMINDERS.
+ * it ends, and each tire set a heads-up TIRE_AGE_NOTICE_DAYS before it turns six and ten. Soonest
+ * first, capped at MAX_SCHEDULED_REMINDERS.
  */
 export const planNotifications = (cars: VehicleDue[], today: IsoDate): LocalNotification[] => {
   const groups = new Map<
@@ -137,7 +164,7 @@ export const planNotifications = (cars: VehicleDue[], today: IsoDate): LocalNoti
     body: bodyFor(g.stage, g.items),
     vehicleId: g.vehicle.id,
   }))
-  return [...service, ...warrantyNotices(cars, today)]
+  return [...service, ...warrantyNotices(cars, today), ...tireNotices(cars, today)]
     .sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
     .slice(0, MAX_SCHEDULED_REMINDERS)
 }

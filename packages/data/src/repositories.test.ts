@@ -6,6 +6,7 @@ import type {
   OdometerReading,
   SafetyReport,
   ServiceRecord,
+  TireSet,
   Vehicle,
   Warranty,
 } from '@car/core'
@@ -277,6 +278,69 @@ describe('PowerSync repositories', () => {
     const values = await updates.waitFor(2)
     expect(values.at(-1)?.map((f) => f.odometerMiles)).toEqual([41_000])
     updates.stop()
+  })
+
+  it('reads back tire sets with the one on the car first, DOT date and tread intact', async () => {
+    const repos = createPowerSyncRepositories(db)
+    const stored: TireSet = {
+      id: 't1',
+      vehicleId: 'v1',
+      name: 'All-season',
+      madeWeek: 14,
+      madeYear: 2023,
+      mounted: false,
+      priorMiles: 12_000,
+      treadDepth32nds: 6,
+      treadCheckedOn: '2026-09-01',
+    }
+    const onCar: TireSet = {
+      id: 't2',
+      vehicleId: 'v1',
+      name: 'Winter',
+      brand: 'Michelin X-Ice Snow',
+      size: '225/65R17',
+      mounted: true,
+      mountedAtMiles: 41_000,
+      priorMiles: 3_000,
+      notes: 'Stored at the dealer',
+    }
+    await repos.tireSets.save(stored, onCar)
+    expect(await repos.tireSets.listForVehicle('v1')).toStrictEqual([onCar, stored])
+    expect(await repos.tireSets.listForVehicle('other')).toEqual([])
+  })
+
+  it('uploads a swap as one transaction of only what changed in each set', async () => {
+    const repos = createPowerSyncRepositories(db)
+    const summer: TireSet = {
+      id: 't1',
+      vehicleId: 'v1',
+      name: 'Summer',
+      mounted: true,
+      mountedAtMiles: 30_000,
+      priorMiles: 0,
+    }
+    const winter: TireSet = {
+      id: 't2',
+      vehicleId: 'v1',
+      name: 'Winter',
+      mounted: false,
+      priorMiles: 0,
+    }
+    await repos.tireSets.save(summer, winter)
+    await db.getNextCrudTransaction().then((tx) => tx?.complete())
+    const { mountedAtMiles: _, ...stored } = summer
+    await repos.tireSets.save(
+      { ...winter, mounted: true, mountedAtMiles: 35_000 },
+      { ...stored, mounted: false, priorMiles: 5_000 },
+    )
+    const tx = await db.getNextCrudTransaction()
+    expect(tx?.crud.map((c) => [c.op, c.id, Object.keys(c.opData ?? {}).sort()])).toEqual([
+      ['PATCH', 't2', ['mounted', 'mounted_at_miles', 'updated_at']],
+      ['PATCH', 't1', ['mounted', 'mounted_at_miles', 'prior_miles', 'updated_at']],
+    ])
+    await tx?.complete()
+    await repos.tireSets.remove('t1')
+    expect((await db.getNextCrudTransaction())?.crud.map((c) => c.op)).toEqual(['DELETE'])
   })
 
   it('remembers whose data the local copy holds, without queueing it for upload', async () => {

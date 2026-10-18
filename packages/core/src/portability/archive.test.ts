@@ -97,6 +97,31 @@ const rav4: CarData = {
       station: 'Costco',
     },
   ],
+  tireSets: [
+    {
+      id: 't-2',
+      vehicleId: 'car-1',
+      name: 'Winter',
+      madeWeek: 40,
+      madeYear: 2022,
+      mounted: false,
+      priorMiles: 8_000,
+    },
+    {
+      id: 't-1',
+      vehicleId: 'car-1',
+      name: 'All-season',
+      brand: 'Michelin CrossClimate 2',
+      size: '225/65R17',
+      madeWeek: 14,
+      madeYear: 2024,
+      mounted: true,
+      mountedAtMiles: 29_000,
+      priorMiles: 0,
+      treadDepth32nds: 8,
+      treadCheckedOn: '2026-03-01',
+    },
+  ],
   items: [{ id: 'item-oil', configId: 'cfg', task: 'Engine oil and filter', kind: 'engine-oil' }],
 }
 
@@ -124,6 +149,7 @@ describe('buildArchive', () => {
       'fill-ups.csv',
       'odometer.csv',
       'service-log.csv',
+      'tires.csv',
       'warranties.csv',
     ])
     expect(missing).toEqual([])
@@ -246,6 +272,46 @@ describe('readArchive', () => {
     ])
     expect(archive.file('documents/Blue -Bessie-/Card.pdf')).toEqual(new Uint8Array([4, 5, 6, 7]))
     expect(archive.file('documents/nope.pdf')).toBeUndefined()
+  })
+
+  it('lists tire sets in the JSON and the CSV, the set on the car first', () => {
+    const { bytes } = buildArchive([rav4], files, '2026-10-17')
+    expect(textOf(bytes, 'tires.csv').split('\r\n').slice(1, 3)).toEqual([
+      'Blue -Bessie-,All-season,Michelin CrossClimate 2,225/65R17,14,2024,yes,29000,0,8,2026-03-01,',
+      'Blue -Bessie-,Winter,,,40,2022,no,,8000,,,',
+    ])
+    expect(readArchive(bytes).data.cars[0]?.tireSets).toEqual([
+      {
+        id: 't-1',
+        name: 'All-season',
+        brand: 'Michelin CrossClimate 2',
+        size: '225/65R17',
+        madeWeek: 14,
+        madeYear: 2024,
+        mounted: true,
+        mountedAtMiles: 29_000,
+        priorMiles: 0,
+        treadDepth32nds: 8,
+        treadCheckedOn: '2026-03-01',
+      },
+      {
+        id: 't-2',
+        name: 'Winter',
+        madeWeek: 40,
+        madeYear: 2022,
+        mounted: false,
+        priorMiles: 8_000,
+      },
+    ])
+  })
+
+  it('reads an export made before tire sets existed as a car without them', () => {
+    const json = JSON.parse(
+      textOf(buildArchive([rav4], files, '2026-10-17').bytes, 'car-data.json'),
+    )
+    delete json.cars[0].tireSets
+
+    expect(readArchive(zipOf(json)).data.cars[0]?.tireSets).toEqual([])
   })
 
   it('reads an export made before fill-ups existed as a car without fill-ups', () => {

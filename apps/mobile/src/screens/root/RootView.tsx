@@ -15,6 +15,7 @@ import { SignInScreen } from '../sign-in/SignInScreen'
 import { TroubleCodesScreen } from '../trouble-codes/TroubleCodesScreen'
 import { WarrantyScreen } from '../warranty/WarrantyScreen'
 import { FuelScreen } from '../fuel/FuelScreen'
+import { TiresScreen } from '../tires/TiresScreen'
 import { YourDataScreen } from '../your-data/YourDataScreen'
 import { askModelFor } from '../../models/askModels'
 import { Host } from '../../ui/Host'
@@ -40,7 +41,7 @@ const TABS: TabBarItem<AppTab>[] = [
   { key: 'car', label: 'Car', symbol: 'car' },
 ]
 
-const CAR_PAGES = new Set<AppTab>(['warranty', 'fuel', 'driving'])
+const CAR_PAGES = new Set<AppTab>(['warranty', 'fuel', 'driving', 'tires'])
 
 /** Picks the screen for the session: sign-in, adding a car, or the tabs for the selected car. */
 export function RootView(props: Props) {
@@ -57,7 +58,7 @@ export function RootView(props: Props) {
         {props.tab === 'ask' || props.tab === 'quote' || props.tab === 'codes' ? null : (
           <TabBar
             tabs={TABS}
-            // The warranty, fuel and driving pages belong to the car, so its tab stays selected.
+            // The warranty, fuel, driving and tires pages belong to the car, so its tab stays selected.
             selected={CAR_PAGES.has(props.tab) ? 'car' : props.tab}
             onSelect={props.openTab}
             action={{
@@ -144,11 +145,14 @@ function TabContent(props: Props & { vehicle: Vehicle }) {
           onTroubleCodes={() => props.openTab('codes')}
           onWarranty={() => props.openTab('warranty')}
           onFuel={() => props.openTab('fuel')}
+          onTires={() => props.openTab('tires')}
           onDriving={() => props.openTab('driving')}
         />
       )
     case 'fuel':
       return <FuelScreen vehicle={vehicle} onBack={() => props.openTab('car')} />
+    case 'tires':
+      return <TiresScreen vehicle={vehicle} onBack={() => props.openTab('car')} />
     case 'driving':
       return <DrivingScreen vehicle={vehicle} onBack={() => props.openTab('car')} />
     case 'warranty':

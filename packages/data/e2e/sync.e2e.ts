@@ -2,7 +2,15 @@ import { writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import type { Attachment, FillUp, SafetyReport, ServiceRecord, Vehicle, Warranty } from '@car/core'
+import type {
+  Attachment,
+  FillUp,
+  SafetyReport,
+  ServiceRecord,
+  TireSet,
+  Vehicle,
+  Warranty,
+} from '@car/core'
 import { afterEach, describe, expect, it } from 'vitest'
 import { schema, UPLOADABLE_TABLES } from '../src'
 import { attachmentPath } from '../src/upload'
@@ -63,6 +71,22 @@ const fillUp = (vehicleId: string, fields: Partial<FillUp> = {}): FillUp => ({
   full: true,
   missedPrevious: false,
   station: 'Shell',
+  ...fields,
+})
+
+const tireSet = (vehicleId: string, fields: Partial<TireSet> = {}): TireSet => ({
+  id: id(),
+  vehicleId,
+  name: 'All-season',
+  brand: 'Michelin CrossClimate 2',
+  size: '215/55R16',
+  madeWeek: 14,
+  madeYear: 2023,
+  mounted: true,
+  mountedAtMiles: 30_000,
+  priorMiles: 0,
+  treadDepth32nds: 7,
+  treadCheckedOn: '2026-09-01',
   ...fields,
 })
 
@@ -242,6 +266,48 @@ describe('two phones signed in as one owner', () => {
     )
     expect(await serverRows('fill_ups', 'vehicle_id', vehicleId)).toEqual([])
     expect(await serverRows('service_records', 'vehicle_id', vehicleId)).toEqual([])
+  })
+
+  it('each see a tire swap the other made, both sets changed together', async () => {
+    const owner = await createUser()
+    const [a, b] = [await open(owner), await open(owner)]
+    const { id: vehicleId } = await addCar(a)
+    const summer = tireSet(vehicleId)
+    const winter = tireSet(vehicleId, {
+      name: 'Winter',
+      brand: 'Michelin X-Ice Snow',
+      madeWeek: 40,
+      madeYear: 2022,
+      mounted: false,
+      priorMiles: 4_000,
+    })
+    const { mountedAtMiles: _, ...rest } = winter
+    await a.tireSets.save(summer, rest)
+    await eventually(
+      () => b.tireSets.listForVehicle(vehicleId),
+      (sets) => sets.length === 2,
+      'both tire sets',
+    )
+
+    const { mountedAtMiles: __, ...stored } = summer
+    const swapped = [
+      { ...winter, mounted: true, mountedAtMiles: 42_000 },
+      { ...stored, mounted: false, priorMiles: 12_000 },
+    ]
+    await b.tireSets.save(...swapped)
+    await b.uploaded()
+
+    expect(
+      await eventually(
+        () => a.tireSets.listForVehicle(vehicleId),
+        (sets) => sets[0]?.id === winter.id,
+        'the swap',
+      ),
+    ).toEqual(swapped)
+    expect(await serverRows('tire_sets', 'id', summer.id)).toMatchObject([
+      { mounted: false, mounted_at_miles: null, prior_miles: 12_000, tread_32nds: 7 },
+    ])
+    expect([...a.dropped, ...b.dropped]).toEqual([])
   })
 
   it('agree on one version when both edit the same warranty', async () => {
@@ -612,6 +678,7 @@ describe('owner isolation', () => {
     await b.records.add(service(vehicleId))
     await b.warranties.save(warranty(vehicleId))
     await b.fillUps.save(fillUp(vehicleId))
+    await b.tireSets.save(tireSet(vehicleId))
     await b.odometer.add({ vehicleId, date: '2026-10-05', miles: 99_999 })
     await b.db.execute(
       'insert into vehicles (id, owner_id, year, make, model, nickname) values (?, ?, ?, ?, ?, ?)',
@@ -619,8 +686,8 @@ describe('owner isolation', () => {
     )
     await b.uploaded()
 
-    expect(b.dropped).toHaveLength(5)
-    for (const table of ['service_records', 'warranties', 'fill_ups'])
+    expect(b.dropped).toHaveLength(6)
+    for (const table of ['service_records', 'warranties', 'fill_ups', 'tire_sets'])
       expect(await serverRows(table, 'vehicle_id', vehicleId)).toEqual([])
     expect(await serverRows('odometer_readings', 'vehicle_id', vehicleId)).toHaveLength(1)
     expect(await serverRows('vehicles', 'id', vehicleId)).toMatchObject([
@@ -730,6 +797,7 @@ describe('deletes', () => {
     await a.records.add(oilChange)
     await a.warranties.save(warranty(vehicleId))
     await a.fillUps.save(fillUp(vehicleId))
+    await a.tireSets.save(tireSet(vehicleId))
     const receipt = attachment(vehicleId, { sizeBytes: 20 })
     await a.attachments.add(receipt, pickedPdf('receipt'))
     await a.uploaded()
@@ -798,6 +866,7 @@ describe('coverage', () => {
     'service_records',
     'warranties',
     'fill_ups',
+    'tire_sets',
     'attachments',
   ]
 

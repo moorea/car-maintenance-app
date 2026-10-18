@@ -6,6 +6,7 @@ import type {
   MaintenanceItem,
   OdometerReading,
   ServiceRecord,
+  TireSet,
   Vehicle,
   Warranty,
 } from '../domain/types'
@@ -32,6 +33,7 @@ export interface CarData {
   warranties: Warranty[]
   /** Fill-ups and charging sessions. Their mileage is not repeated in `readings`. */
   fillUps: FillUp[]
+  tireSets: TireSet[]
   /** The car's schedule, to name each service's item. */
   items: MaintenanceItem[]
 }
@@ -108,6 +110,29 @@ const exportedFillUp = z.object({
   notes: clipped(NOTES_MAX),
 })
 
+const exportedTireSet = z
+  .object({
+    id: z.string().min(1),
+    name: z
+      .string()
+      .min(1)
+      .transform((s) => Array.from(s).slice(0, SHORT_TEXT_MAX).join('')),
+    brand: clipped(SHORT_TEXT_MAX),
+    size: clipped(SHORT_TEXT_MAX),
+    madeWeek: z.number().int().min(1).max(53).optional(),
+    madeYear: z.number().int().min(2000).max(2099).optional(),
+    mounted: z.boolean(),
+    mountedAtMiles: z.number().int().min(0).max(2_000_000).optional(),
+    priorMiles: z.number().int().min(0).max(2_000_000),
+    treadDepth32nds: z.number().int().min(0).max(32).optional(),
+    treadCheckedOn: isoDate.optional(),
+    notes: clipped(NOTES_MAX),
+  })
+  .refine(
+    (t) => (t.madeWeek === undefined) === (t.madeYear === undefined),
+    'A DOT date needs its week and its year',
+  )
+
 const exportedCar = z.object({
   id: z.string().min(1),
   year: z.number().int(),
@@ -125,6 +150,8 @@ const exportedCar = z.object({
   warranties: z.array(exportedWarranty),
   // Exports made before fill-ups existed have none.
   fillUps: z.array(exportedFillUp).default([]),
+  // Nor did they have tire sets.
+  tireSets: z.array(exportedTireSet).default([]),
 })
 
 const exportFile = z.object({
@@ -139,6 +166,7 @@ export type ExportedService = z.infer<typeof exportedService>
 export type ExportedDocument = z.infer<typeof exportedDocument>
 export type ExportedWarranty = z.infer<typeof exportedWarranty>
 export type ExportedFillUp = z.infer<typeof exportedFillUp>
+export type ExportedTireSet = z.infer<typeof exportedTireSet>
 export type ExportFile = z.infer<typeof exportFile>
 
 /** A car's name in the export: its nickname, or year, make and model. */
@@ -196,6 +224,7 @@ service-log.csv Every logged service, with its cost in US dollars.
 odometer.csv    Every odometer reading, in miles.
 warranties.csv  Every warranty, with when and at what mileage it ends.
 fill-ups.csv    Every fill-up and charging session: gallons or kWh, and its cost in US dollars.
+tires.csv       Every set of tires: when it was made, the miles on it and its last tread depth.
 documents.csv   Every attached receipt, registration, insurance card or other file.
 documents/      The files themselves, in a folder per car.
 
@@ -258,10 +287,26 @@ export const buildArchive = (
         'notes',
       ],
     ],
+    tireSets: [
+      [
+        'car',
+        'name',
+        'brand',
+        'size',
+        'dot_week',
+        'dot_year',
+        'on_car',
+        'put_on_at_miles',
+        'earlier_miles',
+        'tread_32nds',
+        'tread_checked_on',
+        'notes',
+      ],
+    ],
   }
 
   const exported: ExportedCar[] = cars.map(
-    ({ vehicle: v, readings, services, attachments, warranties, fillUps, items }) => {
+    ({ vehicle: v, readings, services, attachments, warranties, fillUps, tireSets, items }) => {
       const label = carName(safeName(carLabel(v)))
       const fileName = uniquely(true)
       const itemById = new Map(items.map((i) => [i.id, i]))
@@ -346,6 +391,24 @@ export const buildArchive = (
           f.station ?? '',
           f.notes ?? '',
         ])
+      const sortedTireSets = [...tireSets].sort(
+        (a, b) => Number(b.mounted) - Number(a.mounted) || a.name.localeCompare(b.name),
+      )
+      for (const t of sortedTireSets)
+        rows.tireSets.push([
+          label,
+          t.name,
+          t.brand ?? '',
+          t.size ?? '',
+          t.madeWeek?.toString() ?? '',
+          t.madeYear?.toString() ?? '',
+          t.mounted ? 'yes' : 'no',
+          t.mountedAtMiles?.toString() ?? '',
+          String(t.priorMiles),
+          t.treadDepth32nds?.toString() ?? '',
+          t.treadCheckedOn ?? '',
+          t.notes ?? '',
+        ])
       rows.cars.push([
         label,
         String(v.year),
@@ -408,6 +471,20 @@ export const buildArchive = (
           ...(f.station && { station: f.station }),
           ...(f.notes && { notes: f.notes }),
         })),
+        tireSets: sortedTireSets.map((t) => ({
+          id: t.id,
+          name: t.name,
+          ...(t.brand && { brand: t.brand }),
+          ...(t.size && { size: t.size }),
+          ...(t.madeWeek !== undefined && { madeWeek: t.madeWeek }),
+          ...(t.madeYear !== undefined && { madeYear: t.madeYear }),
+          mounted: t.mounted,
+          ...(t.mountedAtMiles !== undefined && { mountedAtMiles: t.mountedAtMiles }),
+          priorMiles: t.priorMiles,
+          ...(t.treadDepth32nds !== undefined && { treadDepth32nds: t.treadDepth32nds }),
+          ...(t.treadCheckedOn && { treadCheckedOn: t.treadCheckedOn }),
+          ...(t.notes && { notes: t.notes }),
+        })),
       }
     },
   )
@@ -425,6 +502,7 @@ export const buildArchive = (
   zip['odometer.csv'] = strToU8(csv(rows.odometer))
   zip['warranties.csv'] = strToU8(csv(rows.warranties))
   zip['fill-ups.csv'] = strToU8(csv(rows.fillUps))
+  zip['tires.csv'] = strToU8(csv(rows.tireSets))
   zip['documents.csv'] = strToU8(csv(rows.documents))
   return { bytes: zipSync(zip, { level: 6 }), missing }
 }

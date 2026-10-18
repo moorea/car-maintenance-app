@@ -229,4 +229,53 @@ describe('planNotifications', () => {
       expect(plan[0]?.id).toBe('warranty:v1:w1:30')
     })
   })
+  describe('tires', () => {
+    it('warns a month before a set turns six, and again before it turns ten', () => {
+      const plan = planNotifications(
+        [
+          {
+            vehicle: rav4,
+            due: [],
+            tires: [
+              { setId: 't1', name: 'Winter', years: 6, on: '2027-06-07' },
+              { setId: 't1', name: 'Winter', years: 10, on: '2031-06-07' },
+            ],
+          },
+        ],
+        '2026-10-01',
+      )
+      expect(plan).toEqual([
+        {
+          id: 'tires:v1:t1:6',
+          date: '2027-05-08',
+          hour: 9,
+          title: 'RAV4: tires getting old',
+          body: 'Winter tires turn 6 on Jun 7, 2027. Most carmakers say to replace tires by then, even with tread left.',
+          vehicleId: 'v1',
+        },
+        {
+          id: 'tires:v1:t1:10',
+          date: '2031-05-08',
+          hour: 9,
+          title: 'RAV4: tires getting old',
+          body: 'Winter tires turn 10 on Jun 7, 2031. Replace them: no tire should stay in service that long.',
+          vehicleId: 'v1',
+        },
+      ])
+    })
+
+    it('leaves out a heads-up whose day has passed', () => {
+      const plan = planNotifications(
+        [
+          {
+            vehicle: rav4,
+            due: [],
+            tires: [{ setId: 't1', name: 'Winter', years: 6, on: '2027-06-07' }],
+          },
+        ],
+        '2027-05-08',
+      )
+      expect(plan).toEqual([])
+    })
+  })
 })
