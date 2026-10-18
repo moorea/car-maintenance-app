@@ -56,6 +56,10 @@ appId: com.moorea.carmaintenance
 - inputText: 'Toyota'
 - tapOn: 'e.g. RAV4'
 - inputText: 'RAV4'
+- hideKeyboard
+- scrollUntilVisible:
+    element: 'e.g. 36000'
+    centerElement: true
 - tapOn: 'e.g. 36000'
 - inputText: '35780'
 - hideKeyboard

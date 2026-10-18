@@ -1,6 +1,6 @@
 import type { ReminderOfferActions, ReminderOfferState } from '@car/core'
 import { Button, Column, Row, ScrollView, Spacer, type UniversalStyle } from '@expo/ui'
-import { ActivityIndicator, StyleSheet } from 'react-native'
+import { StyleSheet } from 'react-native'
 import { useColors } from '../../theme'
 import { Host } from '../../ui/Host'
 import { PillButton } from '../../ui/surfaces'
@@ -16,8 +16,6 @@ type Props = ReminderOfferState &
 /** Pure rendering of the offer to turn reminders on, shown once a car has been added. */
 export function ReminderOfferView(props: Props) {
   const colors = useColors()
-  if (props.status === 'loading' || props.status === 'done')
-    return <ActivityIndicator style={styles.fill} />
   const saving = props.status === 'saving'
 
   return (

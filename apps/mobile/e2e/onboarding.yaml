@@ -57,9 +57,15 @@ appId: com.moorea.carmaintenance
 - inputText: 'Toyota'
 - tapOn: 'e.g. RAV4'
 - inputText: 'RAV4'
+# Tap the title to put the number pad away; it has no return key.
+- tapOn: 'Your car'
+- scrollUntilVisible:
+    element: 'e.g. 36000'
+    centerElement: true
 - tapOn: 'e.g. 36000'
 - inputText: '35780'
-- hideKeyboard
+# Tap the title to put the number pad away; it has no return key.
+- tapOn: 'Your car'
 - takeScreenshot: 27-first-car-details
 - scrollUntilVisible:
     element: 'Save car'

@@ -37,8 +37,11 @@ export interface SessionState {
   selectedVehicleId?: string | undefined
   /** True while the owner is adding another car from a car's screen. */
   addingCar: boolean
-  /** True after a car is added, until reminders have been offered for it (or need not be). */
-  offerReminders: boolean
+  /**
+   * The car just added, until reminders have been offered for it (or needed no offer). The offer
+   * waits until that car is the selected one, so it names the right car.
+   */
+  offerRemindersFor?: string | undefined
   /** The open tab. Signing in opens the garage. */
   tab: AppTab
   /**
@@ -169,7 +172,7 @@ export const createSessionModel = (deps: {
           vehicles: [],
           selectedVehicleId: undefined,
           addingCar: false,
-          offerReminders: false,
+          offerRemindersFor: undefined,
           tab: 'garage',
         })
         return
@@ -181,7 +184,7 @@ export const createSessionModel = (deps: {
         vehicles: [],
         selectedVehicleId: undefined,
         addingCar: false,
-        offerReminders: false,
+        offerRemindersFor: undefined,
         tab: 'garage',
       })
       stopVehicles = deps.vehicles.watchOwned(user.id, showVehicles)
@@ -195,7 +198,6 @@ export const createSessionModel = (deps: {
       status: 'starting',
       vehicles: [],
       addingCar: false,
-      offerReminders: false,
       tab: 'garage',
 
       start: () => {
@@ -266,15 +268,15 @@ export const createSessionModel = (deps: {
       carAdded: (id) => {
         justAdded = id
         tapped = undefined
-        set({ addingCar: false, offerReminders: true })
+        set({ addingCar: false, offerRemindersFor: id })
         // The list may already have it; otherwise the next update selects it.
         if (vehiclesLoaded) showVehicles(get().vehicles)
       },
 
+      remindersOffered: () => set({ offerRemindersFor: undefined }),
+
       // A failure to revoke the session on the server still signs out locally, which is what
       // the owner asked for, so it is not reported.
-      remindersOffered: () => set({ offerReminders: false }),
-
       signOut: async () => {
         try {
           await deps.auth.signOut()

@@ -194,11 +194,11 @@ describe('session model, adding a car', () => {
   it('offers reminders once a car is added, until they have been offered', () => {
     const { model } = setup(true)
     model.getState().start()
-    expect(model.getState().offerReminders).toBe(false)
+    expect(model.getState().offerRemindersFor).toBeUndefined()
     model.getState().carAdded('v-civic')
-    expect(model.getState().offerReminders).toBe(true)
+    expect(model.getState().offerRemindersFor).toBe('v-civic')
     model.getState().remindersOffered()
-    expect(model.getState().offerReminders).toBe(false)
+    expect(model.getState().offerRemindersFor).toBeUndefined()
   })
 
   it('drops a pending reminder offer on sign-out', async () => {
@@ -206,7 +206,7 @@ describe('session model, adding a car', () => {
     model.getState().start()
     model.getState().carAdded('v-civic')
     await model.getState().signOut()
-    expect(model.getState().offerReminders).toBe(false)
+    expect(model.getState().offerRemindersFor).toBeUndefined()
   })
 
   it('keeps a car the owner picks while a just-added car has not shown up yet', () => {

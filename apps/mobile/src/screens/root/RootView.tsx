@@ -9,7 +9,7 @@ import { CarScreen } from '../car/CarScreen'
 import { DrivingScreen } from '../driving/DrivingScreen'
 import { GarageScreen } from '../garage/GarageScreen'
 import { QuoteCheckScreen } from '../quote-check/QuoteCheckScreen'
-import { ReminderOfferScreen } from '../reminder-offer/ReminderOfferScreen'
+import { ReminderOfferGate } from '../reminder-offer/ReminderOfferScreen'
 import { RemindersScreen } from '../reminders/RemindersScreen'
 import { ServiceLogScreen } from '../service-log/ServiceLogScreen'
 import { SignInScreen } from '../sign-in/SignInScreen'
@@ -52,17 +52,8 @@ export function RootView(props: Props) {
   if (status === 'signed-out' || !user) return <SignInScreen />
 
   const vehicle = vehicles.find((v) => v.id === selectedVehicleId)
-  // Reminders become useful the moment there is a car, so they are offered then, once per phone.
-  if (status === 'ready' && vehicle && !addingCar && props.offerReminders) {
-    return (
-      <ReminderOfferScreen
-        carName={vehicle.nickname || `${vehicle.year} ${vehicle.make} ${vehicle.model}`}
-        onDone={props.remindersOffered}
-      />
-    )
-  }
   if (status === 'ready' && vehicle && !addingCar) {
-    return (
+    const tabs = (
       <View style={styles.fill}>
         <TabContent {...props} vehicle={vehicle} />
         {/* Ask, the quote checker and the code lookup fill the screen with their own back button. */}
@@ -81,6 +72,16 @@ export function RootView(props: Props) {
           />
         )}
       </View>
+    )
+    // Reminders become useful the moment there is a car, so they are offered then, once per phone.
+    if (props.offerRemindersFor !== vehicle.id) return tabs
+    return (
+      <ReminderOfferGate
+        carName={vehicle.nickname || `${vehicle.year} ${vehicle.make} ${vehicle.model}`}
+        onDone={props.remindersOffered}
+      >
+        {tabs}
+      </ReminderOfferGate>
     )
   }
   // Without a car there is no garage to open the account from, yet the owner must still be able
