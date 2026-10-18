@@ -393,9 +393,10 @@ const demoMilesOn = (date: string): number => {
 /**
  * A year of fill-ups every tankful, at the mileage the car's readings show: better
  * economy in summer, prices that rise into summer, one top-up that did not fill the tank, and
- * the same two stations most of the time.
+ * the same two stations most of the time. An electric car gets charging sessions instead, mostly
+ * at home and now and then at a fast charger.
  */
-export const demoFillUps = (): FillUp[] => {
+export const demoFillUps = (electric = false): FillUp[] => {
   const fills: FillUp[] = []
   let date = '2025-10-04'
   let lastMiles = demoMilesOn(date)
@@ -403,26 +404,47 @@ export const demoFillUps = (): FillUp[] => {
     const miles = demoMilesOn(date)
     const month = Number(date.slice(5, 7))
     const summer = Math.cos(((month - 7) / 12) * 2 * Math.PI)
-    const mpg = 29 + 2.5 * summer + Math.sin(i * 2.3) * 0.9
     const partial = i === 21
-    const gallons = Math.round(((miles - lastMiles) / mpg) * 1000) / 1000
-    const price = 3.35 + 0.25 * summer + Math.sin(i * 1.7) * 0.08
-    fills.push({
-      id: `demo-fuel-${i}`,
-      vehicleId: 'demo',
-      filledOn: date,
-      odometerMiles: miles,
-      energy: 'fuel',
-      quantity: i === 0 ? 12.8 : gallons,
-      costCents: Math.round((i === 0 ? 12.8 : gallons) * price * 100),
-      full: !partial,
-      missedPrevious: false,
-      station: i % 3 === 2 ? 'Shell' : 'Costco',
-    })
+    if (electric) {
+      // Batteries go further in summer than in the cold.
+      const milesPerKwh = 3.6 + 0.5 * summer + Math.sin(i * 2.3) * 0.15
+      const kwh = i === 0 ? 55 : Math.round(((miles - lastMiles) / milesPerKwh) * 10) / 10
+      const fast = i % 5 === 4
+      fills.push({
+        id: `demo-fuel-${i}`,
+        vehicleId: 'demo',
+        filledOn: date,
+        odometerMiles: miles,
+        energy: 'electric',
+        quantity: kwh,
+        costCents: Math.round(kwh * (fast ? 0.42 : 0.16) * 100),
+        full: !partial,
+        missedPrevious: false,
+        station: fast ? 'Electrify America' : 'Home',
+      })
+    } else {
+      const mpg = 29 + 2.5 * summer + Math.sin(i * 2.3) * 0.9
+      const gallons = Math.round(((miles - lastMiles) / mpg) * 1000) / 1000
+      const price = 3.35 + 0.25 * summer + Math.sin(i * 1.7) * 0.08
+      fills.push({
+        id: `demo-fuel-${i}`,
+        vehicleId: 'demo',
+        filledOn: date,
+        odometerMiles: miles,
+        energy: 'fuel',
+        quantity: i === 0 ? 12.8 : gallons,
+        costCents: Math.round((i === 0 ? 12.8 : gallons) * price * 100),
+        full: !partial,
+        missedPrevious: false,
+        station: i % 3 === 2 ? 'Shell' : 'Costco',
+      })
+    }
     lastMiles = miles
-    // About 330 to 390 miles a tank, so fill-ups come closer together while it is driven more.
+    // About 330 to 390 miles a tank, or 180 to 220 a charge, so they come closer together while
+    // it is driven more.
+    const range = electric ? 200 + Math.sin(i * 1.3) * 20 : 360 + Math.sin(i * 1.3) * 30
     const perDay = Math.max(1, (demoMilesOn(addDays(date, 14)) - miles) / 14)
-    date = addDays(date, Math.max(4, Math.round((360 + Math.sin(i * 1.3) * 30) / perDay)))
+    date = addDays(date, Math.max(electric ? 2 : 4, Math.round(range / perDay)))
   }
   return fills
 }
@@ -528,7 +550,7 @@ export const createDemoRepositories = () => {
       },
     },
     odometer,
-    fillUps: memoryFillUps(demoFillUps()),
+    fillUps: memoryFillUps(demoFillUps(electric)),
     customItems,
     schedule: memorySchedule(DEMO_SCHEDULE, customItems),
     safety: memorySafety({ demo: DEMO_SAFETY }),

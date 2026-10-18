@@ -244,7 +244,7 @@ function FillUpLine({ row, onPress }: { row: FillUpRow; onPress: () => void }) {
 }
 
 /** Costs by month as stacked bars of fuel and service, then a line per year. */
-function Costs({ months, years, costLabel }: Props) {
+function Costs({ months, years, costLabel, wording }: Props) {
   const colors = useColors()
   return (
     <Column spacing={16}>
@@ -268,10 +268,7 @@ function Costs({ months, years, costLabel }: Props) {
       <Section title="BY YEAR">
         {years.length === 0 ? (
           <Card>
-            <Note>
-              Costs add up here from fill-ups and services with a price. Nothing is logged with a
-              cost yet.
-            </Note>
+            <Note>{wording.costsEmpty}</Note>
           </Card>
         ) : (
           <Card padding={0}>

@@ -192,6 +192,7 @@ describe('fuel and costs screen', () => {
       remove: 'Delete fill-up',
     })
     expect(wording.empty).toContain('after two full fill-ups')
+    expect(wording.costsEmpty).toContain('from fill-ups and services')
     expect(costLabel).toBe('Fuel')
   })
 
@@ -211,6 +212,7 @@ describe('fuel and costs screen', () => {
     })
     expect(wording.empty).toContain('after two full charges')
     expect(wording.empty).not.toMatch(/fill-up/)
+    expect(wording.costsEmpty).toContain('from charges and services')
     expect(costLabel).toBe('Charging')
   })
 
@@ -232,11 +234,13 @@ describe('fuel and costs screen', () => {
       fill('a', '2026-09-01', 32_000, { energy: 'electric', quantity: 40 }),
       fill('b', '2026-09-10', 32_300, { energy: 'electric', quantity: 90 }),
       fill('c', '2026-10-01', 32_900, { energy: 'electric', quantity: 90, missedPrevious: true }),
+      fill('d', '2026-09-20', 32_600, { energy: 'electric', quantity: 20, full: false }),
     ]
     const { model } = setup(charges, { ...car, engine: 'Electric' })
     await settle()
     const s = model.getState()
     expect(s.rows[0]?.note).toBe('After a missed charge')
+    expect(s.rows[1]?.note).toBe('Partial charge')
     expect(s.economy[0]?.waiting).toBe(
       'The chart starts once two stretches between full charges are logged.',
     )
@@ -248,6 +252,19 @@ describe('fuel and costs screen', () => {
     expect(model.getState().form?.fieldErrors.odometerMiles).toBe(
       'Lower than the Oct 1 charge at 32,900 mi',
     )
+  })
+
+  it('names what failed to save after the energy going in', async () => {
+    const { model, fillUps } = setup(history)
+    fillUps.save = () => Promise.reject('offline')
+    await settle()
+    const s = model.getState()
+    s.openNew()
+    s.setField('energy', 'electric')
+    s.setField('odometerMiles', '33,500')
+    s.setField('quantity', '40')
+    expect(await s.save()).toBe(false)
+    expect(model.getState().form?.error).toBe('Could not save the charge')
   })
 
   it('explains full and missed for the energy going in', async () => {

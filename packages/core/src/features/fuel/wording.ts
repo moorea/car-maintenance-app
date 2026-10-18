@@ -26,6 +26,8 @@ export interface EnergyWording {
   editTitle: string
   /** "Delete fill-up". */
   remove: string
+  /** What the costs tab says before anything is logged with a price. */
+  costsEmpty: string
 }
 
 export const ENERGY_WORDING: Record<EnergyKind, EnergyWording> = {
@@ -41,6 +43,8 @@ export const ENERGY_WORDING: Record<EnergyKind, EnergyWording> = {
     addTitle: 'Add fill-up',
     editTitle: 'Edit fill-up',
     remove: 'Delete fill-up',
+    costsEmpty:
+      'Costs add up here from fill-ups and services with a price. Nothing is logged with a cost yet.',
   },
   electric: {
     title: 'Charging & costs',
@@ -54,6 +58,8 @@ export const ENERGY_WORDING: Record<EnergyKind, EnergyWording> = {
     addTitle: 'Add charge',
     editTitle: 'Edit charge',
     remove: 'Delete charge',
+    costsEmpty:
+      'Costs add up here from charges and services with a price. Nothing is logged with a cost yet.',
   },
 }
 
@@ -65,6 +71,12 @@ export const energyCostLabel = (logged: ReadonlySet<EnergyKind>, usual: EnergyKi
   if (logged.has('fuel') && logged.has('electric')) return 'Fuel & charging'
   const only = logged.has('electric') ? 'electric' : logged.has('fuel') ? 'fuel' : usual
   return only === 'electric' ? 'Charging' : 'Fuel'
+}
+
+/** What a fill-up that did not fill up is called: "Partial fill", "Partial charge". */
+export const PARTIAL_NOTE: Record<EnergyKind, string> = {
+  fuel: 'Partial fill',
+  electric: 'Partial charge',
 }
 
 /** How the add and edit sheet explains full and missed, for what is going in. */

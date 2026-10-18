@@ -29,6 +29,7 @@ import {
   ENERGY_WORDING,
   energyCostLabel,
   FILL_UP_NOUN,
+  PARTIAL_NOTE,
   FORM_NOTE,
   usualEnergy,
   type EnergyWording,
@@ -233,7 +234,6 @@ export const createFuelModel = (deps: FuelDeps): FuelModel => {
   let fillUps: FillUp[] = []
   let generation = 0
   const usual = usualEnergy(vehicle)
-  const noun = FILL_UP_NOUN[usual]
   const energies = ([usual, usual === 'fuel' ? 'electric' : 'fuel'] as const).map((energy) => ({
     energy,
     label: ENERGY_LABEL[energy],
@@ -290,7 +290,7 @@ export const createFuelModel = (deps: FuelDeps): FuelModel => {
           : f.missedPrevious
             ? `After a missed ${FILL_UP_NOUN[f.energy]}`
             : !f.full
-              ? 'Partial fill'
+              ? PARTIAL_NOTE[f.energy]
               : undefined
         return {
           id: f.id,
@@ -540,7 +540,10 @@ export const createFuelModel = (deps: FuelDeps): FuelModel => {
         try {
           await deps.fillUps.save(fillUp)
         } catch (e) {
-          updateForm({ saving: false, error: message(e, `Could not save the ${noun}`) })
+          updateForm({
+            saving: false,
+            error: message(e, `Could not save the ${FILL_UP_NOUN[energyOf(form.draft)]}`),
+          })
           return false
         }
         set({ form: undefined })
@@ -561,7 +564,7 @@ export const createFuelModel = (deps: FuelDeps): FuelModel => {
           updateForm({
             saving: false,
             confirmingDelete: false,
-            error: message(e, `Could not delete the ${noun}`),
+            error: message(e, `Could not delete the ${FILL_UP_NOUN[energyOf(form.draft)]}`),
           })
           return false
         }
