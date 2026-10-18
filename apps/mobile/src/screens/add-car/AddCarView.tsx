@@ -2,7 +2,7 @@ import type { AddCarActions, AddCarState } from '@car/core'
 import { Column, Row, ScrollView, Spacer, Switch } from '@expo/ui'
 import { Host } from '../../ui/Host'
 import { ErrorText, Note } from '../../ui/Note'
-import { GlassIconButton } from '../../ui/surfaces'
+import { GlassIconButton, PillButton } from '../../ui/surfaces'
 import { TextField } from '../../ui/TextField'
 import { Text } from '../../ui/Text'
 import { Button } from '../../ui/Button'
@@ -69,11 +69,15 @@ function VinStep({
         and on your registration and insurance card.
       </Note>
       {error ? <ErrorText>{error}</ErrorText> : null}
-      <Button
-        label={busy ? 'Looking up…' : 'Look up VIN'}
-        disabled={busy}
-        onPress={() => void lookUpVin()}
-      />
+      <Row>
+        <PillButton
+          label={busy ? 'Looking up…' : 'Look up VIN'}
+          disabled={busy}
+          onPress={() => void lookUpVin()}
+          fill="accent"
+          text="onAccent"
+        />
+      </Row>
       <Button
         variant="text"
         label="Enter year, make and model instead"
@@ -153,11 +157,15 @@ function DetailsStep(props: Props) {
         shorter service intervals.
       </Note>
       {error ? <ErrorText>{error}</ErrorText> : null}
-      <Button
-        label={busy ? 'Saving…' : 'Save car'}
-        disabled={busy}
-        onPress={() => void props.save()}
-      />
+      <Row>
+        <PillButton
+          label={busy ? 'Saving…' : 'Save car'}
+          disabled={busy}
+          onPress={() => void props.save()}
+          fill="accent"
+          text="onAccent"
+        />
+      </Row>
       <Button variant="text" label="Back" disabled={busy} onPress={props.back} />
     </>
   )

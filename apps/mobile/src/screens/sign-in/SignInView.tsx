@@ -1,8 +1,9 @@
 import type { SignInActions, SignInState } from '@car/core'
-import { Column, ScrollView, type UniversalStyle } from '@expo/ui'
+import { Column, Row, ScrollView, type UniversalStyle } from '@expo/ui'
 import { useColors } from '../../theme'
 import { Host } from '../../ui/Host'
 import { ErrorText, Note } from '../../ui/Note'
+import { PillButton } from '../../ui/surfaces'
 import { Symbol } from '../../ui/Symbol'
 import { TextField } from '../../ui/TextField'
 import { Text } from '../../ui/Text'
@@ -59,11 +60,15 @@ export function SignInView(props: Props) {
                 autoCapitalize="none"
               />
               {error ? <ErrorText>{error}</ErrorText> : null}
-              <Button
-                label={busy ? 'Sending…' : 'Email me a code'}
-                disabled={busy}
-                onPress={() => void props.submitEmail()}
-              />
+              <Row>
+                <PillButton
+                  label={busy ? 'Sending…' : 'Email me a code'}
+                  disabled={busy}
+                  onPress={() => void props.submitEmail()}
+                  fill="accent"
+                  text="onAccent"
+                />
+              </Row>
             </>
           ) : (
             <>
@@ -84,11 +89,15 @@ export function SignInView(props: Props) {
               <Note>
                 It can take a minute to arrive. If it doesn't, check your spam or junk folder.
               </Note>
-              <Button
-                label={busy ? 'Signing in…' : 'Sign in'}
-                disabled={busy}
-                onPress={() => void props.submitCode()}
-              />
+              <Row>
+                <PillButton
+                  label={busy ? 'Signing in…' : 'Sign in'}
+                  disabled={busy}
+                  onPress={() => void props.submitCode()}
+                  fill="accent"
+                  text="onAccent"
+                />
+              </Row>
               <Button
                 variant="text"
                 label="Send a new code"
