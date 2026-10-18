@@ -1,8 +1,9 @@
-import { Row, Text, type UniversalStyle } from '@expo/ui'
+import { Row, type UniversalStyle } from '@expo/ui'
 import { useEffect, useRef, useState } from 'react'
 import { useColors } from '../theme'
 import { Symbol } from './Symbol'
 import type { SymbolName } from './symbols'
+import { Text } from './Text'
 
 export interface MenuAction {
   label: string

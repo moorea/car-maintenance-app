@@ -1,4 +1,4 @@
-import { Row, Text } from '@expo/ui'
+import { Row } from '@expo/ui'
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -11,6 +11,7 @@ import { useColors } from '../theme'
 import type { ActionMenuProps } from './ActionMenu'
 import { GlassIconButton } from './surfaces'
 import { Symbol } from './Symbol'
+import { Text } from './Text'
 
 /**
  * A button that opens Material's dropdown menu. Groups are listed one after another with a divider
@@ -33,7 +34,13 @@ export function ActionMenu({ label, symbol, variant, groups }: ActionMenuProps) 
     >
       <DropdownMenu.Trigger>
         {variant === 'icon' ? (
-          <GlassIconButton symbol={symbol} tint="accent" size={40} onPress={() => setOpen(true)} />
+          <GlassIconButton
+            symbol={symbol}
+            label={label}
+            tint="accent"
+            size={40}
+            onPress={() => setOpen(true)}
+          />
         ) : (
           <TextButton onClick={() => setOpen(true)}>
             <Row spacing={6} alignment="center">

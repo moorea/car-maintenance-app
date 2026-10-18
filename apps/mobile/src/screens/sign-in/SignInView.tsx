@@ -1,8 +1,9 @@
 import type { SignInActions, SignInState } from '@car/core'
-import { Button, Column, ScrollView, Text } from '@expo/ui'
+import { Button, Column, ScrollView } from '@expo/ui'
 import { Host } from '../../ui/Host'
 import { ErrorText } from '../../ui/Note'
 import { TextField } from '../../ui/TextField'
+import { Text } from '../../ui/Text'
 
 type Props = SignInState &
   Pick<
@@ -26,6 +27,7 @@ export function SignInView(props: Props) {
                 value={email}
                 onChangeText={props.setEmail}
                 error={fieldError}
+                placeholder="you@example.com"
                 keyboardType="email-address"
                 autoComplete="email"
                 autoCapitalize="none"

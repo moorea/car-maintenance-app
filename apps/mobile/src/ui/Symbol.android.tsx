@@ -23,6 +23,7 @@ import shareIcon from '@expo/material-symbols/share.xml'
 import sourceIcon from '@expo/material-symbols/find_in_page.xml'
 import cameraIcon from '@expo/material-symbols/photo_camera.xml'
 import photoIcon from '@expo/material-symbols/image.xml'
+import engineIcon from '@expo/material-symbols/car_repair.xml'
 import quoteIcon from '@expo/material-symbols/assignment.xml'
 import receiptIcon from '@expo/material-symbols/receipt_long.xml'
 import documentIcon from '@expo/material-symbols/draft.xml'
@@ -64,6 +65,7 @@ const MATERIAL: Record<SymbolName, ImageSourcePropType> = {
   source: sourceIcon,
   camera: cameraIcon,
   photo: photoIcon,
+  engine: engineIcon,
   quote: quoteIcon,
   receipt: receiptIcon,
   document: documentIcon,
@@ -75,7 +77,10 @@ const MATERIAL: Record<SymbolName, ImageSourcePropType> = {
   ellipsis: ellipsisIcon,
 }
 
-/** An icon, drawn as its Material Symbol (outlined). */
+/**
+ * An icon, drawn as its Material Symbol (outlined). Icons sit beside text or inside a labelled
+ * button, so TalkBack skips them.
+ */
 export function Symbol({ name, size = 22, color }: Props) {
   return <Icon name={MATERIAL[name]} size={size} color={color} />
 }

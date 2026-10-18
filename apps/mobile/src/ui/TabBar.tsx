@@ -1,3 +1,6 @@
+// Tab labels stay a fixed size, as in a native tab bar: grown with Dynamic Type they would overflow
+// the capsule and the space screens leave for it (TAB_BAR_CLEARANCE).
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { Row, Text } from '@expo/ui'
 import { StyleSheet, View } from 'react-native'
 import { useColors } from '../theme'
@@ -17,7 +20,7 @@ interface Props<K extends string> {
   selected: K
   onSelect: (key: K) => void
   /** A separate round button beside the bar, as iOS 26 places search or compose. */
-  action?: { symbol: SymbolName; onPress: () => void; selected: boolean }
+  action?: { symbol: SymbolName; label: string; onPress: () => void; selected: boolean }
 }
 
 /**
@@ -35,7 +38,12 @@ export function TabBar<K extends string>({ tabs, selected, onSelect, action }: P
               const isSelected = tab.key === selected
               const tint = isSelected ? colors.accent : colors.textPrimary
               return (
-                <Segment key={tab.key} selected={isSelected} onPress={() => onSelect(tab.key)}>
+                <Segment
+                  key={tab.key}
+                  label={tab.label}
+                  selected={isSelected}
+                  onPress={() => onSelect(tab.key)}
+                >
                   <Symbol name={tab.symbol} size={24} color={tint} />
                   <Text
                     textStyle={{
@@ -53,6 +61,7 @@ export function TabBar<K extends string>({ tabs, selected, onSelect, action }: P
           {action ? (
             <GlassIconButton
               symbol={action.symbol}
+              label={action.label}
               onPress={action.onPress}
               tint={action.selected ? 'accent' : 'textPrimary'}
               size={62}

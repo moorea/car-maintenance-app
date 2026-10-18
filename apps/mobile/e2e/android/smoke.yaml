@@ -8,7 +8,7 @@ appId: com.moorea.carmaintenance
     permissions:
       all: allow
 - extendedWaitUntil:
-    visible: 'Demo car'
+    visible: 'Demo car.*'
     timeout: 90000
 - waitForAnimationToEnd
 - takeScreenshot: 1-garage
@@ -22,3 +22,23 @@ appId: com.moorea.carmaintenance
     timeout: 10000
 - waitForAnimationToEnd
 - takeScreenshot: 3-car
+# The fuel economy chart and cost bars are drawn from Compose views on Android.
+- scrollUntilVisible:
+    element: 'Fuel & costs'
+- tapOn: 'Fuel & costs'
+- waitForAnimationToEnd
+- takeScreenshot: 4-fuel
+- back
+- tapOn: 'Garage'
+- extendedWaitUntil:
+    visible: 'Demo car.*'
+    timeout: 10000
+- tapOn: 'Account'
+- scrollUntilVisible:
+    element: 'Sign out'
+- takeScreenshot: 5-account
+- tapOn: 'Sign out'
+- extendedWaitUntil:
+    visible: 'Email me a code'
+    timeout: 10000
+- takeScreenshot: 6-sign-in

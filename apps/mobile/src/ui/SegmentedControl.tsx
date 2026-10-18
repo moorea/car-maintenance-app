@@ -1,5 +1,6 @@
-import { Row, Text, type UniversalStyle } from '@expo/ui'
+import { Row, type UniversalStyle } from '@expo/ui'
 import { useColors } from '../theme'
+import { Text } from './Text'
 
 export interface SegmentedControlProps<K extends string> {
   options: { value: K; label: string }[]

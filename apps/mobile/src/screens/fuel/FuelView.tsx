@@ -7,7 +7,7 @@ import type {
   FuelSection,
   FuelState,
 } from '@car/core'
-import { BottomSheet, Button, Column, Row, ScrollView, Spacer, Switch, Text } from '@expo/ui'
+import { BottomSheet, Button, Column, Row, ScrollView, Spacer, Switch } from '@expo/ui'
 import { Fragment, type ReactNode } from 'react'
 import { ActivityIndicator, StyleSheet } from 'react-native'
 import { useColors, type ColorRole } from '../../theme'
@@ -20,6 +20,7 @@ import { TAB_BAR_CLEARANCE } from '../../ui/TabBar'
 import { TextField } from '../../ui/TextField'
 import { TrendChart } from '../../ui/TrendChart'
 import { Card, Dot, FillColumn, GlassIconButton, PillButton, Separator } from '../../ui/surfaces'
+import { Text } from '../../ui/Text'
 
 type Props = FuelState &
   Pick<
@@ -61,9 +62,9 @@ export function FuelView(props: Props) {
           style={{ padding: 16, paddingTop: 60, paddingBottom: TAB_BAR_CLEARANCE }}
         >
           <Row alignment="center">
-            <GlassIconButton symbol="back" onPress={props.onBack} />
+            <GlassIconButton symbol="back" label="Back" onPress={props.onBack} />
             <Spacer flexible />
-            <GlassIconButton symbol="plus" onPress={props.openNew} />
+            <GlassIconButton symbol="plus" label="Log a fill-up" onPress={props.openNew} />
           </Row>
           <Column spacing={2}>
             <Text textStyle={{ ...OVERLINE, color: colors.textSecondary }}>

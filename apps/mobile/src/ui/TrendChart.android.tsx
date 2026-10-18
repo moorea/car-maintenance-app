@@ -1,4 +1,4 @@
-import { Column, Row, Spacer, Text } from '@expo/ui'
+import { Column, Row, Spacer } from '@expo/ui'
 import {
   background,
   clip,
@@ -10,6 +10,7 @@ import {
   weight,
 } from '@expo/ui/jetpack-compose/modifiers'
 import { useColors } from '../theme'
+import { Text } from './Text'
 import type { TrendChartProps } from './TrendChart'
 
 /**

@@ -11,8 +11,8 @@ export type SessionStatus = 'starting' | 'signed-out' | 'syncing' | 'no-vehicles
 /**
  * The app's main sections: one per tab (the garage, the service log, the car and the assistant),
  * plus the reminder settings and the owner's account, opened from the garage, the owner's data
- * (export and import), opened from the account, and the quote checker, the car's warranties and
- * its fuel and running costs, opened from the car.
+ * (export and import), opened from the account, and the quote checker, the check-engine code
+ * lookup, the car's warranties and its fuel and running costs, opened from the car.
  */
 export type AppTab =
   | 'garage'
@@ -25,6 +25,7 @@ export type AppTab =
   | 'quote'
   | 'warranty'
   | 'fuel'
+  | 'codes'
 
 export interface SessionState {
   status: SessionStatus
@@ -47,7 +48,7 @@ export interface SessionActions {
   selectVehicle: (id: string) => void
   openTab: (tab: AppTab) => void
   /**
-   * Leaves Ask or the quote checker for where the owner opened it from, such as the quote a
+   * Leaves Ask, the quote checker or the code lookup for where the owner opened it from, such as the quote a
    * question was about; the garage if there is nowhere to go back to.
    */
   back: () => void
@@ -93,7 +94,7 @@ export const createSessionModel = (deps: {
   let logRequests = 0
   // A car just added, to select once the vehicle list includes it.
   let justAdded: string | undefined
-  // The tabs Ask and the quote checker were opened from, newest last, for going back.
+  // The tabs Ask, the quote checker and the code lookup were opened from, newest last, for going back.
   let openedFrom: AppTab[] = []
 
   return createStore<SessionState & SessionActions>()((set, get) => {
@@ -190,7 +191,7 @@ export const createSessionModel = (deps: {
       },
 
       openTab: (tab) => {
-        if (tab === 'ask' || tab === 'quote') {
+        if (tab === 'ask' || tab === 'quote' || tab === 'codes') {
           if (tab !== get().tab) openedFrom.push(get().tab)
         } else openedFrom = []
         set({ tab, logRequest: undefined })

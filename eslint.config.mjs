@@ -43,6 +43,11 @@ const themeImportBans = {
       importNames: ['Host'],
       message: 'Use Host from src/ui/Host, which tints native controls with the theme accent.',
     },
+    {
+      name: '@expo/ui',
+      importNames: ['Text'],
+      message: 'Use Text from src/ui/Text, which scales with Dynamic Type on iOS.',
+    },
   ],
   patterns: [
     {
@@ -154,7 +159,11 @@ export default tseslint.config(
   },
   {
     files: ['apps/mobile/**/*.{ts,tsx}'],
-    ignores: ['apps/mobile/src/theme/**', 'apps/mobile/src/ui/Host.tsx'],
+    ignores: [
+      'apps/mobile/src/theme/**',
+      'apps/mobile/src/ui/Host.tsx',
+      'apps/mobile/src/ui/Text*.tsx',
+    ],
     rules: { '@typescript-eslint/no-restricted-imports': ['error', themeImportBans] },
   },
   {

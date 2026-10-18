@@ -7,7 +7,7 @@ import type {
   SafetyState,
   ScheduleRow,
 } from '@car/core'
-import { Button, Column, Row, ScrollView, Text } from '@expo/ui'
+import { Button, Column, Row, ScrollView } from '@expo/ui'
 import { Fragment } from 'react'
 import { ActivityIndicator, StyleSheet } from 'react-native'
 import { useColors, type ColorRole } from '../../theme'
@@ -21,12 +21,14 @@ import { Card, Dot, FillColumn, Separator } from '../../ui/surfaces'
 import type { AttachmentsProps } from '../attachments/AttachmentList'
 import { DocumentsSection } from '../attachments/DocumentsSection'
 import { ComplaintsSection, RecallsSection } from './SafetySections'
+import { Text } from '../../ui/Text'
 
 interface Props {
   car: CarState & CarActions
   safety: SafetyState & Pick<SafetyActions, 'toggle'>
   documents: AttachmentsProps
   onCheckQuote: () => void
+  onTroubleCodes: () => void
   onWarranty: () => void
   onFuel: () => void
 }
@@ -34,7 +36,15 @@ interface Props {
 const OVERLINE = { fontSize: 13, fontWeight: '600', letterSpacing: 0.5 } as const
 
 /** Pure rendering of a car's page: odometer, documents, then schedule, recalls or known issues. */
-export function CarView({ car, safety, documents, onCheckQuote, onWarranty, onFuel }: Props) {
+export function CarView({
+  car,
+  safety,
+  documents,
+  onCheckQuote,
+  onTroubleCodes,
+  onWarranty,
+  onFuel,
+}: Props) {
   const colors = useColors()
   if (car.status === 'loading') return <ActivityIndicator style={styles.fill} />
 
@@ -59,6 +69,7 @@ export function CarView({ car, safety, documents, onCheckQuote, onWarranty, onFu
           </Column>
           <OdometerCard {...car} />
           <QuoteCard onPress={onCheckQuote} />
+          <TroubleCodesCard onPress={onTroubleCodes} />
           <FuelCard onPress={onFuel} />
           <WarrantyCard onPress={onWarranty} />
           <DocumentsSection {...documents} />
@@ -143,6 +154,25 @@ function QuoteCard({ onPress }: { onPress: () => void }) {
   )
 }
 
+/** Opens the code lookup, for when the check-engine light comes on. */
+function TroubleCodesCard({ onPress }: { onPress: () => void }) {
+  const colors = useColors()
+  return (
+    <Card padding={14} onPress={onPress}>
+      <Row alignment="center" spacing={12}>
+        <Symbol name="engine" size={22} color={colors.accent} />
+        <FillColumn spacing={1}>
+          <Text textStyle={{ fontSize: 16, fontWeight: '600' }}>Check-engine light on?</Text>
+          <Text textStyle={{ fontSize: 13, color: colors.textSecondary }}>
+            Look up a code and see how urgent it is
+          </Text>
+        </FillColumn>
+        <Symbol name="chevron" size={16} color={colors.textSecondary} />
+      </Row>
+    </Card>
+  )
+}
+
 /** Opens the car's fill-ups and what it costs to run. */
 function FuelCard({ onPress }: { onPress: () => void }) {
   const colors = useColors()
@@ -187,6 +217,13 @@ const DOT: Record<DueStatus, ColorRole> = {
   upcoming: 'textSecondary',
 }
 
+// What the dot's colour says, for VoiceOver.
+const STATUS_LABEL: Record<DueStatus, string> = {
+  overdue: 'Overdue',
+  'due-soon': 'Due soon',
+  upcoming: 'Upcoming',
+}
+
 function Schedule(car: CarState) {
   const colors = useColors()
   if (car.status === 'unmatched')
@@ -219,7 +256,7 @@ function ScheduleRowView({ row }: { row: ScheduleRow }) {
   const overdue = row.status === 'overdue'
   return (
     <Row alignment="center" spacing={12} style={{ paddingHorizontal: 16, paddingVertical: 11 }}>
-      <Dot color={DOT[row.status]} />
+      <Dot color={DOT[row.status]} label={STATUS_LABEL[row.status]} />
       <FillColumn spacing={1}>
         <Text textStyle={{ fontSize: 16, fontWeight: '500' }}>{row.task}</Text>
         {row.interval ? (

@@ -5,7 +5,7 @@ import type {
   AiSharingState,
   RemindersSummary,
 } from '@car/core'
-import { Column, Row, ScrollView, Switch, Text } from '@expo/ui'
+import { Column, Row, ScrollView, Switch } from '@expo/ui'
 import type { ReactNode } from 'react'
 import { StyleSheet } from 'react-native'
 import { useColors, type ColorRole } from '../../theme'
@@ -15,6 +15,7 @@ import { TAB_BAR_CLEARANCE } from '../../ui/TabBar'
 import { Card, FillColumn, GlassIconButton, PillButton } from '../../ui/surfaces'
 import { Symbol } from '../../ui/Symbol'
 import type { SymbolName } from '../../ui/symbols'
+import { Text } from '../../ui/Text'
 
 type Props = AccountState &
   Pick<AccountActions, 'signOut' | 'askToDelete' | 'cancelDelete' | 'confirmDelete'> & {
@@ -49,7 +50,7 @@ export function AccountView(props: Props) {
         >
           {props.onBack ? (
             <Row>
-              <GlassIconButton symbol="back" onPress={props.onBack} />
+              <GlassIconButton symbol="back" label="Back" onPress={props.onBack} />
             </Row>
           ) : null}
           <Text textStyle={{ fontSize: 34, fontWeight: '700' }}>Account</Text>

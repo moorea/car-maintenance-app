@@ -1,4 +1,4 @@
-import { Column, Row, Spacer, Text } from '@expo/ui'
+import { Column, Row, Spacer } from '@expo/ui'
 import {
   FilledIconButton as ComposeFilledIconButton,
   HorizontalDivider,
@@ -14,6 +14,8 @@ import {
   height,
   padding,
   paddingAll,
+  selectable,
+  semantics,
   Shapes,
   size as sizeModifier,
   weight,
@@ -23,6 +25,7 @@ import type { ReactNode } from 'react'
 import { useColors, type ColorRole } from '../theme'
 import { Symbol } from './Symbol'
 import type { SymbolName } from './symbols'
+import { Text } from './Text'
 
 // Android has no Liquid Glass, so glass surfaces are the translucent `glass` fill with a hairline
 // edge. Compose takes no percentage sizes or flex, so filling space uses `fillMaxWidth` (in a
@@ -78,6 +81,8 @@ export function GlassBar({ children }: { children: ReactNode }) {
 
 interface GlassButtonProps {
   symbol: SymbolName
+  /** What TalkBack reads for the button, such as "Add car". */
+  label: string
   onPress: () => void
   /** Icon colour. Defaults to `textPrimary`. */
   tint?: ColorRole
@@ -87,6 +92,7 @@ interface GlassButtonProps {
 /** A round glass button showing one icon, for toolbars over content. */
 export function GlassIconButton({
   symbol,
+  label,
   onPress,
   tint = 'textPrimary',
   size = 44,
@@ -96,7 +102,12 @@ export function GlassIconButton({
     <IconButton
       onClick={onPress}
       colors={{ containerColor: colors.glass, contentColor: colors[tint] }}
-      modifiers={[sizeModifier(size, size), border(0.5, colors.glassEdge), clip(Shapes.Circle)]}
+      modifiers={[
+        sizeModifier(size, size),
+        border(0.5, colors.glassEdge),
+        clip(Shapes.Circle),
+        semantics({ contentDescription: label }),
+      ]}
     >
       <Symbol name={symbol} size={size * 0.46} color={colors[tint]} />
     </IconButton>
@@ -126,6 +137,8 @@ export function ProgressBar({
 
 interface SegmentProps {
   children: ReactNode
+  /** What TalkBack reads for the choice; the visible label inside already says it. */
+  label: string
   selected: boolean
   onPress: () => void
 }
@@ -141,7 +154,7 @@ export function Segment({ children, selected, onPress }: SegmentProps) {
         weight(1),
         clip(capsule),
         ...(selected ? [background(colors.selectedFill)] : []),
-        clickable(onPress),
+        selectable(selected, onPress, 'tab'),
         padding(4, 6, 4, 6),
       ]}
     >
@@ -212,11 +225,25 @@ export function FillRow({ children, spacing, onPress }: FillRowProps) {
   )
 }
 
+interface DotProps {
+  color: ColorRole
+  /** What the colour means, such as "Overdue", for TalkBack. Without it the dot is skipped. */
+  label?: string
+  size?: number
+}
+
 /** A small filled circle, such as a status dot beside a row. */
-export function Dot({ color, size = 10 }: { color: ColorRole; size?: number }) {
+export function Dot({ color, label, size = 10 }: DotProps) {
   const colors = useColors()
   return (
-    <Row modifiers={[sizeModifier(size, size), clip(Shapes.Circle), background(colors[color])]} />
+    <Row
+      modifiers={[
+        sizeModifier(size, size),
+        clip(Shapes.Circle),
+        background(colors[color]),
+        ...(label ? [semantics({ contentDescription: label })] : []),
+      ]}
+    />
   )
 }
 
@@ -264,13 +291,21 @@ export function GlassPill({ label, onPress }: { label: string; onPress: () => vo
 
 interface FilledIconButtonProps {
   symbol: SymbolName
+  /** What TalkBack reads for the button, such as "Send". */
+  label: string
   onPress: () => void
   disabled?: boolean
   size?: number
 }
 
 /** A round button filled with the accent, for the one main action, such as sending. */
-export function FilledIconButton({ symbol, onPress, disabled, size = 44 }: FilledIconButtonProps) {
+export function FilledIconButton({
+  symbol,
+  label,
+  onPress,
+  disabled,
+  size = 44,
+}: FilledIconButtonProps) {
   const colors = useColors()
   return (
     <ComposeFilledIconButton
@@ -282,7 +317,7 @@ export function FilledIconButton({ symbol, onPress, disabled, size = 44 }: Fille
         disabledContainerColor: colors.accentSubtle,
         disabledContentColor: colors.onAccent,
       }}
-      modifiers={[sizeModifier(size, size)]}
+      modifiers={[sizeModifier(size, size), semantics({ contentDescription: label })]}
     >
       <Symbol name={symbol} size={size * 0.42} color={colors.onAccent} />
     </ComposeFilledIconButton>
