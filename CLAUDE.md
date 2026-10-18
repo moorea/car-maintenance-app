@@ -46,4 +46,6 @@ and tests to CI whenever they make merging safer.
 - `pnpm install`
 - `pnpm check`: typecheck, lint, format check and tests. CI runs the same.
 - `pnpm --filter @car/core test -- --watch`
+- `supabase start && scripts/start-local-sync.sh && pnpm --filter @car/data test:e2e`: end-to-end
+  sync tests against a local Supabase and PowerSync in Docker. CI runs them too.
 - `pnpm --filter @car/mobile start`

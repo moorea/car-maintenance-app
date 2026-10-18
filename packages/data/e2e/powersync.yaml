@@ -1,0 +1,28 @@
+# A self-hosted PowerSync service for the end-to-end sync tests (scripts/start-local-sync.sh). It
+# replicates the local Supabase database started by `supabase start`, keeps its buckets in a
+# separate database on the same server, and accepts the tokens local Supabase Auth signs.
+replication:
+  connections:
+    - type: postgresql
+      uri: postgresql://postgres:postgres@supabase_db_car-maintenance-app:5432/postgres
+      sslmode: disable
+
+storage:
+  type: postgresql
+  uri: postgresql://postgres:postgres@supabase_db_car-maintenance-app:5432/powersync_storage
+  sslmode: disable
+
+port: 8080
+
+sync_rules:
+  path: /config/sync-rules.yaml
+
+client_auth:
+  # Local Supabase Auth signs with an ES256 key it publishes here, as the hosted project does.
+  jwks_uri: http://supabase_kong_car-maintenance-app:8000/auth/v1/.well-known/jwks.json
+  # The JWKS is on the Docker network, which PowerSync otherwise refuses as a private address.
+  block_local_jwks: false
+  audience: ['authenticated']
+
+telemetry:
+  disable_telemetry_sharing: true
