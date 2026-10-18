@@ -185,6 +185,21 @@ describe('checking a shop quote', () => {
     })
   })
 
+  it('does not question mileage-only work on a car with no odometer reading', () => {
+    const result = check(['Transmission fluid exchange'], {
+      records: [
+        { id: 'r1', vehicleId: 'v1', itemId: 'transmission-fluid', performedOn: '2022-01-01' },
+      ],
+      readings: [],
+    })
+    expect(result.lines[0]).toMatchObject({
+      verdict: 'unknown',
+      label: 'Needs your mileage',
+      detail: 'Done Jan 1, 2022. Add your mileage to see whether it is due.',
+      questionable: false,
+    })
+  })
+
   it('cannot judge a scheduled item that has no interval', () => {
     const asNeeded = item('wiper-blades', 'Wiper blades', {})
     expect(only('Wiper blades', { items: [...schedule, asNeeded] })).toMatchObject({

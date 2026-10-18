@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { checkInNoticeDate, checkInShowing, odometerCheckIn } from './odometerCheckIn'
+import {
+  checkInNoticeDate,
+  checkInShowing,
+  firstReadingRequest,
+  odometerCheckIn,
+} from './odometerCheckIn'
 import type { DueProjection } from './projectDue'
 
 const oil: DueProjection = {
@@ -89,5 +94,29 @@ describe('asking for an odometer reading', () => {
     expect(checkInNoticeDate(checkIn, '2026-11-10')).toBeUndefined()
     expect(late.from).toBe('2026-11-25')
     expect(checkInNoticeDate(late, '2026-10-17')).toBeUndefined()
+  })
+})
+
+describe('asking for a first odometer reading', () => {
+  const unknown = (itemId: string, task: string): DueProjection => ({
+    itemId,
+    task,
+    trigger: 'miles',
+    status: 'unknown',
+    historyUnknown: true,
+  })
+
+  it('asks when items due by mileage cannot be dated for want of any reading', () => {
+    const atf = unknown('atf', 'Transmission fluid')
+    const plugs = unknown('plugs', 'Spark plugs')
+    expect(firstReadingRequest([fluid, atf, plugs])).toEqual({
+      itemId: 'atf',
+      task: 'Transmission fluid',
+      others: 1,
+    })
+  })
+
+  it('does not ask when every item can be dated', () => {
+    expect(firstReadingRequest([fluid, oil])).toBeUndefined()
   })
 })

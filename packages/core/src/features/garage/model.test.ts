@@ -327,9 +327,9 @@ describe('garage model, filling in the history', () => {
     model.getState().start()
     await settle()
     expect(model.getState().checkOdometer).toEqual({
-      task: 'Tire rotation',
-      dueMiles: 'around 40,000 mi',
-      readAgo: '8 weeks ago',
+      subtitle: 'Tire rotation is due around 40,000 mi',
+      detail:
+        'The last reading was 8 weeks ago, so the due date is an estimate. A new reading keeps the reminder on the right day.',
     })
 
     await odometer.add({ vehicleId: 'v1', date: TODAY, miles: 38_900 })
@@ -342,5 +342,48 @@ describe('garage model, filling in the history', () => {
     model.getState().start()
     await settle()
     expect(model.getState().checkOdometer).toBeUndefined()
+  })
+
+  it('asks for a first reading when a car added without its mileage has items due by mileage', async () => {
+    const transmission = item('atf', 'Transmission fluid', 60_000)
+    const plugs = item('plugs', 'Spark plugs', 100_000)
+    const { model, odometer } = setup({ items: [transmission, plugs, brakeFluid], odometer: [] })
+    model.getState().start()
+    await settle()
+    expect(model.getState().checkOdometer).toEqual({
+      subtitle: 'Transmission fluid and 1 more are due by mileage',
+      detail:
+        "There's no reading for this car yet, so there's no telling when. Add one to see when they're due.",
+    })
+    // Not due now: the dated item comes first and the mileage ones say what they need.
+    expect(model.getState().nextUp).toMatchObject({ task: 'Brake fluid' })
+    expect(model.getState().comingUp).toEqual([
+      { itemId: 'atf', task: 'Transmission fluid', status: 'unknown', when: 'Needs your mileage' },
+      { itemId: 'plugs', task: 'Spark plugs', status: 'unknown', when: 'Needs your mileage' },
+    ])
+
+    await odometer.add({ vehicleId: 'v1', date: TODAY, miles: 12_000 })
+    await settle()
+    expect(model.getState().checkOdometer).toBeUndefined()
+    expect(model.getState().comingUp[0]).toMatchObject({
+      task: 'Transmission fluid',
+      when: 'In 48,000 mi',
+    })
+  })
+
+  it("says honestly that a mileage item can't be dated when it is all a car has", async () => {
+    const transmission = item('atf', 'Transmission fluid', 60_000)
+    const { model } = setup({ items: [transmission], odometer: [] })
+    model.getState().start()
+    await settle()
+    expect(model.getState().nextUp).toMatchObject({
+      task: 'Transmission fluid',
+      status: 'unknown',
+      when: 'Needs your mileage',
+      detail: 'Add your mileage to see when this is due.',
+      question: 'When is my car due for transmission fluid, and what does it involve?',
+    })
+    expect(model.getState().nextUp?.progress).toBeUndefined()
+    expect(model.getState().checkOdometer?.subtitle).toBe('Transmission fluid is due by mileage')
   })
 })

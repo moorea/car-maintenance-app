@@ -166,6 +166,17 @@ describe('planNotifications', () => {
     ).toEqual([])
   })
 
+  it('does not remind about a mileage item on a car with no odometer reading', () => {
+    const unknown = due({
+      itemId: 'atf',
+      trigger: 'miles',
+      status: 'unknown',
+      historyUnknown: true,
+    })
+    const { dueDate: _none, ...undated } = unknown
+    expect(planNotifications([{ vehicle: rav4, due: [undated] }], '2026-10-01')).toEqual([])
+  })
+
   it('keeps only the soonest reminders, under the limit iOS enforces', () => {
     // 50 items on different days make 100 reminders.
     const many = Array.from({ length: 50 }, (_, i) =>

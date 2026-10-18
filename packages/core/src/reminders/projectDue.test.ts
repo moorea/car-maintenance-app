@@ -151,15 +151,57 @@ describe('projectDue', () => {
   })
 
   it('skips the mileage limit when the car has no odometer readings at all', () => {
-    expect(projectDue(input({ currentMiles: undefined, lastService: undefined }))).toMatchObject({
-      dueDate: '2026-10-01',
-      trigger: 'time',
-      historyUnknown: true,
-    })
+    expect(
+      projectDue(
+        input({ currentMiles: undefined, lastService: undefined, inServiceSince: '2021-01-01' }),
+      ),
+    ).toMatchObject({ dueDate: '2027-01-01', trigger: 'time', historyUnknown: true })
     expect(projectDue(input({ currentMiles: undefined }))).toMatchObject({
       dueDate: '2027-03-01',
       dueMiles: 45_000,
       trigger: 'time',
+    })
+  })
+
+  it('does not call a mileage-only item due when the car has no odometer reading at all', () => {
+    const fluid: MaintenanceItem = {
+      id: 'atf',
+      configId: 'c1',
+      task: 'Transmission fluid',
+      intervalMiles: 60_000,
+    }
+    expect(
+      projectDue(input({ item: fluid, currentMiles: undefined, lastService: undefined })),
+    ).toEqual({
+      itemId: 'atf',
+      task: 'Transmission fluid',
+      trigger: 'miles',
+      status: 'unknown',
+      historyUnknown: true,
+    })
+    // A service logged without its mileage gives nothing to count from either.
+    expect(
+      projectDue(
+        input({ item: fluid, currentMiles: undefined, lastService: { performedOn: '2026-01-01' } }),
+      ),
+    ).toMatchObject({ status: 'unknown', historyUnknown: false })
+  })
+
+  it('cannot tell when an item with both limits is due with no reading, history or model year', () => {
+    expect(projectDue(input({ currentMiles: undefined, lastService: undefined }))).toMatchObject({
+      status: 'unknown',
+      trigger: 'miles',
+    })
+    expect(
+      projectDue(input({ currentMiles: undefined, lastService: undefined }))?.dueDate,
+    ).toBeUndefined()
+  })
+
+  it('puts the first mileage due point of a car read at 0 miles one interval in, not at 0', () => {
+    expect(projectDue(input({ lastService: undefined, currentMiles: 0 }))).toMatchObject({
+      dueMiles: 5_000,
+      dueDate: '2027-02-03',
+      status: 'upcoming',
     })
   })
 

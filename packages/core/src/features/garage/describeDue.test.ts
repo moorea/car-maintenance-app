@@ -41,6 +41,14 @@ describe('describeWhen', () => {
 })
 
 describe('describeNext', () => {
+  it('asks for the mileage rather than guessing when an item cannot be dated', () => {
+    const unknown = due({ status: 'unknown', historyUnknown: true })
+    expect(describeWhen(unknown, undefined, TODAY)).toBe('Needs your mileage')
+    expect(describeNext(unknown, undefined, TODAY)).toBe(
+      'Add your mileage to see when this is due.',
+    )
+  })
+
   it('says a time limit is due by a date', () => {
     expect(describeNext(due({ trigger: 'time', dueDate: '2027-03-14' }), 30_000, TODAY)).toBe(
       'Due by Mar 14, 2027.',
