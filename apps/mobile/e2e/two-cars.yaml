@@ -1,0 +1,17 @@
+# A garage with two cars: each card says what that car needs next. The `demoTwoCars` launch
+# argument adds a second demo car whose next item stays the same on any day (see
+# apps/mobile/src/bootstrap/demo.ts).
+appId: com.moorea.carmaintenance
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+    arguments:
+      '-demoTwoCars': true
+- extendedWaitUntil:
+    visible: 'Commuter'
+    timeout: 60000
+- assertVisible: 'Tire rotation · Was due at .*'
+- assertVisible: 'Oil & filter change · Was due at 87,000 mi'
+- takeScreenshot: 60-garage-two-cars

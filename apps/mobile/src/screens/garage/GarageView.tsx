@@ -1,4 +1,11 @@
-import type { DueRow, DueStatus, GarageActions, GarageState, Vehicle } from '@car/core'
+import type {
+  DueRow,
+  DueStatus,
+  GarageActions,
+  GarageCardsState,
+  GarageState,
+  Vehicle,
+} from '@car/core'
 import { Button, Column, Row, ScrollView, Spacer } from '@expo/ui'
 import { Fragment } from 'react'
 import { ActivityIndicator, StyleSheet } from 'react-native'
@@ -32,7 +39,8 @@ export interface GarageNavigation {
 
 type Props = GarageState &
   Pick<GarageActions, 'dismissCatchUp'> &
-  GarageNavigation & { vehicles: Vehicle[]; vehicle: Vehicle }
+  GarageNavigation &
+  Pick<GarageCardsState, 'nextDue'> & { vehicles: Vehicle[]; vehicle: Vehicle }
 
 const OVERLINE = { fontSize: 13, fontWeight: '600', letterSpacing: 0.5 } as const
 
@@ -67,6 +75,8 @@ export function GarageView(props: Props) {
               key={v.id}
               vehicle={v}
               detail={v.id === props.vehicle.id ? props.odometer : undefined}
+              // With one car, the next-up card below already says what it needs.
+              next={props.vehicles.length > 1 ? props.nextDue[v.id] : undefined}
               onPress={() => props.onOpenCar(v.id)}
             />
           ))}
@@ -82,10 +92,27 @@ export function GarageView(props: Props) {
   )
 }
 
-function CarCard(props: { vehicle: Vehicle; detail: string | undefined; onPress: () => void }) {
+const NEXT_TEXT: Record<DueStatus, ColorRole> = {
+  overdue: 'warning',
+  'due-soon': 'accent',
+  upcoming: 'textSecondary',
+}
+
+function CarCard(props: {
+  vehicle: Vehicle
+  detail: string | undefined
+  /** The car's item due soonest, when the garage has more than one car. */
+  next: DueRow | undefined
+  onPress: () => void
+}) {
   const colors = useColors()
   const description = describeCar(props.vehicle)
   const title = props.vehicle.nickname || description
+  const { next } = props
+  // The hint to tap is only for a card with nothing else to say.
+  const subtitle =
+    props.detail ??
+    (title !== description ? description : next ? undefined : 'Tap to see its schedule')
   return (
     <Card padding={14} onPress={props.onPress}>
       <Row alignment="center" spacing={12}>
@@ -97,9 +124,20 @@ function CarCard(props: { vehicle: Vehicle; detail: string | undefined; onPress:
         </Column>
         <FillColumn spacing={2}>
           <Text textStyle={{ fontSize: 17, fontWeight: '600' }}>{title}</Text>
-          <Text textStyle={{ fontSize: 14, color: colors.textSecondary }}>
-            {props.detail ?? (title === description ? 'Tap to see its schedule' : description)}
-          </Text>
+          {subtitle ? (
+            <Text textStyle={{ fontSize: 14, color: colors.textSecondary }}>{subtitle}</Text>
+          ) : null}
+          {next ? (
+            <Text
+              textStyle={{
+                fontSize: 14,
+                fontWeight: next.status === 'upcoming' ? '400' : '600',
+                color: colors[NEXT_TEXT[next.status]],
+              }}
+            >
+              {`${next.task} · ${next.when}`}
+            </Text>
+          ) : null}
         </FillColumn>
         <Symbol name="chevron" size={16} color={colors.textSecondary} />
       </Row>
