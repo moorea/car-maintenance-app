@@ -9,7 +9,7 @@ export default defineConfig({
       // main.ts only reads Deno's environment; CI's smoke test loads and calls it in Deno.
       // sweepMain.ts only reads the environment; the sweep itself is tested in sweep.test.ts.
       exclude: ['src/**/*.test.ts', 'src/main.ts', 'src/sweepMain.ts'],
-      thresholds: { statements: 95, branches: 72, functions: 98, lines: 98 },
+      thresholds: { statements: 97, branches: 79, functions: 98, lines: 99 },
     },
   },
 })
