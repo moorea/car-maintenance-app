@@ -62,6 +62,10 @@ export const SYMBOLS = {
       'M14 10h2l2 2v5a1.5 1.5 0 0 0 3 0V9l-3-3',
     ],
   },
+  charging: {
+    ios: 'ev.charger',
+    paths: ['M5 20V5a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v15', 'M4 20h11', 'M10 7l-2 4h3l-2 4'],
+  },
   share: {
     ios: 'square.and.arrow.up',
     paths: ['M12 15V3M8 7l4-4 4 4', 'M6 11H5v10h14V11h-1'],

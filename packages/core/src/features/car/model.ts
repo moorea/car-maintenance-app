@@ -5,6 +5,7 @@ import { isGeneralGuidance } from '../../lib/schedule'
 import {
   AssistantError,
   type AssistantErrorKind,
+  type EnergyKind,
   type MaintenanceItem,
   type OdometerReading,
   type QuotePhoto,
@@ -18,6 +19,7 @@ import type { DueProjection, DueStatus } from '../../reminders/projectDue'
 import { odometerReadingSchema } from '../../schemas/odometer'
 import { MAX_QUOTE_PHOTO_BASE64 } from '../../schemas/quote'
 import { watchAiSharing, type AiSharingDeps } from '../ai-sharing/model'
+import { ENERGY_WORDING, usualEnergy } from '../fuel/wording'
 import { currentOdometer } from '../garage/odometer'
 
 /** The parts of a car's page, one per segment of its segmented control. */
@@ -52,6 +54,22 @@ export interface OdometerEditor {
   allowing?: boolean | undefined
 }
 
+/** The car page's link to its fill-ups or charging sessions and running costs. */
+export interface FuelLink {
+  /** What the car usually runs on, for the link's icon. */
+  energy: EnergyKind
+  /** "Fuel & costs" or "Charging & costs". */
+  title: string
+  /** "Log fill-ups, see economy and what the car costs each month". */
+  detail: string
+}
+
+const fuelLinkFor = (vehicle: Vehicle): FuelLink => {
+  const energy = usualEnergy(vehicle)
+  const wording = ENERGY_WORDING[energy]
+  return { energy, title: wording.title, detail: wording.summary }
+}
+
 /** Where a photo of the odometer comes from. */
 export type PhotoSource = 'camera' | 'library'
 
@@ -66,6 +84,8 @@ export interface CarState {
   odometer?: string | undefined
   /** "About 1,900 mi a month", or a note that the average is assumed. */
   pace?: string | undefined
+  /** The link to the car's fill-ups and costs, in the words of what it usually runs on. */
+  fuelLink: FuelLink
   section: CarSection
   /** "Toyota schedule · normal driving", or "General schedule · normal driving". */
   scheduleTitle: string
@@ -322,6 +342,7 @@ export const createCarModel = (deps: CarDeps): CarModel => {
       status: 'loading',
       title: `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
       subtitle: describeVehicle(vehicle),
+      fuelLink: fuelLinkFor(vehicle),
       section: 'schedule',
       scheduleTitle: scheduleTitle(vehicle.make, vehicle.severeDuty),
       schedule: [],

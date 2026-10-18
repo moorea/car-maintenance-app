@@ -177,6 +177,89 @@ describe('fuel and costs screen', () => {
     expect(model.getState().energies.map((e) => e.label)).toEqual(['Charge', 'Fuel'])
   })
 
+  it('speaks of fill-ups and fuel for a gas car', async () => {
+    const { model } = setup(history)
+    await settle()
+    const { wording, costLabel } = model.getState()
+    expect(wording).toMatchObject({
+      title: 'Fuel & costs',
+      add: 'Log a fill-up',
+      tab: 'Fill-ups',
+      heading: 'FILL-UPS',
+      showEarlier: 'Show earlier fill-ups',
+      addTitle: 'Add fill-up',
+      editTitle: 'Edit fill-up',
+      remove: 'Delete fill-up',
+    })
+    expect(wording.empty).toContain('after two full fill-ups')
+    expect(costLabel).toBe('Fuel')
+  })
+
+  it('speaks of charges and charging for an electric car', async () => {
+    const { model } = setup([], { ...car, engine: 'Electric' })
+    await settle()
+    const { wording, costLabel } = model.getState()
+    expect(wording).toMatchObject({
+      title: 'Charging & costs',
+      add: 'Log a charge',
+      tab: 'Charges',
+      heading: 'CHARGES',
+      showEarlier: 'Show earlier charges',
+      addTitle: 'Add charge',
+      editTitle: 'Edit charge',
+      remove: 'Delete charge',
+    })
+    expect(wording.empty).toContain('after two full charges')
+    expect(wording.empty).not.toMatch(/fill-up/)
+    expect(costLabel).toBe('Charging')
+  })
+
+  it('speaks of fuel for a plug-in hybrid, which starts on fuel', async () => {
+    const { model } = setup([], { ...car, engine: '2.0L 4-cyl plug-in hybrid' })
+    await settle()
+    expect(model.getState().wording.title).toBe('Fuel & costs')
+  })
+
+  it('calls the costs fuel and charging once both have been logged', async () => {
+    const charge = fill('e', '2026-10-05', 33_000, { energy: 'electric', quantity: 40 })
+    const { model } = setup([...history, charge])
+    await settle()
+    expect(model.getState().costLabel).toBe('Fuel & charging')
+  })
+
+  it("names charges in an electric car's notes and mileage checks", async () => {
+    const charges = [
+      fill('a', '2026-09-01', 32_000, { energy: 'electric', quantity: 40 }),
+      fill('b', '2026-09-10', 32_300, { energy: 'electric', quantity: 90 }),
+      fill('c', '2026-10-01', 32_900, { energy: 'electric', quantity: 90, missedPrevious: true }),
+    ]
+    const { model } = setup(charges, { ...car, engine: 'Electric' })
+    await settle()
+    const s = model.getState()
+    expect(s.rows[0]?.note).toBe('After a missed charge')
+    expect(s.economy[0]?.waiting).toBe(
+      'The chart starts once two stretches between full charges are logged.',
+    )
+    s.openNew()
+    expect(model.getState().form?.note).toMatch(/^Efficiency is measured from one full charge/)
+    s.setField('odometerMiles', '32,090')
+    s.setField('quantity', '40')
+    expect(await s.save()).toBe(false)
+    expect(model.getState().form?.fieldErrors.odometerMiles).toBe(
+      'Lower than the Oct 1 charge at 32,900 mi',
+    )
+  })
+
+  it('explains full and missed for the energy going in', async () => {
+    const { model } = setup(history)
+    await settle()
+    const s = model.getState()
+    s.openNew()
+    expect(model.getState().form?.note).toMatch(/^Economy is measured from one full fill-up/)
+    s.setField('energy', 'electric')
+    expect(model.getState().form?.note).toMatch(/^Efficiency is measured from one full charge/)
+  })
+
   it('saves a new fill-up from what was typed', async () => {
     const { model, fillUps } = setup(history)
     await settle()

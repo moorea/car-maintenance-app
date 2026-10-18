@@ -127,6 +127,30 @@ describe('car model', () => {
     expect(s.section).toBe('schedule')
   })
 
+  it('links a gas car to its fuel and costs', () => {
+    expect(setup().model.getState().fuelLink).toEqual({
+      energy: 'fuel',
+      title: 'Fuel & costs',
+      detail: 'Log fill-ups, see economy and what the car costs each month',
+    })
+  })
+
+  it('links an electric car to its charging and costs, in charging words', () => {
+    const vehicle = { ...car, engine: 'Electric' }
+    expect(setup({ vehicle }).model.getState().fuelLink).toEqual({
+      energy: 'electric',
+      title: 'Charging & costs',
+      detail: 'Log charges, see efficiency and what the car costs each month',
+    })
+  })
+
+  it('links a plug-in hybrid, or a car whose engine is unknown, to fuel', () => {
+    const hybrid = { ...car, engine: '2.0L 4-cyl plug-in hybrid' }
+    const { engine: _, ...unknown } = car
+    expect(setup({ vehicle: hybrid }).model.getState().fuelLink.title).toBe('Fuel & costs')
+    expect(setup({ vehicle: unknown }).model.getState().fuelLink.title).toBe('Fuel & costs')
+  })
+
   it("titles a provider's schedule with the make and adds no note", async () => {
     const { model } = setup({
       schedule: [oil, tires, brakeFluid].map((i) => ({ ...i, source: 'motor' })),
