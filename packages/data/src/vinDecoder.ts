@@ -1,4 +1,4 @@
-import { VinDecodeError, type DecodedVin, type VinDecoder } from '@car/core'
+import { bodyStyleOfClass, VinDecodeError, type DecodedVin, type VinDecoder } from '@car/core'
 
 /** NHTSA's free vPIC decoder. No key needed; US-market vehicles. */
 const VPIC = 'https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValues'
@@ -16,6 +16,7 @@ interface VpicResult {
   FuelTypeSecondary?: string
   ElectrificationLevel?: string
   DriveType?: string
+  BodyClass?: string
 }
 
 // vPIC spells makes in capitals. These keep their capitals; the rest are title-cased.
@@ -87,6 +88,7 @@ export const fromVpic = (vin: string, r: VpicResult): DecodedVin | undefined => 
   const trim = value(r.Trim)
   const engine = engineOf(r)
   const drivetrain = drivetrainOf(r)
+  const bodyStyle = bodyStyleOfClass(value(r.BodyClass))
   return {
     vin,
     year,
@@ -95,6 +97,7 @@ export const fromVpic = (vin: string, r: VpicResult): DecodedVin | undefined => 
     ...(trim && { trim }),
     ...(engine && { engine }),
     ...(drivetrain && { drivetrain }),
+    ...(bodyStyle && { bodyStyle }),
   }
 }
 

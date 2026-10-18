@@ -1,4 +1,4 @@
-# Renaming a car from its page, then removing it. Removing the demo's only car leaves the first
+# Renaming a car from its page and choosing how it is drawn, then removing it. Removing the demo's only car leaves the first
 # screen asking for a car; the demo data comes back on the next launch.
 appId: com.moorea.carmaintenance
 ---
@@ -18,6 +18,9 @@ appId: com.moorea.carmaintenance
 - tapOn: 'Demo car'
 - eraseText: 20
 - inputText: 'Daily'
+- tapOn: 'Pickup'
+- tapOn: 'Red'
+- takeScreenshot: 50-edit-car-look
 - tapOn: 'Save'
 - extendedWaitUntil:
     notVisible: 'Remove car'

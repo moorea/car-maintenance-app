@@ -1,3 +1,4 @@
+import type { Paint } from '@car/core'
 import { palette as p } from './palette'
 
 /**
@@ -89,4 +90,16 @@ export const darkColors: Colors = {
   selectedFill: p.graySelectedDark,
   chartSecondary: p.indigo300,
   clear: p.clear,
+}
+
+/** The colour of each paint the owner can pick for their car. The same in light and dark. */
+export const paintColors: Record<Paint, string> = {
+  white: p.paintWhite,
+  silver: p.paintSilver,
+  gray: p.paintGray,
+  black: p.paintBlack,
+  red: p.paintRed,
+  blue: p.paintBlue,
+  green: p.paintGreen,
+  brown: p.paintBrown,
 }

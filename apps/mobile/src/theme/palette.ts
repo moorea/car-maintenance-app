@@ -34,6 +34,16 @@ export const palette = {
   red200: '#F2B8B5',
   red700: '#B3261E',
 
+  // Car paints, for drawing the owner's car. Toned like real paint rather than UI colours.
+  paintWhite: '#F4F5F2',
+  paintSilver: '#B9BDC1',
+  paintGray: '#6B7075',
+  paintBlack: '#1B1C1E',
+  paintRed: '#9E1B1E',
+  paintBlue: '#1F4E8C',
+  paintGreen: '#2F5D46',
+  paintBrown: '#6A4A33',
+
   // No fill at all.
   clear: 'transparent',
 

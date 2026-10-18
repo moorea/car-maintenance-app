@@ -19,6 +19,7 @@ import type {
   Warranty,
   WarrantyKind,
 } from '@car/core'
+import { isBodyStyle, isPaint } from '@car/core'
 
 /** SQLite returns NULL for missing values; the domain uses absent properties. */
 type Row = Record<string, unknown>
@@ -61,6 +62,9 @@ export const toVehicle = (r: Row): Vehicle =>
         valuedOn: text(r.valued_on),
       }),
     garagePosition: num(r.garage_position),
+    // A value this version doesn't know (from a newer app) is read as unset.
+    bodyStyle: isBodyStyle(r.body_style) ? r.body_style : undefined,
+    paint: isPaint(r.paint) ? r.paint : undefined,
   })
 
 /** The columns the device writes for a new car. The server fills in config_id. */
@@ -79,6 +83,8 @@ export const fromVehicle = (ownerId: string, v: Vehicle) => ({
   value_cents: v.valueCents ?? null,
   valued_on: v.valuedOn ?? null,
   garage_position: v.garagePosition ?? null,
+  body_style: v.bodyStyle ?? null,
+  paint: v.paint ?? null,
 })
 
 export const toServiceRecord = (r: Row): ServiceRecord =>

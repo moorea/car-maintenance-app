@@ -54,9 +54,9 @@ export function CarScreen({
   const scheduleItem = useStore(
     useScreenModel(key, () => createScheduleItemModel({ vehicle, ...deps })),
   )
-  // Keyed by the name too, so the sheet opens with the name the car has now.
+  // Keyed by the name and look too, so the sheet opens with them as the car has them now.
   const editCar = useStore(
-    useScreenModel(`${vehicle.id}:${vehicle.nickname}`, () =>
+    useScreenModel(`${vehicle.id}:${vehicle.nickname}:${vehicle.bodyStyle}:${vehicle.paint}`, () =>
       createEditCarModel({ vehicle, ...deps }),
     ),
   )

@@ -47,6 +47,8 @@ const civic: Vehicle = {
   severeDuty: false,
   valueCents: 1_200_000,
   valuedOn: '2026-03-15',
+  bodyStyle: 'sedan',
+  paint: 'red',
 }
 const truck: Vehicle = {
   id: 'truck',
@@ -338,7 +340,7 @@ describe('your data model', () => {
       expect(alex.vehicles.added).toEqual([])
     })
 
-    it('adds every car with its value, readings, services, warranties and documents under new ids', async () => {
+    it('adds every car with its value, look, readings, services, warranties and documents under new ids', async () => {
       const zip = await exported()
       const alex = phone({ id: 'alex' })
       alex.files.queueArchive(zip)

@@ -1,15 +1,25 @@
-import type { EditCarActions, EditCarState } from '@car/core'
+import {
+  BODY_STYLES,
+  DEFAULT_BODY_STYLE,
+  DEFAULT_PAINT,
+  PAINTS,
+  type EditCarActions,
+  type EditCarState,
+  type Paint,
+} from '@car/core'
 import { BottomSheet, Column, Row, ScrollView, Spacer } from '@expo/ui'
-import { useColors } from '../../theme'
+import { paintColors, useColors } from '../../theme'
 import { Button } from '../../ui/Button'
 import { ErrorText, Note } from '../../ui/Note'
 import { Text } from '../../ui/Text'
+import { SegmentedControl } from '../../ui/SegmentedControl'
 import { TextField } from '../../ui/TextField'
 import { PillButton } from '../../ui/surfaces'
 
-type Props = EditCarState & Pick<EditCarActions, 'setNickname' | 'close' | 'save' | 'remove'>
+type Props = EditCarState &
+  Pick<EditCarActions, 'setNickname' | 'setBodyStyle' | 'setPaint' | 'close' | 'save' | 'remove'>
 
-/** The sheet for renaming a car, or removing it from the garage. */
+/** The sheet for renaming a car, choosing how the app draws it, or removing it from the garage. */
 export function EditCarSheet(props: Props) {
   return (
     <BottomSheet
@@ -23,7 +33,16 @@ export function EditCarSheet(props: Props) {
   )
 }
 
-function EditCarForm({ title, form, setNickname, close, save, remove }: Props) {
+function EditCarForm({
+  title,
+  form,
+  setNickname,
+  setBodyStyle,
+  setPaint,
+  close,
+  save,
+  remove,
+}: Props) {
   const colors = useColors()
   if (!form) return null
   const busy = form.saving || form.removing
@@ -52,6 +71,20 @@ function EditCarForm({ title, form, setNickname, close, save, remove }: Props) {
           autoCapitalize="words"
         />
         <Note>The garage and reminders use this name.</Note>
+        <Column spacing={8} style={{ paddingTop: 8 }}>
+          <Text textStyle={{ fontSize: 15, fontWeight: '600' }}>Body</Text>
+          <SegmentedControl
+            options={BODY_STYLES.map((b) => ({ value: b.id, label: b.label }))}
+            // Unset draws the default, so that is what shows as picked.
+            selected={form.bodyStyle ?? DEFAULT_BODY_STYLE}
+            onSelect={setBodyStyle}
+          />
+        </Column>
+        <Column spacing={8} style={{ paddingTop: 8 }}>
+          <Text textStyle={{ fontSize: 15, fontWeight: '600' }}>Paint</Text>
+          <PaintPicker selected={form.paint ?? DEFAULT_PAINT} onSelect={setPaint} />
+        </Column>
+        <Note>How the app draws your car.</Note>
         {form.error ? <ErrorText>{form.error}</ErrorText> : null}
         <Column spacing={6} style={{ paddingTop: 16 }}>
           <Row>
@@ -76,5 +109,59 @@ function EditCarForm({ title, form, setNickname, close, save, remove }: Props) {
         </Column>
       </Column>
     </ScrollView>
+  )
+}
+
+/** A swatch for each paint, named under it so it reads and taps by name. */
+function PaintPicker({ selected, onSelect }: { selected: Paint; onSelect: (p: Paint) => void }) {
+  const colors = useColors()
+  return (
+    <Row alignment="start">
+      {PAINTS.map((paint, i) => {
+        const isSelected = paint.id === selected
+        return [
+          i > 0 ? <Spacer key={`gap-${paint.id}`} flexible /> : null,
+          <Column
+            key={paint.id}
+            spacing={4}
+            alignment="center"
+            onPress={() => onSelect(paint.id)}
+            testID={`paint-${paint.id}`}
+            style={{ width: 40 }}
+          >
+            <Column
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                padding: 3,
+                borderWidth: 2,
+                borderColor: isSelected ? colors.accent : colors.clear,
+              }}
+            >
+              <Column
+                style={{
+                  width: 26,
+                  height: 26,
+                  borderRadius: 13,
+                  borderWidth: 1,
+                  borderColor: colors.separator,
+                  backgroundColor: paintColors[paint.id],
+                }}
+              />
+            </Column>
+            <Text
+              textStyle={{
+                fontSize: 11,
+                fontWeight: isSelected ? '600' : '400',
+                color: isSelected ? colors.textPrimary : colors.textSecondary,
+              }}
+            >
+              {paint.label}
+            </Text>
+          </Column>,
+        ]
+      })}
+    </Row>
   )
 }

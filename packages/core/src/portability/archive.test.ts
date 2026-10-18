@@ -22,6 +22,8 @@ const RAV4: Vehicle = {
   severeDuty: true,
   valueCents: 1_850_000,
   valuedOn: '2026-09-01',
+  bodyStyle: 'suv',
+  paint: 'blue',
 }
 
 const receipt: Attachment = {
@@ -214,7 +216,7 @@ describe('buildArchive', () => {
       'Blue -Bessie-,2026-03-01,30500',
     ])
     expect(textOf(bytes, 'cars.csv')).toContain(
-      'Blue -Bessie-,2021,Toyota,RAV4,XLE,,,2T3P1RFV8MW123456,"Blue ""Bessie""",yes,18500.00,2026-09-01',
+      'Blue -Bessie-,2021,Toyota,RAV4,XLE,,,2T3P1RFV8MW123456,"Blue ""Bessie""",yes,18500.00,2026-09-01,suv,blue',
     )
     expect(textOf(bytes, 'warranties.csv')).toContain(
       'Blue -Bessie-,powertrain,Toyota,2021-06-01,60,60000,,',
@@ -311,6 +313,8 @@ describe('readArchive', () => {
       nickname: RAV4.nickname,
       valueCents: 1_850_000,
       valuedOn: '2026-09-01',
+      bodyStyle: 'suv',
+      paint: 'blue',
     })
     expect(archive.data.cars[0]?.fillUps).toEqual([
       expect.objectContaining({ filledOn: '2026-02-01', quantity: 12.5, costCents: 4250 }),
@@ -393,6 +397,19 @@ describe('readArchive', () => {
     const car = readArchive(zipOf(json)).data.cars[0]
     expect(car?.valueCents).toBeUndefined()
     expect(car?.valuedOn).toBeUndefined()
+  })
+
+  it('reads a body style or paint it does not know, from a newer app, as unset', () => {
+    const json = JSON.parse(
+      textOf(buildArchive([rav4], files, '2026-10-17').bytes, 'car-data.json'),
+    )
+    json.cars[0].bodyStyle = 'hovercraft'
+    json.cars[0].paint = 'chartreuse'
+
+    const car = readArchive(zipOf(json)).data.cars[0]
+    expect(car?.bodyStyle).toBeUndefined()
+    expect(car?.paint).toBeUndefined()
+    expect(car?.nickname).toBe(RAV4.nickname)
   })
 
   it('reads an export made before fill-ups existed as a car without fill-ups', () => {

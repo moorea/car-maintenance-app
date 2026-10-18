@@ -55,7 +55,7 @@ describe('edit car', () => {
     expect(garage()).toEqual(['RAV4', 'Civic'])
   })
 
-  it('closes without writing when the name is unchanged', async () => {
+  it('closes without writing when nothing changed', async () => {
     const { model, vehicles } = setup()
     vehicles.failNextAdd('should not be called')
     model.getState().open()
@@ -72,8 +72,51 @@ describe('edit car', () => {
     expect(model.getState().form).toMatchObject({
       nickname: 'Daily',
       saving: false,
-      error: "Couldn't save the name. Try again.",
+      error: "Couldn't save your changes. Try again.",
     })
+  })
+
+  it('opens with the body style the VIN gave and no paint until the owner picks one', () => {
+    const vehicles = memoryVehicles([{ ...car, bodyStyle: 'suv' }])
+    const model = createEditCarModel({ vehicle: { ...car, bodyStyle: 'suv' }, vehicles })
+    model.getState().open()
+    expect(model.getState().form).toMatchObject({ bodyStyle: 'suv' })
+    expect(model.getState().form?.paint).toBeUndefined()
+  })
+
+  it('saves the body style and paint the owner picks, keeping the name', async () => {
+    const { model, vehicles } = setup()
+    model.getState().open()
+    model.getState().setBodyStyle('pickup')
+    model.getState().setPaint('red')
+    expect(await model.getState().save()).toBe(true)
+    expect(await vehicles.get('v1')).toMatchObject({
+      nickname: 'RAV4',
+      bodyStyle: 'pickup',
+      paint: 'red',
+    })
+    expect(model.getState().form).toBeUndefined()
+  })
+
+  it('reopens with the look it saved, and keeps the paint when only the body changes next', async () => {
+    const { model, vehicles } = setup()
+    model.getState().open()
+    model.getState().setPaint('red')
+    await model.getState().save()
+    model.getState().open()
+    expect(model.getState().form).toMatchObject({ paint: 'red' })
+    model.getState().setBodyStyle('pickup')
+    await model.getState().save()
+    expect(await vehicles.get('v1')).toMatchObject({ bodyStyle: 'pickup', paint: 'red' })
+  })
+
+  it('saves a new name and a new paint together', async () => {
+    const { model, vehicles } = setup()
+    model.getState().open()
+    model.getState().setNickname('Daily')
+    model.getState().setPaint('silver')
+    expect(await model.getState().save()).toBe(true)
+    expect(await vehicles.get('v1')).toMatchObject({ nickname: 'Daily', paint: 'silver' })
   })
 
   it('asks to confirm before removing, and removes only the second time', async () => {
@@ -117,6 +160,7 @@ describe('edit car', () => {
     let finish = () => {}
     const slow = {
       rename: vehicles.rename,
+      setAppearance: vehicles.setAppearance,
       remove: (id: string) =>
         new Promise<void>((resolve) => {
           finish = () => void vehicles.remove(id).then(resolve)
@@ -141,6 +185,7 @@ describe('edit car', () => {
     let finish = () => {}
     const slow = {
       rename: vehicles.rename,
+      setAppearance: vehicles.setAppearance,
       remove: (id: string) =>
         new Promise<void>((resolve) => {
           finish = () => void vehicles.remove(id).then(resolve)

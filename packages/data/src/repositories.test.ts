@@ -201,11 +201,20 @@ describe('PowerSync repositories', () => {
       months: 36,
       endMiles: 36_000,
     }
-    await repos.warranties.save(warranty)
-    await repos.warranties.save({ ...warranty, months: 30 })
-    // Saving it unchanged queues nothing.
-    await repos.warranties.save({ ...warranty, months: 30 })
-    await repos.warranties.remove('w1')
+    // The edit gets a later timestamp than the insert even when both land in the same
+    // millisecond, which would otherwise leave updated_at unchanged and out of the PATCH.
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      vi.setSystemTime(new Date('2026-09-01T10:00:00Z'))
+      await repos.warranties.save(warranty)
+      vi.setSystemTime(new Date('2026-09-01T10:00:01Z'))
+      await repos.warranties.save({ ...warranty, months: 30 })
+      // Saving it unchanged queues nothing.
+      await repos.warranties.save({ ...warranty, months: 30 })
+      await repos.warranties.remove('w1')
+    } finally {
+      vi.useRealTimers()
+    }
     const ops: [string, Record<string, unknown> | undefined][] = []
     for (let tx = await db.getNextCrudTransaction(); tx; tx = await db.getNextCrudTransaction()) {
       ops.push(
@@ -575,6 +584,33 @@ describe('PowerSync repositories', () => {
       'nickname',
       'updated_at',
     ])
+  })
+
+  it('saves how the car looks, uploads only what changed, and reads a style it does not know as unset', async () => {
+    const repos = createPowerSyncRepositories(db)
+    const car: Vehicle = {
+      id: 'v-look',
+      year: 2019,
+      make: 'Ford',
+      model: 'F-150',
+      nickname: 'Truck',
+      severeDuty: false,
+      bodyStyle: 'pickup',
+    }
+    await repos.vehicles.add('u1', car)
+    expect(await repos.vehicles.get('v-look')).toStrictEqual(car)
+    await (await db.getNextCrudTransaction())?.complete()
+
+    await repos.vehicles.setAppearance('v-look', { bodyStyle: 'pickup', paint: 'blue' })
+
+    expect(await repos.vehicles.get('v-look')).toMatchObject({ bodyStyle: 'pickup', paint: 'blue' })
+    const transaction = await db.getNextCrudTransaction()
+    expect(transaction?.crud[0]).toMatchObject({ table: 'vehicles', id: 'v-look', op: 'PATCH' })
+    expect(Object.keys(transaction?.crud[0]?.opData ?? {}).sort()).toEqual(['paint', 'updated_at'])
+    await transaction?.complete()
+
+    await db.execute("update vehicles set body_style = 'hovercraft' where id = 'v-look'")
+    expect(await repos.vehicles.get('v-look')).not.toHaveProperty('bodyStyle')
   })
 
   it('lists cars as the owner arranged them, then the rest by name, and uploads only the positions', async () => {
