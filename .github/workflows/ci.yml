@@ -224,7 +224,8 @@ jobs:
           for attempt in 1 2 3; do
             git rm -rqf --ignore-unmatch . && rm -rf -- * && lease=""
             if git fetch -q --depth 1 "$remote" android-screenshots; then
-              git checkout -q --detach FETCH_HEAD
+              # -f: a retry starts from the commit the rejected push made, so local changes are expected.
+              git checkout -qf --detach FETCH_HEAD
               lease="$(git rev-parse HEAD)"
             fi
             rm -rf "$SHA" && mkdir "$SHA" && cp "$shots"/*.png "$SHA/"
