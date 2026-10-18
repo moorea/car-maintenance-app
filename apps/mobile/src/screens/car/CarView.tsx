@@ -21,6 +21,7 @@ import { Card, Dot, FillColumn, Separator } from '../../ui/surfaces'
 import type { AttachmentsProps } from '../attachments/AttachmentList'
 import { DocumentsSection } from '../attachments/DocumentsSection'
 import { ComplaintsSection, RecallsSection } from './SafetySections'
+import { Reflow } from '../../ui/Reflow'
 import { Text } from '../../ui/Text'
 
 interface Props {
@@ -119,7 +120,7 @@ function OdometerCard(car: CarState & CarActions) {
   }
   return (
     <Card padding={14}>
-      <Row alignment="center" spacing={12}>
+      <Reflow alignment="center" spacing={12}>
         <FillColumn spacing={2}>
           <Text textStyle={{ ...OVERLINE, color: colors.textSecondary }}>ODOMETER</Text>
           <Text textStyle={{ fontSize: 26, fontWeight: '700' }}>
@@ -130,7 +131,7 @@ function OdometerCard(car: CarState & CarActions) {
           ) : null}
         </FillColumn>
         <Button variant="outlined" label="Update" onPress={car.editOdometer} />
-      </Row>
+      </Reflow>
     </Card>
   )
 }

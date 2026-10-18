@@ -18,6 +18,7 @@ import {
   sourceActions,
   type AttachmentsProps,
 } from '../attachments/AttachmentList'
+import { Reflow } from '../../ui/Reflow'
 import { Text } from '../../ui/Text'
 
 type Props = ServiceLogState &
@@ -62,10 +63,10 @@ export function ServiceLogView(props: Props) {
             </Text>
             <Text textStyle={{ fontSize: 34, fontWeight: '700' }}>Service log</Text>
           </Column>
-          <Row spacing={10}>
+          <Reflow spacing={10}>
             <Stat label={props.summary.spentLabel} value={props.summary.spent} />
             <Stat label="Services logged" value={String(props.summary.count)} />
-          </Row>
+          </Reflow>
           {props.receiptError && !props.adding ? <ErrorText>{props.receiptError}</ErrorText> : null}
           {props.summary.count > 0 ? (
             <SearchField
