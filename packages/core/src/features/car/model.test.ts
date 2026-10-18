@@ -43,6 +43,7 @@ const tires: MaintenanceItem = {
   id: 'tires',
   configId: 'c1',
   task: 'Tire rotation',
+  kind: 'tire-rotation',
   intervalMiles: 5_000,
 }
 const brakeFluid: MaintenanceItem = {
@@ -184,6 +185,17 @@ describe('car model', () => {
       ['Tire rotation', 'Every 5,000 mi', 'Overdue'],
       ['Oil & filter change', 'Every 10,000 mi or 12 months', '40,000 mi'],
       ['Brake fluid', 'Every 3 years', 'Jan 2028'],
+    ])
+  })
+
+  it('places each schedule item on the car, by its kind or else its name', async () => {
+    const { model } = setup()
+    model.getState().start()
+    await settle()
+    expect(model.getState().schedule.map((r) => [r.task, r.spot])).toEqual([
+      ['Tire rotation', 'wheels'],
+      ['Oil & filter change', 'hood'],
+      ['Brake fluid', 'hood'],
     ])
   })
 

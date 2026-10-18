@@ -2,6 +2,7 @@ import { createStore, type StoreApi } from 'zustand/vanilla'
 import { daysBetween, type IsoDate } from '../../lib/date'
 import { formatMiles } from '../../lib/format'
 import { isGeneralGuidance } from '../../lib/schedule'
+import { spotOfItem, type CarSpot } from '../../domain/carSpots'
 import {
   AssistantError,
   type AssistantErrorKind,
@@ -35,6 +36,8 @@ export interface ScheduleRow {
   next: string
   /** Set for an item the owner added, or one whose interval they changed. */
   own?: 'added' | 'changed' | undefined
+  /** Where it is on the car, for pinning it to the drawing; absent for nowhere in particular. */
+  spot?: CarSpot | undefined
 }
 
 export interface OdometerEditor {
@@ -238,6 +241,7 @@ export const createCarModel = (deps: CarDeps): CarModel => {
               interval: item ? describeInterval(item, vehicle.severeDuty) : '',
               next: describeNextDue(d),
               own: item?.owner,
+              spot: spotOfItem({ kind: item?.kind, task: d.task }),
             }
           }),
           error: undefined,

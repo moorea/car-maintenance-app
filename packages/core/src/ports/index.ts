@@ -332,6 +332,11 @@ export interface DevicePreferences {
   historyDismissed: string[]
   /** The ZIP code last used to estimate a quote's fair prices, to offer it next time. */
   zip: string | null
+  /**
+   * Whether the Car screen draws the car in 3D on this phone: the owner's choice, or null to let
+   * the phone decide (ADR 0022).
+   */
+  car3d: boolean | null
 }
 
 export interface DevicePreferencesRepo {

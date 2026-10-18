@@ -552,6 +552,7 @@ export const memoryPreferences = (
     remindersOffered: false,
     historyDismissed: [],
     zip: null,
+    car3d: null,
     ...initial,
   }
   let fail = false

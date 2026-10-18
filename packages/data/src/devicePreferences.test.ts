@@ -30,6 +30,7 @@ describe('storedDevicePreferences', () => {
         remindersOffered: false,
         historyDismissed: [],
         zip: null,
+        car3d: null,
       },
     ])
   })
@@ -49,6 +50,7 @@ describe('storedDevicePreferences', () => {
         remindersOffered: false,
         historyDismissed: [],
         zip: null,
+        car3d: null,
       },
     ])
   })
@@ -65,6 +67,7 @@ describe('storedDevicePreferences', () => {
       remindersOffered: false,
       historyDismissed: [],
       zip: null,
+      car3d: null,
     })
   })
 
@@ -81,6 +84,7 @@ describe('storedDevicePreferences', () => {
         remindersOffered: true,
         historyDismissed: [],
         zip: null,
+        car3d: null,
       },
     ])
   })
@@ -108,6 +112,21 @@ describe('storedDevicePreferences', () => {
     }
   })
 
+  it("remembers the owner's 3D choice, and lets the phone decide otherwise", async () => {
+    for (const [car3d, expected] of [
+      [true, true],
+      [false, false],
+      ['yes', null],
+      [undefined, null],
+    ] as const) {
+      const seen = watchAll(
+        storedDevicePreferences(memoryStorage({ prefs: JSON.stringify({ car3d }) }), 'prefs'),
+      )
+      await settle()
+      expect(seen[0]?.car3d).toBe(expected)
+    }
+  })
+
   it('never reads a damaged value as permission to share', async () => {
     const storage = memoryStorage({ prefs: '{"aiSharingOwner":true' })
     const seen = watchAll(storedDevicePreferences(storage, 'prefs'))
@@ -119,6 +138,7 @@ describe('storedDevicePreferences', () => {
         remindersOffered: false,
         historyDismissed: [],
         zip: null,
+        car3d: null,
       },
     ])
   })
@@ -135,6 +155,7 @@ describe('storedDevicePreferences', () => {
       remindersOffered: false,
       historyDismissed: [],
       zip: null,
+      car3d: null,
     })
   })
 
@@ -179,6 +200,7 @@ describe('storedDevicePreferences', () => {
         remindersOffered: false,
         historyDismissed: [],
         zip: null,
+        car3d: null,
       },
     ])
   })
