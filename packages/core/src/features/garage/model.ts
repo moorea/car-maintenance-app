@@ -2,7 +2,7 @@ import { createStore, type StoreApi } from 'zustand/vanilla'
 import type { IsoDate } from '../../lib/date'
 import { formatAgo, formatMiles, formatWeekday } from '../../lib/format'
 import type { OdometerReading, Vehicle } from '../../domain/types'
-import type { SafetyRepo, Unsubscribe } from '../../ports'
+import type { DevicePreferencesRepo, SafetyRepo, Unsubscribe } from '../../ports'
 import { getDueItems, type GetDueItemsDeps } from '../../reminders/getDueItems'
 import { currentOdometer } from './odometer'
 import { describeNext, intervalUsed, toDueRow, type DueRow } from './describeDue'
@@ -36,12 +36,20 @@ export interface GarageState {
    * to park outside.
    */
   recalls?: { count: number; urgent: boolean } | undefined
+  /**
+   * A scheduled item with no record of when it was last done, to ask the owner about, oil first,
+   * and how many others have none. Absent once everything has a record, or once the owner said
+   * not now for this car.
+   */
+  catchUp?: { itemId: string; task: string; others: number } | undefined
   /** Set when the schedule could not be read. */
   error?: string | undefined
 }
 
 export interface GarageActions {
   start: () => void
+  /** Stops asking about this car's history on this phone. */
+  dismissCatchUp: () => void
   dispose: () => void
 }
 
@@ -50,6 +58,8 @@ export type GarageModel = StoreApi<GarageState & GarageActions>
 export interface GarageDeps extends GetDueItemsDeps {
   vehicle: Vehicle
   safety: SafetyRepo
+  /** Remembers, per phone, the cars whose history the owner chose not to fill in. */
+  preferences?: DevicePreferencesRepo
 }
 
 /** How many items "Coming up" lists after the next one. */
@@ -67,7 +77,21 @@ export const createGarageModel = (deps: GarageDeps): GarageModel => {
   // Each refresh supersedes the one before, so a slow read never overwrites a newer one.
   let generation = 0
 
+  // Undefined until the preferences are read, so the question never flashes up and away.
+  let historyDismissed: boolean | undefined = deps.preferences ? undefined : false
+  let unknown: { itemId: string; task: string }[] = []
+
   return createStore<GarageState & GarageActions>()((set) => {
+    const showCatchUp = () => {
+      const [first, ...rest] = unknown
+      set({
+        catchUp:
+          first && historyDismissed === false
+            ? { itemId: first.itemId, task: first.task, others: rest.length }
+            : undefined,
+      })
+    }
+
     const refresh = async () => {
       const mine = ++generation
       try {
@@ -83,6 +107,30 @@ export const createGarageModel = (deps: GarageDeps): GarageModel => {
         if (mine !== generation) return
 
         const { latest, miles: currentMiles } = currentOdometer(odometer, records, today)
+        // Oil first: the service owners most often know, and the one that comes round soonest.
+        const isOil = (itemId: string) =>
+          items.some((i) => i.id === itemId && i.kind === 'engine-oil')
+        // Only items that have come round at least once: a newer car has simply never needed the
+        // rest, and its schedule already counts them from zero.
+        const comeRound = (itemId: string) => {
+          const scheduled = items.find((i) => i.id === itemId)
+          if (!scheduled) return false
+          const miles =
+            (vehicle.severeDuty ? scheduled.severeMiles : undefined) ?? scheduled.intervalMiles
+          const months =
+            (vehicle.severeDuty ? scheduled.severeMonths : undefined) ?? scheduled.intervalMonths
+          // Whole years since the model year, less one: deliberately low, as a car can be sold
+          // late in its model year and asking about a service it never needed is worse.
+          const ageMonths = (Number(today.slice(0, 4)) - vehicle.year - 1) * 12
+          return (
+            (miles !== undefined && currentMiles !== undefined && currentMiles >= miles) ||
+            (months !== undefined && ageMonths >= months)
+          )
+        }
+        unknown = due
+          .filter((d) => d.historyUnknown && comeRound(d.itemId))
+          .sort((a, b) => Number(isOil(b.itemId)) - Number(isOil(a.itemId)))
+          .map((d) => ({ itemId: d.itemId, task: d.task }))
         const [first, ...rest] = due
         const nextUp: NextUp | undefined = first && {
           ...toDueRow(first, currentMiles, today),
@@ -106,6 +154,7 @@ export const createGarageModel = (deps: GarageDeps): GarageModel => {
           comingUp: rest.slice(0, COMING_UP_COUNT).map((d) => toDueRow(d, currentMiles, today)),
           error: undefined,
         })
+        showCatchUp()
       } catch (e) {
         if (mine !== generation) return
         set({
@@ -124,6 +173,13 @@ export const createGarageModel = (deps: GarageDeps): GarageModel => {
 
       start: () => {
         if (subscriptions.length > 0) return
+        if (deps.preferences)
+          subscriptions.push(
+            deps.preferences.watch((p) => {
+              historyDismissed = p.historyDismissed.includes(vehicle.id)
+              showCatchUp()
+            }),
+          )
         // Logging a service or a new odometer reading (here or from sync) moves the schedule on,
         // so recompute whenever either changes.
         subscriptions.push(
@@ -145,6 +201,19 @@ export const createGarageModel = (deps: GarageDeps): GarageModel => {
               }),
             ),
           )
+      },
+
+      dismissCatchUp: () => {
+        historyDismissed = true
+        showCatchUp()
+        const preferences = deps.preferences
+        if (!preferences) return
+        // Read the stored list at the moment of saving, so another car's choice is kept.
+        let dismissed: string[] = []
+        preferences.watch((p) => (dismissed = p.historyDismissed))()
+        if (dismissed.includes(vehicle.id)) return
+        // A failed save only means the question comes back next launch.
+        preferences.update({ historyDismissed: [...dismissed, vehicle.id] }).catch(() => {})
       },
 
       dispose: () => {

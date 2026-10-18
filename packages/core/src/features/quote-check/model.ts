@@ -3,8 +3,11 @@ import {
   AssistantError,
   type AssistantErrorKind,
   type Bulletin,
+  type MaintenanceItem,
+  type OdometerReading,
   type QuotePhoto,
   type Recall,
+  type ServiceRecord,
   type Vehicle,
 } from '../../domain/types'
 import { cancellation } from '../../lib/cancel'
@@ -20,9 +23,12 @@ import type {
   ScheduleRepo,
   ServiceRecordRepo,
   Unsubscribe,
+  VehicleRepo,
 } from '../../ports'
 import { checkQuote, type QuoteCheck } from '../../quotes/checkQuote'
 import { formatQuoteText, parseQuoteText } from '../../quotes/parseQuote'
+import { weighRepair, worthWeighing, type RepairWeighing } from '../../quotes/repairOrReplace'
+import { formatCarValue, parseCarValue } from '../../schemas/carValue'
 
 /**
  * - `editing`: the owner is typing the quote's lines, or correcting what a photo read.
@@ -46,6 +52,15 @@ export interface QuoteCheckState {
   /** True when the draft has a line to check and nothing else is running. */
   canCheck: boolean
   result?: QuoteCheck | undefined
+  /**
+   * Whether to pay for the quote or replace the car, weighed against what the owner thinks it is
+   * worth. Present for a checked quote that is big for any car or for this one.
+   */
+  weighing?: RepairWeighing | undefined
+  /** What the owner typed for the car's value, in dollars. Starts as the saved value. */
+  valueDraft: string
+  /** Why the value could not be saved. */
+  valueError?: string | undefined
   /** Why the last photo or check failed. Cleared by the next one. */
   error?: string | undefined
 }
@@ -67,13 +82,20 @@ export interface QuoteCheckActions {
   startOver: () => void
   /** A question for Ask about one checked line, by its index. */
   questionFor: (index: number) => string | undefined
+  setValueDraft: (text: string) => void
+  /** Saves the car's value as typed, or forgets it when the field is empty, and weighs again. */
+  saveValue: () => Promise<void>
   dispose: () => void
 }
 
 export type QuoteCheckModel = StoreApi<QuoteCheckState & QuoteCheckActions>
 
 export interface QuoteCheckDeps {
-  vehicle: Pick<Vehicle, 'id' | 'year' | 'make' | 'model' | 'severeDuty' | 'configId'>
+  vehicle: Pick<
+    Vehicle,
+    'id' | 'year' | 'make' | 'model' | 'severeDuty' | 'configId' | 'valueCents' | 'valuedOn'
+  >
+  vehicles: Pick<VehicleRepo, 'setValue'>
   schedule: ScheduleRepo
   records: ServiceRecordRepo
   odometer: OdometerRepo
@@ -112,6 +134,10 @@ export const createQuoteCheckModel = (deps: QuoteCheckDeps): QuoteCheckModel => 
   // True while the camera or photo picker is open, so a second tap does not open another.
   let picking = false
   let disposed = false
+  // The car's value as last saved here, and the data the last check used, to weigh again.
+  let value = { valueCents: vehicle.valueCents, valuedOn: vehicle.valuedOn }
+  let checkedWith:
+    { items: MaintenanceItem[]; records: ServiceRecord[]; readings: OdometerReading[] } | undefined
 
   return createStore<QuoteCheckState & QuoteCheckActions>()((set, get) => {
     const editing = (patch: Partial<QuoteCheckState> = {}) => {
@@ -119,8 +145,24 @@ export const createQuoteCheckModel = (deps: QuoteCheckDeps): QuoteCheckModel => 
       set({
         status: 'editing',
         result: undefined,
+        weighing: undefined,
         ...patch,
         canCheck: canCheck('editing', unmatched, draft),
+      })
+    }
+
+    // `keep` weighs a quote already being weighed even if a new value makes it small, so the card
+    // the owner is typing in does not vanish under them.
+    const weigh = (result: QuoteCheck | undefined, keep = false): RepairWeighing | undefined => {
+      if (!result || !checkedWith) return undefined
+      const quoteCents = result.lines.reduce((sum, l) => sum + (l.priceCents ?? 0), 0)
+      if (!keep && !worthWeighing(quoteCents, value.valueCents)) return undefined
+      return weighRepair({
+        vehicle: { ...vehicle, ...value },
+        ...checkedWith,
+        quoteCents,
+        coveredItemIds: result.coveredItemIds,
+        today: deps.clock.today(),
       })
     }
 
@@ -145,7 +187,8 @@ export const createQuoteCheckModel = (deps: QuoteCheckDeps): QuoteCheckModel => 
           lines,
           today: deps.clock.today(),
         })
-        set({ status: 'checked', result })
+        checkedWith = { items, records, readings }
+        set({ status: 'checked', result, weighing: weigh(result), valueError: undefined })
       } catch (e) {
         if (disposed) return
         editing({ error: e instanceof Error ? e.message : 'Could not check the quote' })
@@ -203,6 +246,7 @@ export const createQuoteCheckModel = (deps: QuoteCheckDeps): QuoteCheckModel => 
       unmatched,
       draft: '',
       canCheck: false,
+      valueDraft: vehicle.valueCents === undefined ? '' : formatCarValue(vehicle.valueCents),
 
       start: () => {
         if (stopSafety || !vehicle.configId) return
@@ -245,6 +289,38 @@ export const createQuoteCheckModel = (deps: QuoteCheckDeps): QuoteCheckModel => 
         if (!line) return undefined
         const price = line.priceCents === undefined ? '' : ` for ${formatCents(line.priceCents)}`
         return `A shop recommended "${line.text}"${price}. Does my car need it now?`
+      },
+
+      setValueDraft: (valueDraft) => set({ valueDraft, valueError: undefined }),
+
+      saveValue: async () => {
+        const parsed = parseCarValue(get().valueDraft)
+        if (!parsed.ok) {
+          set({ valueError: parsed.error })
+          return
+        }
+        const today = deps.clock.today()
+        const next =
+          parsed.cents === undefined
+            ? { valueCents: undefined, valuedOn: undefined }
+            : { valueCents: parsed.cents, valuedOn: today }
+        try {
+          await deps.vehicles.setValue(
+            vehicle.id,
+            parsed.cents === undefined ? undefined : { cents: parsed.cents, valuedOn: today },
+          )
+        } catch (e) {
+          if (!disposed)
+            set({ valueError: e instanceof Error ? e.message : 'Could not save the value' })
+          return
+        }
+        if (disposed) return
+        value = next
+        set({
+          valueDraft: parsed.cents === undefined ? '' : formatCarValue(parsed.cents),
+          valueError: undefined,
+          weighing: weigh(get().result, get().weighing !== undefined),
+        })
       },
 
       dispose: () => {

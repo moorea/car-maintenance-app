@@ -1,6 +1,11 @@
 import type { DevicePreferences, DevicePreferencesRepo } from '@car/core'
 
-const DEFAULTS: DevicePreferences = { onboarded: false, aiSharingOwner: null }
+const DEFAULTS: DevicePreferences = {
+  onboarded: false,
+  aiSharingOwner: null,
+  remindersOffered: false,
+  historyDismissed: [],
+}
 
 const parse = (raw: string | null): DevicePreferences => {
   try {
@@ -12,6 +17,10 @@ const parse = (raw: string | null): DevicePreferences => {
         // Only an account id counts, so a damaged value never shares anything.
         aiSharingOwner:
           typeof v.aiSharingOwner === 'string' && v.aiSharingOwner !== '' ? v.aiSharingOwner : null,
+        remindersOffered: v.remindersOffered === true,
+        historyDismissed: Array.isArray(v.historyDismissed)
+          ? v.historyDismissed.filter((id): id is string => typeof id === 'string')
+          : [],
       }
     }
   } catch {
@@ -22,7 +31,8 @@ const parse = (raw: string | null): DevicePreferences => {
 
 /**
  * Device preferences kept on this phone under `key`, such as in AsyncStorage: whether the
- * introduction was seen, and who allowed sharing with the assistant's model.
+ * introduction was seen, who allowed sharing with the assistant's model, whether reminders
+ * were offered, and which cars' history the owner chose not to fill in.
  */
 export const storedDevicePreferences = (
   storage: {

@@ -13,7 +13,7 @@ import type {
   Warranty,
 } from '@car/core'
 import { PowerSyncDatabase } from '@powersync/node'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PowerSyncBackendConnector } from '@powersync/common'
 import { createPowerSyncRepositories, firstSyncOf } from './repositories'
 import { powerSyncSessionDatabase } from './session'
@@ -278,10 +278,19 @@ describe('PowerSync repositories', () => {
       full: true,
       missedPrevious: false,
     }
-    await repos.fillUps.save(fillUp)
-    await repos.fillUps.save({ ...fillUp, odometerMiles: 41_100, full: false })
-    await repos.fillUps.save({ ...fillUp, odometerMiles: 41_100, full: false })
-    await repos.fillUps.remove('f1')
+    // The edit gets a later timestamp than the insert even when both land in the same
+    // millisecond, which would otherwise leave updated_at unchanged and out of the PATCH.
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      vi.setSystemTime(new Date('2026-09-01T10:00:00Z'))
+      await repos.fillUps.save(fillUp)
+      vi.setSystemTime(new Date('2026-09-01T10:00:01Z'))
+      await repos.fillUps.save({ ...fillUp, odometerMiles: 41_100, full: false })
+      await repos.fillUps.save({ ...fillUp, odometerMiles: 41_100, full: false })
+      await repos.fillUps.remove('f1')
+    } finally {
+      vi.useRealTimers()
+    }
     const ops: [string, Record<string, unknown> | undefined][] = []
     for (let tx = await db.getNextCrudTransaction(); tx; tx = await db.getNextCrudTransaction()) {
       ops.push(
@@ -399,6 +408,38 @@ describe('PowerSync repositories', () => {
       'severe_duty',
       'updated_at',
     ])
+  })
+
+  it('saves what the car is worth, uploads only that change, and forgets it again', async () => {
+    const repos = createPowerSyncRepositories(db)
+    const car: Vehicle = {
+      id: 'v-val',
+      year: 2012,
+      make: 'Honda',
+      model: 'Accord',
+      nickname: 'Accord',
+      severeDuty: false,
+    }
+    await repos.vehicles.add('u1', car)
+    await (await db.getNextCrudTransaction())?.complete()
+
+    await repos.vehicles.setValue('v-val', { cents: 650_000, valuedOn: '2026-10-17' })
+
+    expect(await repos.vehicles.get('v-val')).toMatchObject({
+      valueCents: 650_000,
+      valuedOn: '2026-10-17',
+    })
+    const transaction = await db.getNextCrudTransaction()
+    expect(transaction?.crud[0]).toMatchObject({ table: 'vehicles', id: 'v-val', op: 'PATCH' })
+    expect(Object.keys(transaction?.crud[0]?.opData ?? {}).sort()).toEqual([
+      'updated_at',
+      'value_cents',
+      'valued_on',
+    ])
+    await transaction?.complete()
+
+    await repos.vehicles.setValue('v-val', undefined)
+    expect(await repos.vehicles.get('v-val')).toStrictEqual(car)
   })
 
   it('adds a car without a reading when the owner gives no mileage', async () => {

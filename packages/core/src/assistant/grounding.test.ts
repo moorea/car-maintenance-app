@@ -118,6 +118,14 @@ describe('groundingDocuments', () => {
     expect(car?.text).toContain('NHTSA lists 1 recall for this model year')
   })
 
+  it('tells the model what the owner said the car is worth, so it can weigh a repair', () => {
+    const valued = { ...facts().vehicle, valueCents: 950_000, valuedOn: '2026-09-01' }
+    expect(groundingDocuments(facts({ vehicle: valued }))[0]?.text).toContain(
+      'The owner said on 2026-09-01 that the car is worth about $9,500.00.',
+    )
+    expect(groundingDocuments(facts())[0]?.text).not.toContain('worth')
+  })
+
   it('says when nothing is known yet, so the model does not fill the gap', () => {
     const [car] = groundingDocuments(
       facts({ schedule: [], readings: [], safety: { recalls: [], complaints: [] } }),

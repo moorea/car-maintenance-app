@@ -213,7 +213,7 @@ describe('two phones signed in as one owner', () => {
     expect([...a.dropped, ...b.dropped]).toEqual([])
   })
 
-  it('each see the edits and deletions the other made', async () => {
+  it('each see the edits, the car value and the deletions the other made', async () => {
     const owner = await createUser()
     const [a, b] = [await open(owner), await open(owner)]
     const { id: vehicleId } = await addCar(a)
@@ -242,6 +242,7 @@ describe('two phones signed in as one owner', () => {
     const extended = { ...powertrain, months: 84, endMiles: 100_000, policyNumber: 'PT-1' }
     await b.warranties.save(extended)
     await b.vehicles.setSevereDuty(vehicleId, true)
+    await b.vehicles.setValue(vehicleId, { cents: 1_150_000, valuedOn: '2026-10-17' })
     await b.fillUps.remove(fill.id)
     await b.db.execute('delete from service_records where id = ?', [oilChange.id])
 
@@ -254,9 +255,12 @@ describe('two phones signed in as one owner', () => {
     ).toEqual([extended])
     await eventually(
       () => a.vehicles.get(vehicleId),
-      (v) => v?.severeDuty === true,
-      'severe duty',
+      (v) => v?.severeDuty === true && v.valueCents === 1_150_000,
+      'severe duty and value',
     )
+    expect(await serverRows('vehicles', 'id', vehicleId)).toEqual([
+      expect.objectContaining({ value_cents: 1_150_000, valued_on: '2026-10-17' }),
+    ])
     await eventually(
       () => a.fillUps.listForVehicle(vehicleId),
       (f) => f.length === 0,

@@ -16,6 +16,7 @@ import { ATTACHMENT_TYPES, MAX_ATTACHMENT_BYTES } from '../features/attachments/
 import { RENEWAL_KIND_IDS } from '../schemas/renewal'
 import { csv } from './csv'
 import { NOTES_MAX, SHORT_TEXT_MAX } from '../schemas/text'
+import { MAX_CAR_VALUE_CENTS } from '../schemas/carValue'
 
 /**
  * A full copy of an owner's data as one zip, in open formats: `car-data.json` holds everything and
@@ -148,6 +149,9 @@ const exportedCar = z.object({
   vin: z.string().length(17).optional(),
   nickname: z.string().max(40),
   severeDuty: z.boolean(),
+  // What the owner thinks the car is worth, and when they said. Older exports have neither.
+  valueCents: z.number().int().positive().max(MAX_CAR_VALUE_CENTS).optional(),
+  valuedOn: isoDate.optional(),
   odometer: z.array(z.object({ date: isoDate, miles: z.number().int().nonnegative() })),
   services: z.array(exportedService),
   documents: z.array(exportedDocument),
@@ -272,6 +276,8 @@ export const buildArchive = (
         'vin',
         'nickname',
         'severe_duty',
+        'value_usd',
+        'valued_on',
       ],
     ],
     services: [['car', 'date', 'service', 'odometer_miles', 'cost_usd', 'shop', 'notes', 'files']],
@@ -430,6 +436,8 @@ export const buildArchive = (
         v.vin ?? '',
         v.nickname,
         v.severeDuty ? 'yes' : 'no',
+        dollars(v.valueCents),
+        v.valuedOn ?? '',
       ])
 
       return {
@@ -443,6 +451,8 @@ export const buildArchive = (
         ...(v.vin && { vin: v.vin }),
         nickname: v.nickname,
         severeDuty: v.severeDuty,
+        ...(v.valueCents !== undefined &&
+          v.valuedOn !== undefined && { valueCents: v.valueCents, valuedOn: v.valuedOn }),
         odometer: sortedReadings.map((r) => ({ date: r.date, miles: r.miles })),
         services: sortedServices.map((s) => {
           const item = s.itemId ? itemById.get(s.itemId) : undefined

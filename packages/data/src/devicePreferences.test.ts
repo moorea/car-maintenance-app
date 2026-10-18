@@ -23,7 +23,9 @@ describe('storedDevicePreferences', () => {
   it('starts with nothing seen and nothing shared on a new phone', async () => {
     const seen = watchAll(storedDevicePreferences(memoryStorage(), 'prefs'))
     await settle()
-    expect(seen).toEqual([{ onboarded: false, aiSharingOwner: null }])
+    expect(seen).toEqual([
+      { onboarded: false, aiSharingOwner: null, remindersOffered: false, historyDismissed: [] },
+    ])
   })
 
   it('remembers each choice across launches and keeps the others', async () => {
@@ -34,7 +36,9 @@ describe('storedDevicePreferences', () => {
     await repo.update({ aiSharingOwner: null })
     const seen = watchAll(storedDevicePreferences(storage, 'prefs'))
     await settle()
-    expect(seen).toEqual([{ onboarded: true, aiSharingOwner: null }])
+    expect(seen).toEqual([
+      { onboarded: true, aiSharingOwner: null, remindersOffered: false, historyDismissed: [] },
+    ])
   })
 
   it('keeps stored choices when one changes before they have been read', async () => {
@@ -46,14 +50,38 @@ describe('storedDevicePreferences', () => {
     expect(JSON.parse(storage.items.get('prefs') ?? '')).toEqual({
       onboarded: true,
       aiSharingOwner: null,
+      remindersOffered: false,
+      historyDismissed: [],
     })
+  })
+
+  it('remembers that reminders were offered', async () => {
+    const storage = memoryStorage()
+    const repo = storedDevicePreferences(storage, 'prefs')
+    await repo.update({ remindersOffered: true })
+    const seen = watchAll(storedDevicePreferences(storage, 'prefs'))
+    await settle()
+    expect(seen).toEqual([
+      { onboarded: false, aiSharingOwner: null, remindersOffered: true, historyDismissed: [] },
+    ])
+  })
+
+  it('keeps only car ids in the cars whose history was dismissed', async () => {
+    const storage = memoryStorage({
+      prefs: JSON.stringify({ historyDismissed: ['v1', 7, null, 'v2'] }),
+    })
+    const seen = watchAll(storedDevicePreferences(storage, 'prefs'))
+    await settle()
+    expect(seen[0]?.historyDismissed).toEqual(['v1', 'v2'])
   })
 
   it('never reads a damaged value as permission to share', async () => {
     const storage = memoryStorage({ prefs: '{"aiSharingOwner":true' })
     const seen = watchAll(storedDevicePreferences(storage, 'prefs'))
     await settle()
-    expect(seen).toEqual([{ onboarded: false, aiSharingOwner: null }])
+    expect(seen).toEqual([
+      { onboarded: false, aiSharingOwner: null, remindersOffered: false, historyDismissed: [] },
+    ])
   })
 
   it('never lets a later change undo an earlier one made at the same time', async () => {
@@ -65,6 +93,8 @@ describe('storedDevicePreferences', () => {
     expect(JSON.parse(storage.items.get('prefs') ?? '')).toEqual({
       onboarded: true,
       aiSharingOwner: null,
+      remindersOffered: false,
+      historyDismissed: [],
     })
   })
 
@@ -102,6 +132,8 @@ describe('storedDevicePreferences', () => {
     await settle()
     const seen = watchAll(repo)
     await expect(repo.update({ aiSharingOwner: 'u1' })).rejects.toThrow('disk full')
-    expect(seen).toEqual([{ onboarded: false, aiSharingOwner: null }])
+    expect(seen).toEqual([
+      { onboarded: false, aiSharingOwner: null, remindersOffered: false, historyDismissed: [] },
+    ])
   })
 })
