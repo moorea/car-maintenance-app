@@ -1,4 +1,4 @@
-import type { DueRow, DueStatus, GarageState, Vehicle } from '@car/core'
+import type { DueRow, DueStatus, GarageActions, GarageState, Vehicle } from '@car/core'
 import { Button, Column, Row, ScrollView, Spacer } from '@expo/ui'
 import { Fragment } from 'react'
 import { ActivityIndicator, StyleSheet } from 'react-native'
@@ -28,7 +28,9 @@ export interface GarageNavigation {
   onAccount: () => void
 }
 
-type Props = GarageState & GarageNavigation & { vehicles: Vehicle[]; vehicle: Vehicle }
+type Props = GarageState &
+  Pick<GarageActions, 'dismissCatchUp'> &
+  GarageNavigation & { vehicles: Vehicle[]; vehicle: Vehicle }
 
 const OVERLINE = { fontSize: 13, fontWeight: '600', letterSpacing: 0.5 } as const
 
@@ -67,6 +69,7 @@ export function GarageView(props: Props) {
             />
           ))}
 
+          <CatchUpCard {...props} />
           <NextUpCard {...props} />
           <RecallBanner {...props} />
           <ComingUp {...props} />
@@ -96,6 +99,52 @@ function CarCard(props: { vehicle: Vehicle; detail: string | undefined; onPress:
           </Text>
         </FillColumn>
         <Symbol name="chevron" size={16} color={colors.textSecondary} />
+      </Row>
+    </Card>
+  )
+}
+
+/** Asks when a service was last done, one at a time, so a new car's schedule stops guessing. */
+function CatchUpCard(props: Props) {
+  const colors = useColors()
+  const { catchUp } = props
+  if (!catchUp) return null
+  const more =
+    catchUp.others > 0
+      ? ` ${catchUp.others === 1 ? "There's" : 'There are'} ${plural(catchUp.others, 'other service')} to fill in after this one.`
+      : ''
+  return (
+    <Card padding={18} spacing={12}>
+      <Row alignment="center" spacing={12}>
+        <Column
+          alignment="center"
+          style={{ padding: 8, borderRadius: 12, backgroundColor: colors.accentSubtle }}
+        >
+          <Symbol name="log" size={22} color={colors.accent} />
+        </Column>
+        <FillColumn spacing={2}>
+          <Text textStyle={{ fontSize: 17, fontWeight: '600' }}>{catchUp.task}</Text>
+          <Text textStyle={{ fontSize: 14, color: colors.textSecondary }}>
+            When was it last done?
+          </Text>
+        </FillColumn>
+      </Row>
+      <Text textStyle={{ fontSize: 15, color: colors.textSecondary }}>
+        {`There's no record of it yet, so when it's due is a guess. Add the last time it was done, even roughly, and reminders will follow your car.${more}`}
+      </Text>
+      <Row spacing={10}>
+        <PillButton
+          label="Add last time"
+          onPress={() => props.onLogService(catchUp.itemId)}
+          fill="accent"
+          text="onAccent"
+        />
+        <PillButton
+          label="Don't ask again"
+          onPress={props.dismissCatchUp}
+          fill="neutralSubtle"
+          text="textPrimary"
+        />
       </Row>
     </Card>
   )
