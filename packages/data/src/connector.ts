@@ -4,7 +4,7 @@ import type {
   PowerSyncCredentials,
 } from '@powersync/common'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { supabaseStorage, type StorageOptions } from './storage'
+import { supabaseStorage, transferTimeoutMs, type StorageOptions } from './storage'
 import { uploadPending, type BackendError, type CrudBackend } from './upload'
 
 interface PostgrestResult {
@@ -15,12 +15,12 @@ const toError = ({ error, status }: PostgrestResult): BackendError | null =>
   error ? { code: error.code, status, message: error.message } : null
 
 /**
- * How long one write to PostgREST may take. PowerSync waits for an upload to finish before it
- * starts another, so a request stuck on a dead connection (a captive portal, a train going into a
- * tunnel) would hold every later change until the app restarts. Past this, the write fails as a
- * network error and is retried.
+ * How long one write to PostgREST may take: 30 seconds, plus 10 a megabyte of rows sent.
+ * PowerSync waits for an upload to finish before it starts another, so a request stuck on a dead
+ * connection (a captive portal, a train going into a tunnel) would hold every later change until
+ * the app restarts. Past this, the write fails as a network error and is retried.
  */
-export const WRITE_TIMEOUT_MS = 30_000
+export const writeTimeoutMs = (bytes: number) => 30_000 + Math.ceil(bytes / 1_000_000) * 10_000
 
 /** Runs a request with a signal that aborts it after `ms`, and clears the timer either way. */
 export const withDeadline = async <T>(
@@ -46,24 +46,40 @@ export const supabaseBackend = (
   supabase: SupabaseClient,
   storage: StorageOptions,
   accessToken: string,
-  timeoutMs = WRITE_TIMEOUT_MS,
+  /**
+   * How many times the usual deadlines a request gets. Grows after uploads time out, so a slow
+   * connection is given longer rather than cut off at the same point on every retry.
+   */
+  patience = 1,
+  timeoutMs: (bytes: number) => number = writeTimeoutMs,
 ): CrudBackend => {
   const auth = `Bearer ${accessToken}`
   const from = (table: string) => supabase.from(table)
+  const deadline = (body: unknown) =>
+    patience * timeoutMs(body === undefined ? 0 : JSON.stringify(body).length)
   // An aborted request resolves with status 0, like any network failure, so it is retried.
   const write = async (
+    body: unknown,
     request: (signal: AbortSignal) => PromiseLike<PostgrestResult>,
-  ): Promise<BackendError | null> => toError(await withDeadline(timeoutMs, request))
-  const files = supabaseStorage(storage, accessToken)
+  ): Promise<BackendError | null> => toError(await withDeadline(deadline(body), request))
+  const files = supabaseStorage(
+    {
+      ...storage,
+      timeoutMs: (bytes) => patience * (storage.timeoutMs ?? transferTimeoutMs)(bytes),
+    },
+    accessToken,
+  )
   const insertRows = (table: string, rows: Record<string, unknown> | Record<string, unknown>[]) =>
-    write((signal) =>
+    write(rows, (signal) =>
       from(table)
         .upsert(rows, { ignoreDuplicates: true })
         .setHeader('Authorization', auth)
         .abortSignal(signal),
     )
   const upsertRows = (table: string, rows: Record<string, unknown> | Record<string, unknown>[]) =>
-    write((signal) => from(table).upsert(rows).setHeader('Authorization', auth).abortSignal(signal))
+    write(rows, (signal) =>
+      from(table).upsert(rows).setHeader('Authorization', auth).abortSignal(signal),
+    )
   return {
     putFile: (path, bytes, contentType) => files.put(path, bytes, contentType),
     removeFile: (path) => files.remove(path),
@@ -73,7 +89,7 @@ export const supabaseBackend = (
     upsertMany: upsertRows,
     update: async (table, id, changes) => {
       // RLS filters a refused update down to zero rows without an error, so count them.
-      const result = await withDeadline(timeoutMs, (signal) =>
+      const result = await withDeadline(deadline(changes), (signal) =>
         from(table)
           .update(changes)
           .eq('id', id)
@@ -85,19 +101,24 @@ export const supabaseBackend = (
       return { status: 404, message: `No ${table} row ${id} could be updated` }
     },
     remove: (table, id) =>
-      write((signal) =>
+      write(undefined, (signal) =>
         from(table).delete().eq('id', id).setHeader('Authorization', auth).abortSignal(signal),
       ),
   }
 }
+
+const MAX_PATIENCE_DOUBLINGS = 4
 
 /** The slice of the Supabase client the connector uses. */
 export type SupabaseAuth = Pick<SupabaseClient['auth'], 'getSession'>
 
 export interface SupabaseConnectorOptions {
   auth: SupabaseAuth
-  /** The backend that uploads as the owner of an access token. */
-  backendFor: (accessToken: string) => CrudBackend
+  /**
+   * The backend that uploads as the owner of an access token, giving each request `patience`
+   * times its usual deadline.
+   */
+  backendFor: (accessToken: string, patience: number) => CrudBackend
   powerSyncUrl: string
   /** The bytes of an attachment's file on this phone, or undefined if there is none. */
   readFile: (attachmentId: string) => Promise<Uint8Array | undefined>
@@ -118,6 +139,8 @@ export interface SupabaseClientConnectorOptions {
  */
 export class SupabaseConnector implements PowerSyncBackendConnector {
   private readonly onDropped: (message: string) => void
+  /** Upload passes that failed in a row since the last one that finished. */
+  private failedPasses = 0
 
   constructor(private readonly options: SupabaseConnectorOptions) {
     this.onDropped = options.onDropped ?? console.warn
@@ -126,7 +149,7 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
   static forClient(supabase: SupabaseClient, options: SupabaseClientConnectorOptions) {
     return new SupabaseConnector({
       auth: supabase.auth,
-      backendFor: (token) => supabaseBackend(supabase, options.storage, token),
+      backendFor: (token, patience) => supabaseBackend(supabase, options.storage, token, patience),
       powerSyncUrl: options.powerSyncUrl,
       readFile: options.readFile,
       ...(options.onDropped ? { onDropped: options.onDropped } : {}),
@@ -150,13 +173,22 @@ export class SupabaseConnector implements PowerSyncBackendConnector {
     // intact until the user is signed in again. An expired token midway gets a 401, which retries.
     const { data } = await this.options.auth.getSession()
     if (!data.session) throw new Error('Not signed in; uploads wait until a session is restored')
-    const backend = this.options.backendFor(data.session.access_token)
-    await uploadPending(
-      db,
-      backend,
-      (entry, error) =>
-        this.onDropped(`Dropped ${entry.op} on ${entry.table} ${entry.id}: ${error.message}`),
-      { userId: data.session.user.id, readFile: this.options.readFile },
-    )
+    // Each failed pass doubles the deadlines, up to 16 times: a connection too slow for a file
+    // in the usual time still gets it through, while a dead one is retried soon at first.
+    const patience = 2 ** Math.min(this.failedPasses, MAX_PATIENCE_DOUBLINGS)
+    const backend = this.options.backendFor(data.session.access_token, patience)
+    try {
+      await uploadPending(
+        db,
+        backend,
+        (entry, error) =>
+          this.onDropped(`Dropped ${entry.op} on ${entry.table} ${entry.id}: ${error.message}`),
+        { userId: data.session.user.id, readFile: this.options.readFile },
+      )
+    } catch (error) {
+      this.failedPasses++
+      throw error
+    }
+    this.failedPasses = 0
   }
 }

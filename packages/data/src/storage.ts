@@ -97,7 +97,7 @@ export const supabaseStorage = (
   const send = async (
     url: string,
     init: RequestInit & { bytes?: number },
-  ): Promise<{ response: Response } | { error: BackendError }> => {
+  ): Promise<{ status: number; json: unknown } | { error: BackendError }> => {
     const { bytes = 0, ...request } = init
     const controller = new AbortController()
     const ms = timeoutMs(bytes)
@@ -108,7 +108,15 @@ export const supabaseStorage = (
         headers: { ...headers, ...request.headers },
         signal: controller.signal,
       })
-      return response.ok ? { response } : { error: await toStorageError(response) }
+      if (!response.ok) return { error: await toStorageError(response) }
+      // Read within the deadline too: a body can stall after the headers arrive.
+      let json: unknown
+      try {
+        json = await response.json()
+      } catch {
+        // Not JSON, or cut off; callers that need the body say so.
+      }
+      return { status: response.status, json }
     } catch (error) {
       // No connection, or no response in time: status 0 is retried.
       return { error: { status: 0, message: String(error) } }
@@ -125,7 +133,7 @@ export const supabaseStorage = (
         body: bytes as Uint8Array<ArrayBuffer>,
         bytes: bytes.byteLength,
       })
-      if ('response' in result) return null
+      if (!('error' in result)) return null
       return isDuplicate(result.error) ? null : result.error
     },
 
@@ -135,7 +143,7 @@ export const supabaseStorage = (
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ prefixes: [path] }),
       })
-      if ('response' in result) return null
+      if (!('error' in result)) return null
       return isNotFound(result.error) ? null : result.error
     },
 
@@ -146,13 +154,8 @@ export const supabaseStorage = (
         body: JSON.stringify({ expiresIn }),
       })
       if ('error' in result) return result.error
-      let signed: string | undefined
-      try {
-        signed = str(((await result.response.json()) as { signedURL?: unknown }).signedURL)
-      } catch {
-        // Handled below.
-      }
-      if (!signed) return { status: result.response.status, message: 'No signed URL returned' }
+      const signed = str((result.json as { signedURL?: unknown } | undefined)?.signedURL)
+      if (!signed) return { status: result.status, message: 'No signed URL returned' }
       // signedURL is relative to the Storage API, such as `/object/sign/attachments/...?token=`.
       return { url: encodeURI(`${base}${signed}`) }
     },

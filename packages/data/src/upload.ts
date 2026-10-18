@@ -221,6 +221,10 @@ const applyRun = async (
  * inserts into one table go in one request, so a backlog built up offline (or an import of years
  * of history) uploads in a few requests rather than one per row. Order is kept, so a car still
  * uploads before its first reading.
+ *
+ * When a run fails for now, the changes already sent are marked uploaded before the error is
+ * rethrown, so the retry starts at the failed run: replaying them could overwrite an edit made on
+ * another phone meanwhile, or bring back a row deleted there.
  */
 export const uploadPending = async (
   db: Pick<CommonPowerSyncDatabase, 'getCrudBatch'>,
@@ -231,7 +235,31 @@ export const uploadPending = async (
   for (;;) {
     const batch = await db.getCrudBatch(BATCH_SIZE)
     if (!batch) return
-    for (const run of runsOf(batch.crud)) await applyRun(backend, run, context, onDropped)
+    let sent = 0
+    try {
+      for (const run of runsOf(batch.crud)) {
+        await applyRun(backend, run, context, onDropped)
+        sent += run.length
+      }
+    } catch (error) {
+      if (sent > 0) await completeFirst(db, batch.crud, sent)
+      throw error
+    }
     await batch.complete()
   }
+}
+
+/**
+ * Marks the first `count` changes of the queue uploaded. The queue only grows at its end, so the
+ * first `count` are the ones just sent; checked anyway, since completing others would lose them.
+ */
+const completeFirst = async (
+  db: Pick<CommonPowerSyncDatabase, 'getCrudBatch'>,
+  sent: readonly CrudEntry[],
+  count: number,
+) => {
+  const head = await db.getCrudBatch(count)
+  const last = sent[count - 1]
+  if (head?.crud.length === count && head.crud[count - 1]?.clientId === last?.clientId)
+    await head.complete()
 }

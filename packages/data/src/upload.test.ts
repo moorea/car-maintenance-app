@@ -389,6 +389,24 @@ describe('uploadPending', () => {
     expect(completed).toEqual(['r1', 'r2'])
   })
 
+  it('keeps what was sent when a later run fails for now, so the retry does not replay it', async () => {
+    const { db, completed } = queue(
+      put('vehicles', 'v1', {}),
+      put('fill_ups', 'f1'),
+      put('fill_ups', 'f2'),
+      put('odometer_readings', 'o1'),
+    )
+    const { backend, calls } = fakeBackend([null, null, { status: 0, message: 'timeout' }])
+    await expect(uploadPending(db, backend, () => {}, context())).rejects.toThrow(/timeout/)
+    expect(completed).toEqual(['v1', 'f1', 'f2'])
+
+    // The retry starts at the reading.
+    calls.length = 0
+    await uploadPending(db, backend, () => {}, context())
+    expect(calls.map((c) => c[1])).toEqual(['odometer_readings'])
+    expect(completed).toEqual(['v1', 'f1', 'f2', 'o1'])
+  })
+
   it('completes a batch past a dropped change and reports it', async () => {
     const { db, completed } = queue(entry(UpdateType.PATCH, 'vehicles', {}))
     const { backend } = fakeBackend([{ status: 404, message: 'no row updated' }])

@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { describe, expect, it } from 'vitest'
-import { supabaseBackend } from './connector'
+import { supabaseBackend, writeTimeoutMs } from './connector'
 import { isPermanent } from './upload'
 
 interface Sent {
@@ -91,7 +91,7 @@ describe('supabaseBackend', () => {
       global: { fetch },
       auth: { persistSession: false, autoRefreshToken: false },
     })
-    const backend = supabaseBackend(supabase, storage, 'jwt', 20)
+    const backend = supabaseBackend(supabase, storage, 'jwt', 1, () => 20)
     const writes = [
       backend.insert('vehicles', { id: 'v1' }),
       backend.upsertMany('vehicles', [{ id: 'v1' }]),
@@ -103,6 +103,37 @@ describe('supabaseBackend', () => {
       expect(error && isPermanent(error)).toBe(false)
     }
     expect(requests).toBe(4)
+  })
+
+  it('allows a large batch more time, and more again after uploads have timed out', async () => {
+    const asked: number[] = []
+    const answerAfter = (ms: number) => (_input: RequestInfo | URL, init?: RequestInit) =>
+      new Promise<Response>((resolve, reject) => {
+        const timer = setTimeout(() => resolve(new Response(null, { status: 201 })), ms)
+        init?.signal?.addEventListener('abort', () => {
+          clearTimeout(timer)
+          reject(init.signal?.reason as Error)
+        })
+      })
+    const client = (ms: number) =>
+      createClient('https://db.example', 'anon-key', {
+        global: { fetch: answerAfter(ms) },
+        auth: { persistSession: false, autoRefreshToken: false },
+      })
+    const timeout = (bytes: number) => (asked.push(bytes), 30)
+    const rows = [{ id: 'r1', notes: 'x'.repeat(1_000) }]
+    expect(
+      await supabaseBackend(client(60), storage, 'jwt', 1, timeout).insertMany('t', rows),
+    ).toMatchObject({ status: 0 })
+    expect(
+      await supabaseBackend(client(60), storage, 'jwt', 4, timeout).insertMany('t', rows),
+    ).toBeNull()
+    expect(asked[0]).toBe(JSON.stringify(rows).length)
+  })
+
+  it('allows a large batch ten seconds more a megabyte', () => {
+    expect(writeTimeoutMs(0)).toBe(30_000)
+    expect(writeTimeoutMs(2_500_000)).toBe(60_000)
   })
 
   it('upserts by replacing a row that already exists', async () => {

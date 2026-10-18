@@ -13,7 +13,7 @@ const noFiles = async () => undefined
 
 const connector = (
   authenticator: SupabaseAuth,
-  backendFor: (token: string) => CrudBackend = unusedBackend,
+  backendFor: (token: string, patience: number) => CrudBackend = unusedBackend,
   readFile: (id: string) => Promise<Uint8Array | undefined> = noFiles,
 ) =>
   new SupabaseConnector({
@@ -71,6 +71,20 @@ describe('SupabaseConnector', () => {
       },
     ).uploadData(db)
     expect(tokens).toEqual(['jwt'])
+  })
+
+  it('gives uploads longer after each failed pass, and the usual time once one finishes', async () => {
+    const outcomes = [true, true, true, true, true, true, false, true, false]
+    const db = {
+      getCrudBatch: async () => {
+        if (outcomes.shift()) throw new Error('timeout')
+        return null
+      },
+    } as unknown as CommonPowerSyncDatabase
+    const patience: number[] = []
+    const upload = connector(auth(signedIn), (_, p) => (patience.push(p), {} as CrudBackend))
+    for (let i = 0; i < 9; i++) await upload.uploadData(db).catch(() => {})
+    expect(patience).toEqual([1, 2, 4, 8, 16, 16, 16, 1, 2])
   })
 
   it('uploads an attachment with its file from this phone, into the signed-in user’s folder', async () => {

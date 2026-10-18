@@ -383,7 +383,12 @@ describe('offline', () => {
   it('uploads years of history logged offline, keeping each row even when one is refused', async () => {
     const owner = await createUser()
     const a = await open(owner)
-    const { id: vehicleId } = await addCar(a)
+    const { id: vehicleId, configId } = await addCar(a)
+    const [item] = await eventually(
+      () => a.schedule.itemsForConfig(configId),
+      (list) => list.length > 0,
+      'the schedule',
+    )
 
     await a.goOffline()
     const services = Array.from({ length: 150 }, (_, i) => {
@@ -391,8 +396,10 @@ describe('offline', () => {
         performedOn: `${2012 + Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, '0')}-15`,
         odometerMiles: 1_000 * i,
       })
-      // Mixed shapes, and one linked to a schedule item the server never had.
-      return { ...record, ...(i % 3 === 0 ? {} : { shop }), ...(i === 70 ? { itemId: id() } : {}) }
+      // Mixed shapes. Every one is linked to the car's schedule, and one to an item the server
+      // never had, so the server refuses its whole batch and the rest must go up row by row.
+      const itemId = i === 70 ? id() : (item?.id ?? '')
+      return { ...record, itemId, ...(i % 3 === 0 ? {} : { shop }) }
     })
     for (const record of services) await a.records.add(record)
     const fills = Array.from({ length: 150 }, (_, i) =>
@@ -409,6 +416,8 @@ describe('offline', () => {
     expect(await serverRows('fill_ups', 'vehicle_id', vehicleId)).toHaveLength(150)
     const [unlinked] = await serverRows('service_records', 'id', services[70]?.id ?? '')
     expect(unlinked?.item_id).toBeNull()
+    const [linked] = await serverRows('service_records', 'id', services[71]?.id ?? '')
+    expect(linked?.item_id).toBe(item?.id)
     expect(a.dropped).toEqual([])
   })
 

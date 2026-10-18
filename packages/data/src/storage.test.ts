@@ -52,6 +52,19 @@ describe('supabaseStorage', () => {
     expect(asked).toEqual([3, 0])
   })
 
+  it('gives up on a signed URL whose response stalls after the headers', async () => {
+    const stalled = (async (_url: string, init: RequestInit = {}) => {
+      const body = new ReadableStream({
+        start(controller) {
+          init.signal?.addEventListener('abort', () => controller.error(init.signal?.reason))
+        },
+      })
+      return new Response(body, { status: 200 })
+    }) as typeof fetch
+    const storage = supabaseStorage({ ...project, fetch: stalled, timeoutMs: () => 20 }, 'jwt')
+    expect(await storage.signedUrl('u/a1', 60)).toMatchObject({ status: 200 })
+  })
+
   it('allows a large file more time than a small one', () => {
     expect(transferTimeoutMs(0)).toBe(30_000)
     expect(transferTimeoutMs(25_000_000)).toBe(280_000)
