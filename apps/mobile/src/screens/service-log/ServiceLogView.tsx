@@ -12,6 +12,7 @@ import { Card, FillColumn, GlassIconButton, PillButton, Separator } from '../../
 import { Symbol } from '../../ui/Symbol'
 import { ActionMenu } from '../../ui/ActionMenu'
 import { ChoiceField } from '../../ui/ChoiceField'
+import { DateField } from '../../ui/DateField'
 import {
   AttachMenu,
   AttachmentRows,
@@ -303,6 +304,7 @@ function LogForm({
   saveError,
   status,
   tasks,
+  latestDate,
   receipts,
   receiptError,
   setField,
@@ -359,12 +361,12 @@ function LogForm({
           error={fieldErrors.notes}
           placeholder={draft.itemId === OTHER ? 'e.g. Wiper blades' : ''}
         />
-        <TextField
+        <DateField
           label="Date"
           value={draft.performedOn}
-          onChangeText={(v) => setField('performedOn', v)}
+          onChange={(v) => setField('performedOn', v)}
           error={fieldErrors.performedOn}
-          placeholder="YYYY-MM-DD"
+          max={latestDate}
         />
         <TextField
           label="Odometer (miles)"

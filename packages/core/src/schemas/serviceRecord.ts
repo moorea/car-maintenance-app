@@ -1,10 +1,7 @@
 import { z } from 'zod'
+import { dateInput } from './date'
 import { NOTES_MAX, SHORT_TEXT_MAX, optionalText } from './text'
 
-const isoDate = z.iso.date({
-  error: (issue) =>
-    issue.input === '' ? 'Add the date it was done, as YYYY-MM-DD' : 'Enter a date as YYYY-MM-DD',
-})
 /**
  * Plain digits with optional thousands commas, as a receipt prints them ("1,234.50"), and an
  * optional "$" on a cost; no "1e3" or "0x10". Then range-checked as a number.
@@ -24,7 +21,7 @@ const DOLLARS = /^\d{1,3}(,\d{3})*(\.\d{1,2})?$|^\d+(\.\d{1,2})?$/
 
 /** What the owner types on the "log service" form. Numbers arrive as text from inputs. */
 export const serviceRecordDraftSchema = z.object({
-  performedOn: isoDate,
+  performedOn: dateInput('Add the date it was done'),
   itemId: optionalText(SHORT_TEXT_MAX),
   odometerMiles: optionalNumber(
     WHOLE,

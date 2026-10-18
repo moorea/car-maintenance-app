@@ -9,6 +9,7 @@ import { Reflow } from '../../ui/Reflow'
 import { Symbol } from '../../ui/Symbol'
 import { TAB_BAR_CLEARANCE } from '../../ui/TabBar'
 import { Text } from '../../ui/Text'
+import { DateField } from '../../ui/DateField'
 import { TextField } from '../../ui/TextField'
 import { Card, FillColumn, GlassIconButton, PillButton } from '../../ui/surfaces'
 import {
@@ -236,12 +237,12 @@ function RenewalForm({ form, kinds, repeats, setField, save, remove, closeForm }
             placeholder="Parking permit, toll pass, lease return"
           />
         ) : null}
-        <TextField
+        <DateField
           label={draft.kind === 'registration' ? 'Expires on' : 'Due on'}
           value={draft.dueOn}
-          onChangeText={(v) => setField('dueOn', v)}
+          onChange={(v) => setField('dueOn', v)}
           error={errors.dueOn}
-          placeholder="YYYY-MM-DD, from the paperwork"
+          placeholder="Choose the date on the paperwork"
         />
         <Column spacing={4}>
           <Text textStyle={{ fontSize: 13, fontWeight: '600' }}>Repeats</Text>

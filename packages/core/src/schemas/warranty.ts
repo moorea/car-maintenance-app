@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { dateInput } from './date'
 import { NOTES_MAX, SHORT_TEXT_MAX, optionalText } from './text'
 import type { WarrantyKind } from '../domain/types'
 
@@ -21,7 +22,7 @@ export const warrantyDraftSchema = z
   .object({
     kind: z.enum(KINDS, { error: 'Choose what it covers' }),
     provider: optionalText(SHORT_TEXT_MAX),
-    startsOn: z.iso.date({ error: 'Enter the start date as YYYY-MM-DD' }),
+    startsOn: dateInput('Add the day it starts'),
     // Months rather than years, so a 3-month dealer warranty is as easy to enter as a 3-year one.
     months: z
       .string()
