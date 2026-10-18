@@ -4,7 +4,7 @@
 # deploy after merging would fail. Rename the new file with a later timestamp instead.
 set -euo pipefail
 base="${1:?usage: check-migration-order.sh <base-ref>}"
-newest=$(git ls-tree --name-only "$base" supabase/migrations/ | sort | tail -n 1)
+newest=$(git ls-tree --name-only "$base" supabase/migrations/ | grep '\.sql$' | sort | tail -n 1)
 status=0
 while IFS= read -r added; do
   [ -z "$added" ] && continue
@@ -12,5 +12,5 @@ while IFS= read -r added; do
     echo "::error file=$added::$(basename "$added") sorts before $(basename "$newest"), already on $base. Give it a later timestamp."
     status=1
   fi
-done < <(git diff --name-only --diff-filter=A "$base"...HEAD -- supabase/migrations/)
+done < <(git diff --name-only --no-renames --diff-filter=A "$base"...HEAD -- supabase/migrations/)
 exit "$status"
