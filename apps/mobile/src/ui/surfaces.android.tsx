@@ -317,7 +317,7 @@ export function FilledIconButton({
       }}
       modifiers={[sizeModifier(size, size), semantics({ contentDescription: label })]}
     >
-      <Symbol name={symbol} size={size * 0.42} color={colors.onAccent} />
+      <Symbol name={symbol} size={size * 0.42} color={disabled ? colors.accent : colors.onAccent} />
     </ComposeFilledIconButton>
   )
 }

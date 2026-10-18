@@ -362,6 +362,26 @@ describe('session model, adding a car', () => {
     expect(model.getState().tab).toBe('car')
   })
 
+  it('steps back from your data to the account to the first screen before any car is added', () => {
+    const { model } = setup(true, [])
+    model.getState().start()
+    expect(model.getState().status).toBe('no-vehicles')
+    model.getState().openTab('account')
+    model.getState().openTab('data')
+    expect(model.getState().systemBack()).toBe(true)
+    expect(model.getState().tab).toBe('account')
+    expect(model.getState().systemBack()).toBe(true)
+    expect(model.getState().tab).toBe('garage')
+    expect(model.getState().systemBack()).toBe(false)
+  })
+
+  it('leaves the system gesture to close the app while signed out or starting', () => {
+    const { model } = setup(false)
+    expect(model.getState().systemBack()).toBe(false)
+    model.getState().start()
+    expect(model.getState().systemBack()).toBe(false)
+  })
+
   it("opens a car's page from the garage, selecting that car", () => {
     const { model } = setup(true, [civic, accord])
     model.getState().start()

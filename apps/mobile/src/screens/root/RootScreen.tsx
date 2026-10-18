@@ -1,9 +1,8 @@
 import { createSessionModel } from '@car/core'
-import { useEffect } from 'react'
-import { BackHandler } from 'react-native'
 import { useStore } from 'zustand'
 import { deps } from '../../bootstrap/deps'
 import { useScreenModel } from '../../models/useScreenModel'
+import { useSystemBack } from '../../models/useSystemBack'
 import { OnboardingGate } from '../onboarding/OnboardingScreen'
 import { RootView } from './RootView'
 
@@ -11,13 +10,7 @@ import { RootView } from './RootView'
 export function RootScreen() {
   const model = useScreenModel('session', () => createSessionModel(deps))
   const state = useStore(model)
-  // Android's back gesture; other platforms never fire it.
-  useEffect(() => {
-    const sub = BackHandler.addEventListener('hardwareBackPress', () =>
-      model.getState().systemBack(),
-    )
-    return () => sub.remove()
-  }, [model])
+  useSystemBack(state.systemBack)
   // The introduction shows before sign-in on a first launch; an owner already signed in, such
   // as one updating the app, is marked as introduced instead.
   return (

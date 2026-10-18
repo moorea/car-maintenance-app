@@ -214,7 +214,8 @@ export const createSessionModel = (deps: {
       systemBack: () => {
         const { status, tab, addingCar } = get()
         if (status === 'starting' || status === 'signed-out') return false
-        if (addingCar) {
+        // Without a ready car, "add your car" is the first screen rather than a page over one.
+        if (addingCar && status === 'ready') {
           set({ addingCar: false })
           return true
         }

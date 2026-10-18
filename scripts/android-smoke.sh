@@ -12,9 +12,8 @@ maestro test --test-output-dir "$out/maestro" apps/mobile/e2e/android
 status=$?
 
 # takeScreenshot writes to the working directory; failure screenshots go to the output dir.
-find . "$out/maestro" -name '*.png' -not -name 'icon_*' -newer package.json \
-  -not -path '*/node_modules/*' -not -path './apps/mobile/android/*' \
-  -exec cp {} "$out/screenshots/" \; || true
+find . "$out/maestro" \( -name node_modules -o -name .expo -o -path ./apps/mobile/android \) -prune \
+  -o -name '*.png' -not -name 'icon_*' -newer package.json -exec cp {} "$out/screenshots/" \; || true
 adb exec-out screencap -p > "$out/screenshots/last.png" || true
 adb logcat -d -v time > "$out/maestro/logcat.txt" || true
 grep -E 'ReactNativeJS|AndroidRuntime|FATAL' "$out/maestro/logcat.txt" | tail -n 200 || true

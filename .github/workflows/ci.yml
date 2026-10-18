@@ -135,7 +135,9 @@ jobs:
       SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       KEEP: 40
     steps:
+      # Missing when the build failed before the emulator ran; the step below then finds nothing.
       - uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
           name: android-emulator
           path: ${{ runner.temp }}/artifact
