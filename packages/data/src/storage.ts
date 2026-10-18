@@ -8,7 +8,19 @@ export interface StorageOptions {
   /** The project's anon (publishable) key, sent as `apikey` like supabase-js does. */
   anonKey: string
   fetch?: typeof fetch
+  /**
+   * How long a request may take before it is abandoned and retried, given the bytes it sends.
+   * Defaults to `transferTimeoutMs`.
+   */
+  timeoutMs?: (bytes: number) => number
 }
+
+/**
+ * Time for a request to Storage: 30 seconds, plus 10 seconds a megabyte sent, so a 25 MB scan
+ * still uploads at about 0.7 Mbit/s, while a request on a dead connection is given up and retried
+ * rather than holding every later upload behind it.
+ */
+export const transferTimeoutMs = (bytes: number) => 30_000 + Math.ceil(bytes / 1_000_000) * 10_000
 
 const BUCKET = 'attachments'
 
@@ -80,16 +92,36 @@ export const supabaseStorage = (
   const base = `${options.url.replace(/\/+$/, '')}/storage/v1`
   const headers = { authorization: `Bearer ${accessToken}`, apikey: options.anonKey }
 
+  const timeoutMs = options.timeoutMs ?? transferTimeoutMs
+
   const send = async (
     url: string,
-    init: RequestInit,
-  ): Promise<{ response: Response } | { error: BackendError }> => {
+    init: RequestInit & { bytes?: number },
+  ): Promise<{ status: number; json: unknown } | { error: BackendError }> => {
+    const { bytes = 0, ...request } = init
+    const controller = new AbortController()
+    const ms = timeoutMs(bytes)
+    const timer = setTimeout(() => controller.abort(new Error(`No response in ${ms / 1000}s`)), ms)
     try {
-      const response = await doFetch(url, { ...init, headers: { ...headers, ...init.headers } })
-      return response.ok ? { response } : { error: await toStorageError(response) }
+      const response = await doFetch(url, {
+        ...request,
+        headers: { ...headers, ...request.headers },
+        signal: controller.signal,
+      })
+      if (!response.ok) return { error: await toStorageError(response) }
+      // Read within the deadline too: a body can stall after the headers arrive.
+      let json: unknown
+      try {
+        json = await response.json()
+      } catch {
+        // Not JSON, or cut off; callers that need the body say so.
+      }
+      return { status: response.status, json }
     } catch (error) {
-      // No connection: status 0 is retried.
+      // No connection, or no response in time: status 0 is retried.
       return { error: { status: 0, message: String(error) } }
+    } finally {
+      clearTimeout(timer)
     }
   }
 
@@ -99,8 +131,9 @@ export const supabaseStorage = (
         method: 'POST',
         headers: { 'content-type': contentType, 'x-upsert': 'false' },
         body: bytes as Uint8Array<ArrayBuffer>,
+        bytes: bytes.byteLength,
       })
-      if ('response' in result) return null
+      if (!('error' in result)) return null
       return isDuplicate(result.error) ? null : result.error
     },
 
@@ -110,7 +143,7 @@ export const supabaseStorage = (
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ prefixes: [path] }),
       })
-      if ('response' in result) return null
+      if (!('error' in result)) return null
       return isNotFound(result.error) ? null : result.error
     },
 
@@ -121,13 +154,8 @@ export const supabaseStorage = (
         body: JSON.stringify({ expiresIn }),
       })
       if ('error' in result) return result.error
-      let signed: string | undefined
-      try {
-        signed = str(((await result.response.json()) as { signedURL?: unknown }).signedURL)
-      } catch {
-        // Handled below.
-      }
-      if (!signed) return { status: result.response.status, message: 'No signed URL returned' }
+      const signed = str((result.json as { signedURL?: unknown } | undefined)?.signedURL)
+      if (!signed) return { status: result.status, message: 'No signed URL returned' }
       // signedURL is relative to the Storage API, such as `/object/sign/attachments/...?token=`.
       return { url: encodeURI(`${base}${signed}`) }
     },

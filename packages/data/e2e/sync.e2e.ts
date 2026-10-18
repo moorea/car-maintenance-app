@@ -384,6 +384,47 @@ describe('offline', () => {
     expect(a.dropped).toEqual([])
   })
 
+  it('uploads years of history logged offline, keeping each row even when one is refused', async () => {
+    const owner = await createUser()
+    const a = await open(owner)
+    const { id: vehicleId, configId } = await addCar(a)
+    const [item] = await eventually(
+      () => a.schedule.itemsForConfig(configId),
+      (list) => list.length > 0,
+      'the schedule',
+    )
+
+    await a.goOffline()
+    const services = Array.from({ length: 150 }, (_, i) => {
+      const { shop, ...record } = service(vehicleId, {
+        performedOn: `${2012 + Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, '0')}-15`,
+        odometerMiles: 1_000 * i,
+      })
+      // Mixed shapes. Every one is linked to the car's schedule, and one to an item the server
+      // never had, so the server refuses its whole batch and the rest must go up row by row.
+      const itemId = i === 70 ? id() : (item?.id ?? '')
+      return { ...record, itemId, ...(i % 3 === 0 ? {} : { shop }) }
+    })
+    for (const record of services) await a.records.add(record)
+    const fills = Array.from({ length: 150 }, (_, i) =>
+      fillUp(vehicleId, {
+        filledOn: `${2020 + Math.floor(i / 50)}-${String((i % 12) + 1).padStart(2, '0')}-${String((i % 28) + 1).padStart(2, '0')}`,
+        odometerMiles: 50_000 + 300 * i,
+      }),
+    )
+    for (const fill of fills) await a.fillUps.save(fill)
+
+    await a.goOnline()
+    await a.uploaded()
+    expect(await serverRows('service_records', 'vehicle_id', vehicleId)).toHaveLength(150)
+    expect(await serverRows('fill_ups', 'vehicle_id', vehicleId)).toHaveLength(150)
+    const [unlinked] = await serverRows('service_records', 'id', services[70]?.id ?? '')
+    expect(unlinked?.item_id).toBeNull()
+    const [linked] = await serverRows('service_records', 'id', services[71]?.id ?? '')
+    expect(linked?.item_id).toBe(item?.id)
+    expect(a.dropped).toEqual([])
+  })
+
   it('keeps changes made offline across a sign-out, and uploads them at the next sign-in', async () => {
     const owner = await createUser()
     const a = await open(owner)
