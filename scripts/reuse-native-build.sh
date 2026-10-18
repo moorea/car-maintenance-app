@@ -48,18 +48,26 @@ case "$command" in
       const { createFingerprintAsync } = require(require.resolve('@expo/fingerprint', { paths: [require.resolve('expo/package.json')] }))
       createFingerprintAsync('.', { platforms: ['$platform'] }).then((f) => console.log(f.hash))")
     # How the build is made, and the version fields the fingerprint leaves out, so a change to
-    # either builds afresh rather than testing an old build.
-    recipe="$root/.github/workflows/ci.yml $root/scripts/reuse-native-build.sh $mobile/app.json"
+    # either builds afresh rather than testing an old build. Only ci.yml's native build steps
+    # count, so editing the rest of the workflow keeps the cached builds.
+    recipe=$(
+      awk '/^      - name: (Generate the native project|Build for the simulator|Build the release APK)$/ { p = 1; print; next }
+        /^      - / { p = 0 } p' "$root/.github/workflows/ci.yml"
+      cat "$root/scripts/reuse-native-build.sh" "$mobile/app.json"
+    )
+    # A renamed step would silently drop out of the key.
+    [ "$(grep -c '^      - name: ' <<< "$recipe")" = 4 ] || {
+      echo "Expected ci.yml's 4 native build steps; update the names in $0" >&2
+      exit 1
+    }
     if [ "$platform" = ios ]; then
-      # shellcheck disable=SC2086
-      inputs=$({ xcodebuild -version; cat $recipe; } | shasum -a 256 | cut -c1-12)
+      inputs=$({ xcodebuild -version; echo "$recipe"; } | shasum -a 256 | cut -c1-12)
       echo "ios-app-$version-$fingerprint-$inputs"
     else
       # Android compiles image assets into its resource table, which a swap cannot change, so a
       # change to any asset needs a new build.
       assets=$(cd "$dir/assets" && find . -type f -print0 | sort -z | xargs -0 -r sha256sum)
-      # shellcheck disable=SC2086
-      inputs=$({ java -version 2>&1; cat $recipe; echo "$assets"; } | sha256sum | cut -c1-12)
+      inputs=$({ java -version 2>&1; echo "$recipe"; echo "$assets"; } | sha256sum | cut -c1-12)
       echo "android-apk-$version-$fingerprint-$inputs"
     fi
     ;;
