@@ -37,6 +37,7 @@ import { KnownIssuesSection } from './KnownIssues'
 import { RecallsSection } from './SafetySections'
 import { ScheduleItemSheet } from './ScheduleItemSheet'
 import { Reflow } from '../../ui/Reflow'
+import { TITLE_TOP } from '../../ui/layout'
 import { Text } from '../../ui/Text'
 import { Button } from '../../ui/Button'
 
@@ -86,7 +87,7 @@ export function CarView({
       <ScrollView>
         <Column
           spacing={14}
-          style={{ padding: 16, paddingTop: 60, paddingBottom: TAB_BAR_CLEARANCE }}
+          style={{ padding: 16, paddingTop: TITLE_TOP, paddingBottom: TAB_BAR_CLEARANCE }}
         >
           <Row alignment="center" spacing={12}>
             <FillColumn spacing={4}>

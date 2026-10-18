@@ -29,7 +29,10 @@ appId: com.moorea.carmaintenance
     timeout: 30000
 - waitForAnimationToEnd
 - tapOn: 'Fuel & costs'
-- waitForAnimationToEnd
+# The page, not the car page the tap left: the screenshot used to catch the car page mid-push.
+- extendedWaitUntil:
+    visible: 'Fuel economy'
+    timeout: 5000
 - takeScreenshot: 4-fuel
 - back
 - tapOn: 'Garage'

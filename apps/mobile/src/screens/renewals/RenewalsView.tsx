@@ -8,6 +8,7 @@ import { ErrorText, Note } from '../../ui/Note'
 import { Reflow } from '../../ui/Reflow'
 import { Symbol } from '../../ui/Symbol'
 import { TAB_BAR_CLEARANCE } from '../../ui/TabBar'
+import { PAGE_TOP } from '../../ui/layout'
 import { Text } from '../../ui/Text'
 import { DateField } from '../../ui/DateField'
 import { TextField } from '../../ui/TextField'
@@ -55,7 +56,7 @@ export function RenewalsView(props: Props) {
       <ScrollView>
         <Column
           spacing={16}
-          style={{ padding: 16, paddingTop: 60, paddingBottom: TAB_BAR_CLEARANCE }}
+          style={{ padding: 16, paddingTop: PAGE_TOP, paddingBottom: TAB_BAR_CLEARANCE }}
         >
           <Row alignment="center">
             <GlassIconButton symbol="back" label="Back" onPress={props.onBack} />

@@ -5,6 +5,7 @@ import { Host } from '../../ui/Host'
 import { Note } from '../../ui/Note'
 import { GlassIconButton } from '../../ui/surfaces'
 import { TAB_BAR_CLEARANCE } from '../../ui/TabBar'
+import { TITLE_TOP } from '../../ui/layout'
 import { Text } from '../../ui/Text'
 import { Button } from '../../ui/Button'
 
@@ -25,7 +26,7 @@ export function RemindersView(props: Props) {
       <ScrollView>
         <Column
           spacing={12}
-          style={{ padding: 16, paddingTop: 60, paddingBottom: TAB_BAR_CLEARANCE }}
+          style={{ padding: 16, paddingTop: TITLE_TOP, paddingBottom: TAB_BAR_CLEARANCE }}
         >
           <Row>
             <GlassIconButton symbol="back" label="Back" onPress={props.onBack} />
