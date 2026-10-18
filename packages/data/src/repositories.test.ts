@@ -430,11 +430,11 @@ describe('PowerSync repositories', () => {
     )
     const repos = createPowerSyncRepositories(db)
     const reports = collect<SafetyReport>((onChange) => repos.safety.watchForConfig('c1', onChange))
-    expect((await reports.waitFor(1))[0]).toEqual({ recalls: [], complaints: [] })
+    expect((await reports.waitFor(1))[0]).toEqual({ recalls: [], complaints: [], bulletins: [] })
 
     await db.writeTransaction(async (tx) => {
       await tx.execute(
-        "update vehicle_configs set recalls_checked_at = '2026-10-17 12:00:00Z', complaints_checked_at = '2026-10-17 12:01:00Z' where id = 'c1'",
+        "update vehicle_configs set recalls_checked_at = '2026-10-17 12:00:00Z', complaints_checked_at = '2026-10-17 12:01:00Z', bulletins_checked_at = '2026-10-17 12:02:00Z' where id = 'c1'",
       )
       await tx.execute(
         `insert into recalls (id, config_id, campaign, component, summary, remedy, reported_on, park_it, park_outside, over_the_air)
@@ -442,27 +442,43 @@ describe('PowerSync repositories', () => {
                 ('r2', 'c9', '23V999000', null, 'Another car', null, null, 0, 0, 0)`,
       )
       await tx.execute(
-        `insert into complaint_summaries (id, config_id, component, complaints, crashes, fires, injuries, deaths, latest_filed_on, recent)
-         values ('s1', 'c1', 'ENGINE', 4, 1, 1, 2, 0, '2024-03-01', ?)`,
+        `insert into complaint_summaries (id, config_id, component, complaints, crashes, fires, injuries, deaths, latest_filed_on, recent, by_mileage)
+         values ('s1', 'c1', 'ENGINE', 4, 1, 1, 2, 0, '2024-03-01', ?, ?)`,
         [
           JSON.stringify([
             { filed_on: '2024-03-01', summary: 'Smoke.' },
             { filed_on: null, summary: 'Leak.' },
             { bad: 1 },
           ]),
+          JSON.stringify([
+            { from: 90000, complaints: 1 },
+            { from: 80000, complaints: 2 },
+            { from: 'x', complaints: 1 },
+          ]),
         ],
+      )
+      await tx.execute(
+        `insert into bulletins (id, config_id, nhtsa_id, document_id, kind, issued_on, components, system, summary)
+         values ('b1', 'c1', 10181234, '19-047', 'warranty', '2019-05-01', '["ENGINE","POWER TRAIN"]', 'Engine / Cooling', 'Water pump coverage.'),
+                ('b2', 'c1', 10181235, null, 'mystery', null, 'not json', null, null),
+                ('b3', 'c9', 1, null, 'bulletin', null, '[]', null, 'Another car')`,
       )
     })
 
-    // Recalls, complaints and check times are watched separately, so the report settles over a
-    // few updates.
+    // Recalls, complaints, bulletins and check times are watched separately, so the report
+    // settles over a few updates.
     const settled = await reports.waitUntil(
-      (r) => r.recalls.length > 0 && r.complaints.length > 0 && r.complaintsCheckedAt !== undefined,
+      (r) =>
+        r.recalls.length > 0 &&
+        r.complaints.length > 0 &&
+        (r.bulletins?.length ?? 0) === 2 &&
+        r.bulletinsCheckedAt !== undefined,
     )
     reports.stop()
     expect(settled).toEqual({
       recallsCheckedAt: '2026-10-17 12:00:00Z',
       complaintsCheckedAt: '2026-10-17 12:01:00Z',
+      bulletinsCheckedAt: '2026-10-17 12:02:00Z',
       recalls: [
         {
           id: 'r1',
@@ -489,7 +505,25 @@ describe('PowerSync repositories', () => {
           deaths: 0,
           latestFiledOn: '2024-03-01',
           recent: [{ filedOn: '2024-03-01', summary: 'Smoke.' }, { summary: 'Leak.' }],
+          byMileage: [
+            { from: 80000, complaints: 2 },
+            { from: 90000, complaints: 1 },
+          ],
         },
+      ],
+      bulletins: [
+        {
+          id: 'b1',
+          configId: 'c1',
+          nhtsaId: 10181234,
+          documentId: '19-047',
+          kind: 'warranty',
+          issuedOn: '2019-05-01',
+          components: ['ENGINE', 'POWER TRAIN'],
+          system: 'Engine / Cooling',
+          summary: 'Water pump coverage.',
+        },
+        { id: 'b2', configId: 'c1', nhtsaId: 10181235, kind: 'other', components: [], summary: '' },
       ],
     })
   })

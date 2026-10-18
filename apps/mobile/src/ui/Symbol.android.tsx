@@ -33,6 +33,8 @@ import downloadIcon from '@expo/material-symbols/download.xml'
 import archiveIcon from '@expo/material-symbols/inventory_2.xml'
 import checkmarkIcon from '@expo/material-symbols/check_circle.xml'
 import ellipsisIcon from '@expo/material-symbols/more_horiz.xml'
+import bulletinIcon from '@expo/material-symbols/build.xml'
+import gaugeIcon from '@expo/material-symbols/speed.xml'
 
 interface Props {
   name: SymbolName
@@ -75,6 +77,8 @@ const MATERIAL: Record<SymbolName, ImageSourcePropType> = {
   archive: archiveIcon,
   checkmark: checkmarkIcon,
   ellipsis: ellipsisIcon,
+  bulletin: bulletinIcon,
+  gauge: gaugeIcon,
 }
 
 /**

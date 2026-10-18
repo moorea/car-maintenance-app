@@ -1,4 +1,5 @@
 import type {
+  Bulletin,
   MaintenanceItem,
   OdometerReading,
   QuoteLine,
@@ -8,7 +9,15 @@ import type {
 } from '../domain/types'
 import { daysBetween, type IsoDate } from '../lib/date'
 import { formatCents, formatDay, formatMiles } from '../lib/format'
+import {
+  bulletinName,
+  bulletinTitle,
+  byBulletinImportance,
+  mayBeFree,
+  sameComponent,
+} from '../lib/knownIssues'
 import { isGeneralGuidance } from '../lib/schedule'
+import { componentsForText } from './components'
 import { dueItemsFor } from '../reminders/getDueItems'
 import type { DueProjection } from '../reminders/projectDue'
 import {
@@ -54,6 +63,22 @@ export interface CheckedLine {
   detail: string
   /** True when the owner can reasonably say no to the line or ask for it to be justified. */
   questionable: boolean
+  /**
+   * Manufacturer bulletins about the same part of the car, for a repair or unscheduled job: the
+   * shop may know the fix, and a warranty extension may make it free. At most two.
+   */
+  bulletins: QuoteBulletin[]
+}
+
+/** A bulletin shown beside a quote line. */
+export interface QuoteBulletin {
+  nhtsaId: number
+  /** "Warranty extension 21-019". */
+  name: string
+  /** The first sentence of its summary. */
+  title: string
+  /** A warranty extension or campaign, which may make the work free. */
+  mayBeFree: boolean
 }
 
 /** A recall for the car's model year that the quote does not mention. */
@@ -83,9 +108,17 @@ export interface QuoteCheckInput {
   records: ServiceRecord[]
   readings: OdometerReading[]
   recalls: Recall[]
+  /** The model year's manufacturer bulletins; absent or empty before they are imported. */
+  bulletins?: Bulletin[]
   lines: QuoteLine[]
   today: IsoDate
 }
+
+/** Bulletins shown beside one quote line, at most. */
+export const MAX_LINE_BULLETINS = 2
+
+// Verdicts for work that is not scheduled maintenance, where a known problem's bulletin helps.
+const REPAIR_VERDICTS = new Set<QuoteVerdict>(['condition', 'not-scheduled', 'unknown'])
 
 /**
  * A shop recommends work at the visit, so anything due within this window counts as due now:
@@ -348,13 +381,41 @@ export const checkQuote = (input: QuoteCheckInput): QuoteCheck => {
     }
   }
 
+  const relevant = [...(input.bulletins ?? [])]
+    .filter((b) => b.kind !== 'other')
+    .sort(byBulletinImportance)
+  /** Bulletins about the parts a repair line names, and a sentence when one may make it free. */
+  const bulletinsFor = (text: string, judgement: Judgement) => {
+    if (!REPAIR_VERDICTS.has(judgement.verdict)) return { bulletins: [], detail: judgement.detail }
+    const parts = componentsForText(text)
+    const found = relevant
+      .filter((b) => b.components.some((c) => parts.some((p) => sameComponent(c, p))))
+      .slice(0, MAX_LINE_BULLETINS)
+    const free = found.find(mayBeFree)
+    return {
+      bulletins: found.map((b) => ({
+        nhtsaId: b.nhtsaId,
+        name: bulletinName(b),
+        title: bulletinTitle(b),
+        mayBeFree: mayBeFree(b),
+      })),
+      detail: free
+        ? `${judgement.detail} ${vehicle.make}'s ${bulletinName(free).replace(/^\S+ \S+/, (k) => k.toLowerCase())} may cover this: ask the shop before paying.`
+        : judgement.detail,
+    }
+  }
+
   const kinds = lines.map((l) => identifyServices(l.text))
-  const checked = lines.map((line, index): CheckedLine => ({
-    index,
-    text: line.text,
-    priceCents: line.priceCents,
-    ...judge(kinds[index] ?? [], line.text, line.priceCents),
-  }))
+  const checked = lines.map((line, index): CheckedLine => {
+    const judgement = judge(kinds[index] ?? [], line.text, line.priceCents)
+    return {
+      index,
+      text: line.text,
+      priceCents: line.priceCents,
+      ...judgement,
+      ...bulletinsFor(line.text, judgement),
+    }
+  })
 
   const questioned = checked.filter((l) => l.questionable)
   const priced = (ls: CheckedLine[]) => ls.reduce((sum, l) => sum + (l.priceCents ?? 0), 0)

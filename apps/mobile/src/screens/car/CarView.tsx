@@ -20,7 +20,8 @@ import { TextField } from '../../ui/TextField'
 import { Card, Dot, FillColumn, Separator } from '../../ui/surfaces'
 import type { AttachmentsProps } from '../attachments/AttachmentList'
 import { DocumentsSection } from '../attachments/DocumentsSection'
-import { ComplaintsSection, RecallsSection } from './SafetySections'
+import { KnownIssuesSection } from './KnownIssues'
+import { RecallsSection } from './SafetySections'
 import { Reflow } from '../../ui/Reflow'
 import { Text } from '../../ui/Text'
 
@@ -82,7 +83,7 @@ export function CarView({
           ) : car.section === 'recalls' ? (
             <RecallsSection {...safety} />
           ) : (
-            <ComplaintsSection {...safety} />
+            <KnownIssuesSection {...safety} />
           )}
         </Column>
       </ScrollView>
