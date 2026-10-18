@@ -24,6 +24,7 @@ export function ChatComposer({
             onChangeText={onChange}
             onSubmitEditing={onSubmit}
             placeholder={placeholder}
+            placeholderTextColor={colors.textSecondary}
             returnKeyType="send"
             autoCapitalize="sentences"
             modifiers={[weight(1), padding(0, 12, 0, 12)]}

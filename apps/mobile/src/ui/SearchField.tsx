@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react'
 import { Platform } from 'react-native'
 import { useColors } from '../theme'
 import { fullWidth } from './fullWidth'
+import { placeholderProps } from './placeholder'
 
 interface Props {
   value: string
@@ -30,6 +31,7 @@ export function SearchField({ value, onChangeText, placeholder }: Props) {
         onChangeText(next)
       }}
       placeholder={placeholder}
+      {...placeholderProps(colors)}
       autoCorrect={false}
       autoCapitalize="none"
       returnKeyType="search"
