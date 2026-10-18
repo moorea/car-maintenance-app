@@ -98,6 +98,8 @@ export interface QuoteCheck {
   recalls: QuoteRecall[]
   /** Scheduled work that is due now but missing from the quote. */
   alsoDue: string[]
+  /** Schedule items that some line of the quote covers. */
+  coveredItemIds: string[]
   /** True when the car's schedule is general guidance rather than the manufacturer's. */
   generalSchedule: boolean
 }
@@ -450,6 +452,9 @@ export const checkQuote = (input: QuoteCheckInput): QuoteCheck => {
       .filter((r) => !mentioned.has(recallKey(r)))
       .map((r) => ({ campaign: r.campaign, title: recallTitle(r) })),
     alsoDue,
+    coveredItemIds: items
+      .filter((i) => i.kind !== undefined && quoted.has(i.kind))
+      .map((i) => i.id),
     generalSchedule: isGeneralGuidance(items),
   }
 }

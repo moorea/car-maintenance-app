@@ -102,6 +102,9 @@ const carDocument = (facts: CarFacts, currentMiles: number | undefined, estimate
     v.severeDuty
       ? 'The owner drives in severe conditions, so the severe-duty intervals apply.'
       : 'The normal (not severe-duty) intervals apply.',
+    v.valueCents !== undefined && v.valuedOn !== undefined
+      ? `The owner said on ${v.valuedOn} that the car is worth about ${formatCents(v.valueCents)}.`
+      : undefined,
     facts.schedule.length === 0 ? 'No maintenance schedule is stored for this car yet.' : undefined,
     safety.recallsCheckedAt === undefined
       ? 'NHTSA has not been asked about recalls for this model year yet.'

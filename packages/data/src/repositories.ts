@@ -283,6 +283,12 @@ export const createPowerSyncRepositories = (
         id,
       ])
     },
+    setValue: async (id, value) => {
+      await db.execute(
+        'update vehicles set value_cents = ?, valued_on = ?, updated_at = ? where id = ?',
+        [value?.cents ?? null, value?.valuedOn ?? null, now(), id],
+      )
+    },
   },
 
   records: {
