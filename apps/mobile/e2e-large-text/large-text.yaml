@@ -23,6 +23,9 @@ appId: com.moorea.carmaintenance
     element: 'Recalls.*'
     direction: DOWN
     timeout: 30000
+# The scroll stops as soon as the tabs show, which can be under the floating tab bar, where a tap
+# lands on the Log tab instead. One more scroll lifts them clear (centring them fails at this size).
+- scroll
 - waitForAnimationToEnd
 - tapOn: 'Recalls.*'
 - waitForAnimationToEnd
