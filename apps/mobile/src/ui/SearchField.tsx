@@ -1,5 +1,6 @@
 import { TextInput, useNativeState } from '@expo/ui'
 import { useEffect, useRef } from 'react'
+import { Platform } from 'react-native'
 import { useColors } from '../theme'
 import { fullWidth } from './fullWidth'
 
@@ -35,7 +36,8 @@ export function SearchField({ value, onChangeText, placeholder }: Props) {
       modifiers={fullWidth.modifiers}
       style={{
         ...fullWidth.style,
-        height: 44,
+        // Compose sets the text at the top of a fixed-height field, so Android pads it to 44 instead.
+        ...(Platform.OS === 'android' ? { paddingVertical: 11 } : { height: 44 }),
         borderRadius: 22,
         borderWidth: 0,
         paddingHorizontal: 16,

@@ -26,8 +26,9 @@ import { Symbol } from './Symbol'
 import type { SymbolName } from './symbols'
 import { Text } from './Text'
 
-// Android has no Liquid Glass, so glass surfaces are the translucent `glass` fill, without an edge
-// line since Compose's border is always square. Compose takes no percentage sizes or flex, so
+// Android has no Liquid Glass or background blur, so content scrolling under a translucent fill
+// would show through and clash with the labels on it. Glass surfaces are the opaque `surface` fill
+// instead, as Material draws its floating bars. Compose takes no percentage sizes or flex, so
 // filling space uses `fillMaxWidth` (in a column) and `weight` (for a share of a row) instead.
 
 const capsule = Shapes.RoundedCorner(999)
@@ -42,7 +43,7 @@ const filled = (color: string, radius: number, onPress?: () => void): ModifierCo
 
 const glass = (colors: ReturnType<typeof useColors>, shape = capsule): ModifierConfig[] => [
   clip(shape),
-  background(colors.glass),
+  background(colors.surface),
 ]
 
 interface CardProps {
@@ -99,7 +100,7 @@ export function GlassIconButton({
   return (
     <IconButton
       onClick={onPress}
-      colors={{ containerColor: colors.glass, contentColor: colors[tint] }}
+      colors={{ containerColor: colors.surface, contentColor: colors[tint] }}
       modifiers={[
         sizeModifier(size, size),
         clip(Shapes.Circle),
