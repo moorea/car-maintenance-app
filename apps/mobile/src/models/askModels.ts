@@ -14,7 +14,12 @@ export function askModelFor(vehicle: Vehicle): AskModel {
   const key = `${vehicle.id}:${vehicle.configId ?? ''}`
   let model = models.get(key)
   if (!model) {
-    model = createAskModel({ vehicle, assistant: deps.assistant, ids: deps.ids })
+    model = createAskModel({
+      vehicle,
+      assistant: deps.assistant,
+      ids: deps.ids,
+      sharingAllowed: deps.aiSharingAllowed,
+    })
     models.set(key, model)
   }
   return model

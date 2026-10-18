@@ -418,6 +418,52 @@ describe('session model, adding a car', () => {
     expect(model.getState().tab).toBe('garage')
   })
 
+  it('goes back from the reminder settings to the account when opened from the account', () => {
+    const { model } = setup(true, [civic])
+    model.getState().start()
+    model.getState().openTab('account')
+    model.getState().openTab('reminders')
+    model.getState().back()
+    expect(model.getState().tab).toBe('account')
+    model.getState().back()
+    expect(model.getState().tab).toBe('garage')
+  })
+
+  it('goes back from the reminder settings to the garage when opened from the garage', () => {
+    const { model } = setup(true, [civic])
+    model.getState().start()
+    model.getState().openTab('account')
+    model.getState().openTab('garage')
+    model.getState().openTab('reminders')
+    model.getState().back()
+    expect(model.getState().tab).toBe('garage')
+  })
+
+  it('goes back from the reminder settings with the system gesture as their back button does', () => {
+    const { model } = setup(true, [civic])
+    model.getState().start()
+    model.getState().openTab('account')
+    model.getState().openTab('reminders')
+    expect(model.getState().systemBack()).toBe(true)
+    expect(model.getState().tab).toBe('account')
+    model.getState().openTab('garage')
+    model.getState().openTab('reminders')
+    expect(model.getState().systemBack()).toBe(true)
+    expect(model.getState().tab).toBe('garage')
+  })
+
+  it('returns to the reminder settings from Ask without forgetting they came from the account', () => {
+    const { model } = setup(true, [civic])
+    model.getState().start()
+    model.getState().openTab('account')
+    model.getState().openTab('reminders')
+    model.getState().openTab('ask')
+    model.getState().back()
+    expect(model.getState().tab).toBe('reminders')
+    model.getState().back()
+    expect(model.getState().tab).toBe('account')
+  })
+
   it('lets the system gesture close the app from the garage', () => {
     const { model } = setup(true, [civic])
     model.getState().start()

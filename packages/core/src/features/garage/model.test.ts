@@ -108,6 +108,27 @@ describe('garage model', () => {
     ])
   })
 
+  it('asks the assistant about the next item, saying whether it is overdue', async () => {
+    const { model } = setup({
+      items: [oil, tires],
+      records: [done('r1', 'oil', '2026-07-09', 30_000), done('r2', 'tires', '2026-02-01', 25_000)],
+    })
+    model.getState().start()
+    await settle()
+    expect(model.getState().nextUp?.question).toBe(
+      'Tire rotation is overdue on my car. What does it involve, and can it wait?',
+    )
+  })
+
+  it('asks about a next item that is not due yet as coming up', async () => {
+    const { model } = setup({ items: [oil], records: [done('r1', 'oil', '2026-07-09', 30_000)] })
+    model.getState().start()
+    await settle()
+    expect(model.getState().nextUp?.question).toBe(
+      'Oil & filter change is coming up on my car. What does it involve, and can it wait?',
+    )
+  })
+
   it('says roughly when a mileage limit will be reached and how much of it is used', async () => {
     const { model } = setup({ items: [oil], records: [done('r1', 'oil', '2026-07-09', 30_000)] })
     model.getState().start()

@@ -102,13 +102,20 @@ export const createAiSharingModel = (deps: AiSharingDeps): AiSharingModel => {
 
 /**
  * Wraps the assistant and the photo readers so nothing reaches Anthropic unless the signed-in
- * owner allowed it, whichever screen asks. Refuses with AssistantError `not-allowed` otherwise.
+ * owner allowed it, whichever screen asks. Refuses with AssistantError `not-allowed` otherwise,
+ * and says whether it is allowed now, so a screen can hold a question back rather than fail.
  * Lives for as long as the app runs.
  */
 export const guardAiSharing = (
   deps: AiSharingDeps,
   services: { assistant: Assistant; quoteReader: QuoteReader; odometerReader: OdometerReader },
-): { assistant: Assistant; quoteReader: QuoteReader; odometerReader: OdometerReader } => {
+): {
+  assistant: Assistant
+  quoteReader: QuoteReader
+  odometerReader: OdometerReader
+  /** Whether the signed-in owner allows sharing right now. */
+  aiSharingAllowed: () => boolean
+} => {
   let allowed = false
   watchAiSharing(deps, (now) => {
     allowed = now
@@ -117,6 +124,7 @@ export const guardAiSharing = (
     if (!allowed) throw new AssistantError('not-allowed')
   }
   return {
+    aiSharingAllowed: () => allowed,
     assistant: {
       ask: async (request, onEvent, signal) => {
         check()
