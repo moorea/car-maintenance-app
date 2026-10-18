@@ -249,6 +249,14 @@ export const checkQuote = (input: QuoteCheckInput): QuoteCheck => {
     }
 
     const doneOn = `Done ${formatDay(last.performedOn, today)}${last.odometerMiles !== undefined ? ` at ${formatMiles(last.odometerMiles)}` : ''}`
+    // Due by mileage on a car with no reading: whether it is due can't be told, so don't question it.
+    if (due.status === 'unknown')
+      return {
+        verdict: 'unknown',
+        label: 'Needs your mileage',
+        detail: `${doneOn}. Add your mileage to see whether it is due.`,
+        questionable: false,
+      }
     if (isDueNow(due, currentMiles, today))
       return {
         verdict: 'due',

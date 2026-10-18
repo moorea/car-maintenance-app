@@ -147,6 +147,20 @@ describe('groundingDocuments', () => {
     )
   })
 
+  it('says a mileage item cannot be dated on a car with no odometer reading', () => {
+    const plugs: MaintenanceItem = {
+      id: 'plugs',
+      configId: 'c1',
+      task: 'Spark plugs',
+      intervalMiles: 60_000,
+    }
+    const schedule = groundingDocuments(facts({ schedule: [plugs], records: [], readings: [] }))[1]
+    expect(schedule?.text).toContain(
+      'Next due: unknown, as there is no odometer reading for the car.',
+    )
+    expect(schedule?.text).not.toContain('assuming it was last done on schedule')
+  })
+
   it("says a baseline schedule item is general guidance, not the manufacturer's", () => {
     const schedule = groundingDocuments(facts({ schedule: [{ ...oil, source: 'baseline' }] }))[1]
     expect(schedule?.text.split('\n')[1]).toBe(

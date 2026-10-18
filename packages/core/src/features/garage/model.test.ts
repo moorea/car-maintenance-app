@@ -381,6 +381,7 @@ describe('garage model, filling in the history', () => {
       status: 'unknown',
       when: 'Needs your mileage',
       detail: 'Add your mileage to see when this is due.',
+      question: 'When is my car due for transmission fluid, and what does it involve?',
     })
     expect(model.getState().nextUp?.progress).toBeUndefined()
     expect(model.getState().checkOdometer?.subtitle).toBe('Transmission fluid is due by mileage')

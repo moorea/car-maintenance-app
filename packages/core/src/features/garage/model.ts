@@ -30,9 +30,14 @@ export interface NextUp extends DueRow {
   question: string
 }
 
-/** "My car is overdue for tire rotation. What does it involve, and can it wait?" */
+/**
+ * "My car is overdue for tire rotation. What does it involve, and can it wait?" An item with no
+ * odometer reading to date it asks when instead.
+ */
 const questionAbout = (row: DueRow): string =>
-  `My car is ${row.status === 'overdue' ? 'overdue' : 'due soon'} for ${row.task.toLowerCase()}. What does it involve, and can it wait?`
+  row.status === 'unknown'
+    ? `When is my car due for ${row.task.toLowerCase()}, and what does it involve?`
+    : `My car is ${row.status === 'overdue' ? 'overdue' : 'due soon'} for ${row.task.toLowerCase()}. What does it involve, and can it wait?`
 
 export interface GarageState {
   status: GarageStatus
