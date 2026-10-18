@@ -11,12 +11,14 @@ export function CarScreen({
   onTroubleCodes,
   onWarranty,
   onFuel,
+  onDriving,
 }: {
   vehicle: Vehicle
   onCheckQuote: () => void
   onTroubleCodes: () => void
   onWarranty: () => void
   onFuel: () => void
+  onDriving: () => void
 }) {
   // A new car gets its configuration once it has synced back, and severe driving changes the
   // intervals, so either starts fresh models.
@@ -37,6 +39,7 @@ export function CarScreen({
       onTroubleCodes={onTroubleCodes}
       onWarranty={onWarranty}
       onFuel={onFuel}
+      onDriving={onDriving}
     />
   )
 }

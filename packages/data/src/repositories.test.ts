@@ -339,6 +339,31 @@ describe('PowerSync repositories', () => {
     expect(transaction?.crud[0]?.opData).not.toHaveProperty('config_id')
   })
 
+  it('switches a car to the severe schedule and uploads only that change', async () => {
+    const repos = createPowerSyncRepositories(db)
+    const car: Vehicle = {
+      id: 'v-sev',
+      year: 2021,
+      make: 'Toyota',
+      model: 'RAV4',
+      nickname: 'RAV4',
+      severeDuty: false,
+    }
+    await repos.vehicles.add('u1', car)
+    await (await db.getNextCrudTransaction())?.complete()
+
+    await repos.vehicles.setSevereDuty('v-sev', true)
+
+    expect(await repos.vehicles.get('v-sev')).toMatchObject({ severeDuty: true })
+    const transaction = await db.getNextCrudTransaction()
+    expect(transaction?.crud).toHaveLength(1)
+    expect(transaction?.crud[0]).toMatchObject({ table: 'vehicles', id: 'v-sev', op: 'PATCH' })
+    expect(Object.keys(transaction?.crud[0]?.opData ?? {}).sort()).toEqual([
+      'severe_duty',
+      'updated_at',
+    ])
+  })
+
   it('adds a car without a reading when the owner gives no mileage', async () => {
     const repos = createPowerSyncRepositories(db)
     const car: Vehicle = {

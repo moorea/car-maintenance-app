@@ -33,6 +33,8 @@ export interface VehicleRepo {
    * reading never uploads without its car.
    */
   add(ownerId: string, vehicle: Vehicle, firstReading?: OdometerReading): Promise<void>
+  /** Puts the car on the severe maintenance schedule, or back on the normal one. */
+  setSevereDuty(id: VehicleId, severeDuty: boolean): Promise<void>
 }
 
 /** Looks up what a VIN is. Needs a connection. */

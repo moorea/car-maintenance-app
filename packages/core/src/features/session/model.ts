@@ -12,7 +12,8 @@ export type SessionStatus = 'starting' | 'signed-out' | 'syncing' | 'no-vehicles
  * The app's main sections: one per tab (the garage, the service log, the car and the assistant),
  * plus the reminder settings and the owner's account, opened from the garage, the owner's data
  * (export and import), opened from the account, and the quote checker, the check-engine code
- * lookup, the car's warranties and its fuel and running costs, opened from the car.
+ * lookup, how the car is driven, the car's warranties and its fuel and running costs, opened
+ * from the car.
  */
 export type AppTab =
   | 'garage'
@@ -26,6 +27,7 @@ export type AppTab =
   | 'warranty'
   | 'fuel'
   | 'codes'
+  | 'driving'
 
 export interface SessionState {
   status: SessionStatus

@@ -63,6 +63,7 @@ export const memoryVehicles = (
 ): VehicleRepo & {
   set: (vehicles: Vehicle[]) => void
   added: { ownerId: string; vehicle: Vehicle; firstReading?: OdometerReading }[]
+  /** Makes the next `add` or `setSevereDuty` throw. */
   failNextAdd: (message: string) => void
 } => {
   let vehicles = [...initial]
@@ -93,6 +94,15 @@ export const memoryVehicles = (
       addedOwners.set(vehicle.id, ownerId)
       vehicles = [...vehicles, vehicle]
       added.push({ ownerId, vehicle, ...(firstReading && { firstReading }) })
+      notify()
+    },
+    setSevereDuty: async (id, severeDuty) => {
+      if (nextFailure !== undefined) {
+        const message = nextFailure
+        nextFailure = undefined
+        throw new Error(message)
+      }
+      vehicles = vehicles.map((v) => (v.id === id ? { ...v, severeDuty } : v))
       notify()
     },
     /** Replaces the vehicles, as a sync would, and notifies watchers. */

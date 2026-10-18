@@ -6,6 +6,7 @@ import { AddCarScreen } from '../add-car/AddCarScreen'
 import { AiSharingGate } from '../ai-sharing/AiSharingScreen'
 import { AskScreen } from '../ask/AskScreen'
 import { CarScreen } from '../car/CarScreen'
+import { DrivingScreen } from '../driving/DrivingScreen'
 import { GarageScreen } from '../garage/GarageScreen'
 import { QuoteCheckScreen } from '../quote-check/QuoteCheckScreen'
 import { RemindersScreen } from '../reminders/RemindersScreen'
@@ -39,6 +40,8 @@ const TABS: TabBarItem<AppTab>[] = [
   { key: 'car', label: 'Car', symbol: 'car' },
 ]
 
+const CAR_PAGES = new Set<AppTab>(['warranty', 'fuel', 'driving'])
+
 /** Picks the screen for the session: sign-in, adding a car, or the tabs for the selected car. */
 export function RootView(props: Props) {
   const { status, user, vehicles, selectedVehicleId, addingCar } = props
@@ -54,8 +57,8 @@ export function RootView(props: Props) {
         {props.tab === 'ask' || props.tab === 'quote' || props.tab === 'codes' ? null : (
           <TabBar
             tabs={TABS}
-            // The warranty and fuel pages belong to the car, so the car's tab stays selected there.
-            selected={props.tab === 'warranty' || props.tab === 'fuel' ? 'car' : props.tab}
+            // The warranty, fuel and driving pages belong to the car, so its tab stays selected.
+            selected={CAR_PAGES.has(props.tab) ? 'car' : props.tab}
             onSelect={props.openTab}
             action={{
               symbol: 'ask',
@@ -141,10 +144,13 @@ function TabContent(props: Props & { vehicle: Vehicle }) {
           onTroubleCodes={() => props.openTab('codes')}
           onWarranty={() => props.openTab('warranty')}
           onFuel={() => props.openTab('fuel')}
+          onDriving={() => props.openTab('driving')}
         />
       )
     case 'fuel':
       return <FuelScreen vehicle={vehicle} onBack={() => props.openTab('car')} />
+    case 'driving':
+      return <DrivingScreen vehicle={vehicle} onBack={() => props.openTab('car')} />
     case 'warranty':
       return <WarrantyScreen vehicle={vehicle} onBack={() => props.openTab('car')} />
     case 'ask':

@@ -32,6 +32,7 @@ interface Props {
   onTroubleCodes: () => void
   onWarranty: () => void
   onFuel: () => void
+  onDriving: () => void
 }
 
 const OVERLINE = { fontSize: 13, fontWeight: '600', letterSpacing: 0.5 } as const
@@ -45,6 +46,7 @@ export function CarView({
   onTroubleCodes,
   onWarranty,
   onFuel,
+  onDriving,
 }: Props) {
   const colors = useColors()
   if (car.status === 'loading') return <ActivityIndicator style={styles.fill} />
@@ -76,7 +78,7 @@ export function CarView({
           <DocumentsSection {...documents} />
           <SegmentedControl options={sections} selected={car.section} onSelect={car.showSection} />
           {car.section === 'schedule' ? (
-            <Schedule {...car} />
+            <Schedule {...car} onDriving={onDriving} />
           ) : car.section === 'recalls' ? (
             <RecallsSection {...safety} />
           ) : (
@@ -225,7 +227,7 @@ const STATUS_LABEL: Record<DueStatus, string> = {
   upcoming: 'Upcoming',
 }
 
-function Schedule(car: CarState) {
+function Schedule(car: CarState & { onDriving: () => void }) {
   const colors = useColors()
   if (car.status === 'unmatched')
     return <Note>Your schedule appears once your car has synced.</Note>
@@ -235,9 +237,14 @@ function Schedule(car: CarState) {
   return (
     <Column spacing={8}>
       <Column spacing={4} style={{ paddingHorizontal: 4 }}>
-        <Text textStyle={{ ...OVERLINE, color: colors.textSecondary }}>
-          {car.scheduleTitle.toUpperCase()}
-        </Text>
+        <Row alignment="center">
+          <FillColumn>
+            <Text textStyle={{ ...OVERLINE, color: colors.textSecondary }}>
+              {car.scheduleTitle.toUpperCase()}
+            </Text>
+          </FillColumn>
+          <Button variant="text" label="Change" onPress={car.onDriving} />
+        </Row>
         {car.scheduleNote ? <Note>{car.scheduleNote}</Note> : null}
       </Column>
       <Card padding={0}>
