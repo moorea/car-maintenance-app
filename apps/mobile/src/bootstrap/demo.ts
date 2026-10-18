@@ -14,6 +14,7 @@ import {
   OWNER,
 } from '@car/core/testing'
 import { demoModel, localAssistant } from '@car/core/testing'
+import { launchFlag } from './launchFlags'
 import {
   addDays,
   daysBetween,
@@ -329,9 +330,10 @@ export const demoFillUps = (): FillUp[] => {
 
 export const createDemoRepositories = () => {
   // Already signed in, so the demo opens on the sample car. After signing out, any email with
-  // code 123456 signs back in as the same demo owner.
+  // code 123456 signs back in as the same demo owner. UI tests can start signed out instead, to
+  // see the first-run introduction.
   const auth = memoryAuth({
-    user: { id: OWNER, email: 'demo@example.com' },
+    ...(launchFlag('demoSignedOut') ? {} : { user: { id: OWNER, email: 'demo@example.com' } }),
     userIdFor: () => OWNER,
   })
   return {

@@ -39,3 +39,14 @@ appId: com.moorea.carmaintenance
     visible: 'Enter the code we sent to demo@example.com.'
     timeout: 10000
 - takeScreenshot: 6-sign-in-code
+# The code field has no placeholder to match, so tap it where it sits below its label.
+- tapOn:
+    point: '50%,23%'
+- inputText: '123456'
+# The page title also reads "Sign in"; the button is the second match.
+- tapOn:
+    text: 'Sign in'
+    index: 1
+- extendedWaitUntil:
+    visible: 'Demo car'
+    timeout: 10000
