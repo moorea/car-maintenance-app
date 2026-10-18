@@ -1,4 +1,8 @@
-import type { ReminderOfferActions, ReminderOfferState } from '@car/core'
+import {
+  REMINDERS_BLOCKED_NOTE,
+  type ReminderOfferActions,
+  type ReminderOfferState,
+} from '@car/core'
 import { Column, Row, ScrollView, Spacer, type UniversalStyle } from '@expo/ui'
 import { StyleSheet } from 'react-native'
 import { useColors } from '../../theme'
@@ -9,7 +13,7 @@ import { Text } from '../../ui/Text'
 import { Button } from '../../ui/Button'
 
 type Props = ReminderOfferState &
-  Pick<ReminderOfferActions, 'accept' | 'decline'> & {
+  Pick<ReminderOfferActions, 'accept' | 'decline' | 'openSettings'> & {
     /** The car just added, as the owner named it. */
     carName: string
   }
@@ -18,6 +22,7 @@ type Props = ReminderOfferState &
 export function ReminderOfferView(props: Props) {
   const colors = useColors()
   const saving = props.status === 'saving'
+  const blocked = props.status === 'blocked'
 
   return (
     <Host style={styles.fill}>
@@ -43,25 +48,41 @@ export function ReminderOfferView(props: Props) {
               come due? Reminders follow your mileage and are planned on this phone, so they work
               offline.
             </Text>
+            {blocked ? (
+              <Text textStyle={{ fontSize: 17, lineHeight: 24 }}>{REMINDERS_BLOCKED_NOTE}</Text>
+            ) : null}
           </Column>
         </ScrollView>
 
         <Spacer flexible />
-        <Column spacing={8}>
-          <Row>
-            <PillButton
-              label={saving ? 'Turning on…' : 'Turn on reminders'}
-              onPress={() => void props.accept()}
-              fill="accent"
-              text="onAccent"
-            />
-          </Row>
-          <Row alignment="center">
-            <Spacer flexible />
-            <Button variant="text" label="Not now" disabled={saving} onPress={props.decline} />
-            <Spacer flexible />
-          </Row>
-        </Column>
+        {blocked ? (
+          <Column spacing={8}>
+            <Row>
+              <PillButton label="Continue" onPress={props.decline} fill="accent" text="onAccent" />
+            </Row>
+            <Row alignment="center">
+              <Spacer flexible />
+              <Button variant="text" label="Open Settings" onPress={props.openSettings} />
+              <Spacer flexible />
+            </Row>
+          </Column>
+        ) : (
+          <Column spacing={8}>
+            <Row>
+              <PillButton
+                label={saving ? 'Turning on…' : 'Turn on reminders'}
+                onPress={() => void props.accept()}
+                fill="accent"
+                text="onAccent"
+              />
+            </Row>
+            <Row alignment="center">
+              <Spacer flexible />
+              <Button variant="text" label="Not now" disabled={saving} onPress={props.decline} />
+              <Spacer flexible />
+            </Row>
+          </Column>
+        )}
       </Column>
     </Host>
   )

@@ -11,9 +11,15 @@ import type {
  * - `loading`: reading the reminder setting, the phone's permission and whether it was offered.
  * - `showing`: the offer is on screen.
  * - `saving`: turning reminders on, while the phone asks for permission.
+ * - `blocked`: the owner said yes but the phone refused notifications. The offer stays to say
+ *   so and point to Settings, until the owner continues.
  * - `done`: answered, or nothing to offer; the app moves on.
  */
-export type ReminderOfferStatus = 'loading' | 'showing' | 'saving' | 'done'
+export type ReminderOfferStatus = 'loading' | 'showing' | 'saving' | 'blocked' | 'done'
+
+/** Shown on the offer when the phone refused notifications after the owner said yes. */
+export const REMINDERS_BLOCKED_NOTE =
+  'Notifications are off for this app, so reminders can’t be sent. You can turn them on in Settings.'
 
 export interface ReminderOfferState {
   status: ReminderOfferStatus
@@ -23,15 +29,20 @@ export interface ReminderOfferActions {
   start: () => void
   /** Asks the phone for permission and turns reminders on if it is given. */
   accept: () => Promise<void>
-  /** Leaves reminders off. They can still be turned on from the garage. */
+  /**
+   * Leaves reminders off, or moves on from the note that the phone blocked them. They can still
+   * be turned on from the garage.
+   */
   decline: () => void
+  /** Opens this app's page in the phone's Settings, where notifications can be allowed. */
+  openSettings: () => void
   dispose: () => void
 }
 
 export type ReminderOfferModel = StoreApi<ReminderOfferState & ReminderOfferActions>
 
 export interface ReminderOfferDeps {
-  notifier: Pick<Notifier, 'permission' | 'requestPermission'>
+  notifier: Pick<Notifier, 'permission' | 'requestPermission' | 'openSettings'>
   settings: ReminderSettingsRepo
   preferences: DevicePreferencesRepo
   /** Told once the offer is answered or there was nothing to offer. */
@@ -98,20 +109,29 @@ export const createReminderOfferModel = (deps: ReminderOfferDeps): ReminderOffer
       accept: async () => {
         if (get().status !== 'showing') return
         set({ status: 'saving' })
+        let refused = false
         try {
-          if ((await deps.notifier.requestPermission()) === 'granted')
-            await deps.settings.set({ enabled: true })
+          const answer = await deps.notifier.requestPermission()
+          if (answer === 'granted') await deps.settings.set({ enabled: true })
+          else refused = answer === 'denied'
         } catch {
           // Left off, which the reminders screen shows; the owner can try again there.
         }
         void remember()
-        finish()
+        if (refused) set({ status: 'blocked' })
+        else finish()
       },
 
       decline: () => {
-        if (get().status !== 'showing') return
+        const { status } = get()
+        if (status === 'blocked') return finish()
+        if (status !== 'showing') return
         void remember()
         finish()
+      },
+
+      openSettings: () => {
+        if (get().status === 'blocked') void deps.notifier.openSettings().catch(() => {})
       },
 
       dispose: () => {

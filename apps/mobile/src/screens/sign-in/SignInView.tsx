@@ -62,8 +62,8 @@ export function SignInView(props: Props) {
               {error ? <ErrorText>{error}</ErrorText> : null}
               <Row>
                 <PillButton
-                  label={busy ? 'Sending…' : 'Email me a code'}
-                  disabled={busy}
+                  label={busy === 'sending' ? 'Sending…' : 'Email me a code'}
+                  disabled={!!busy}
                   onPress={() => void props.submitEmail()}
                   fill="accent"
                   text="onAccent"
@@ -91,8 +91,8 @@ export function SignInView(props: Props) {
               </Note>
               <Row>
                 <PillButton
-                  label={busy ? 'Signing in…' : 'Sign in'}
-                  disabled={busy}
+                  label={busy === 'verifying' ? 'Signing in…' : 'Sign in'}
+                  disabled={!!busy}
                   onPress={() => void props.submitCode()}
                   fill="accent"
                   text="onAccent"
@@ -100,14 +100,14 @@ export function SignInView(props: Props) {
               </Row>
               <Button
                 variant="text"
-                label="Send a new code"
-                disabled={busy}
+                label={busy === 'sending' ? 'Sending…' : 'Send a new code'}
+                disabled={!!busy}
                 onPress={() => void props.resend()}
               />
               <Button
                 variant="text"
                 label="Use a different email"
-                disabled={busy}
+                disabled={!!busy}
                 onPress={props.changeEmail}
               />
             </>

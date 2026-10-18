@@ -129,7 +129,7 @@ function SessionScreen(props: Props) {
         <Host matchContents={{ vertical: true }}>
           <Row style={{ padding: 16 }}>
             <Text textStyle={{ textAlign: 'center' }}>
-              Getting your cars. This needs a connection the first time.
+              Setting up your garage. This needs a connection the first time.
             </Text>
           </Row>
           <Button variant="text" label="Account" onPress={() => props.openTab('account')} />

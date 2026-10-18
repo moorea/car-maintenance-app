@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { NotificationPermission } from '../../ports'
 import { memoryNotifier, memoryPreferences, memoryReminderSettings } from '../../testing'
-import { createReminderOfferModel } from './model'
+import { createReminderOfferModel, REMINDERS_BLOCKED_NOTE } from './model'
 
 const setup = (
   options: {
@@ -58,13 +58,37 @@ describe('reminder offer model', () => {
     expect(done()).toBe(1)
   })
 
-  it('leaves reminders off when the owner refuses the permission, and moves on', async () => {
+  it('says notifications are off and points to Settings when the owner refuses the permission', async () => {
     const { model, settings, preferences, done } = setup({ answer: 'denied' })
     model.getState().start()
     await settle()
     await model.getState().accept()
     expect(current(settings)).toEqual({ enabled: false })
     expect(current(preferences).remindersOffered).toBe(true)
+    expect(model.getState().status).toBe('blocked')
+    expect(REMINDERS_BLOCKED_NOTE).toMatch(/turn them on in Settings/)
+    expect(done()).toBe(0)
+  })
+
+  it('opens Settings from the note that notifications are off', async () => {
+    const { model, notifier } = setup({ answer: 'denied' })
+    model.getState().start()
+    await settle()
+    model.getState().openSettings()
+    expect(notifier.settingsOpened).toBe(0)
+    await model.getState().accept()
+    model.getState().openSettings()
+    expect(notifier.settingsOpened).toBe(1)
+    expect(model.getState().status).toBe('blocked')
+  })
+
+  it('moves on from the note that notifications are off when the owner continues', async () => {
+    const { model, done } = setup({ answer: 'denied' })
+    model.getState().start()
+    await settle()
+    await model.getState().accept()
+    model.getState().decline()
+    expect(model.getState().status).toBe('done')
     expect(done()).toBe(1)
   })
 
