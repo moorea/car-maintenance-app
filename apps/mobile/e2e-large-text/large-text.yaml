@@ -18,11 +18,13 @@ appId: com.moorea.carmaintenance
 - waitForAnimationToEnd
 - takeScreenshot: 9-large-text-car
 # The demo car's recall card, whose "Risk and fix" toggle label scales too. The Car tab opens on
-# the schedule, so switch to recalls first.
+# the schedule, so switch to recalls first. At this size the car's page cards fill several screens
+# before the segment, so give the scroll longer, and centre it so the tap can't land on the tab bar.
 - scrollUntilVisible:
     element: 'Recalls.*'
     direction: DOWN
-    timeout: 30000
+    timeout: 90000
+    centerElement: true
 - tapOn: 'Recalls.*'
 - waitForAnimationToEnd
 - scrollUntilVisible:
