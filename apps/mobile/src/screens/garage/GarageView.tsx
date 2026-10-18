@@ -8,7 +8,7 @@ import type {
   GarageState,
   Vehicle,
 } from '@car/core'
-import { Button, Column, Row, ScrollView, Spacer } from '@expo/ui'
+import { Column, Row, ScrollView, Spacer } from '@expo/ui'
 import { Fragment } from 'react'
 import { ActivityIndicator, StyleSheet } from 'react-native'
 import { useColors, type ColorRole } from '../../theme'
@@ -25,6 +25,7 @@ import {
 } from '../../ui/surfaces'
 import { Symbol } from '../../ui/Symbol'
 import { Text } from '../../ui/Text'
+import { Button } from '../../ui/Button'
 import { ArrangeCarsSheet } from './ArrangeCarsSheet'
 
 export interface GarageNavigation {

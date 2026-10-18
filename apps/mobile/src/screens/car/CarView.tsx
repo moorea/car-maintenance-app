@@ -11,7 +11,7 @@ import type {
   ScheduleItemState,
   ScheduleRow,
 } from '@car/core'
-import { Button, Column, Row, ScrollView } from '@expo/ui'
+import { Column, Row, ScrollView } from '@expo/ui'
 import { Fragment } from 'react'
 import { ActivityIndicator, StyleSheet } from 'react-native'
 import { useColors, type ColorRole } from '../../theme'
@@ -38,6 +38,7 @@ import { RecallsSection } from './SafetySections'
 import { ScheduleItemSheet } from './ScheduleItemSheet'
 import { Reflow } from '../../ui/Reflow'
 import { Text } from '../../ui/Text'
+import { Button } from '../../ui/Button'
 
 interface Props {
   car: CarState & CarActions

@@ -1,11 +1,12 @@
 import type { ReminderOfferActions, ReminderOfferState } from '@car/core'
-import { Button, Column, Row, ScrollView, Spacer, type UniversalStyle } from '@expo/ui'
+import { Column, Row, ScrollView, Spacer, type UniversalStyle } from '@expo/ui'
 import { StyleSheet } from 'react-native'
 import { useColors } from '../../theme'
 import { Host } from '../../ui/Host'
 import { PillButton } from '../../ui/surfaces'
 import { Symbol } from '../../ui/Symbol'
 import { Text } from '../../ui/Text'
+import { Button } from '../../ui/Button'
 
 type Props = ReminderOfferState &
   Pick<ReminderOfferActions, 'accept' | 'decline'> & {

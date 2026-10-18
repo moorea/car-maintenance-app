@@ -7,7 +7,7 @@ import type {
   FuelSection,
   FuelState,
 } from '@car/core'
-import { BottomSheet, Button, Column, Row, ScrollView, Spacer, Switch } from '@expo/ui'
+import { BottomSheet, Column, Row, ScrollView, Spacer, Switch } from '@expo/ui'
 import { Fragment, type ReactNode } from 'react'
 import { ActivityIndicator, StyleSheet } from 'react-native'
 import { useColors, type ColorRole } from '../../theme'
@@ -21,6 +21,7 @@ import { TextField } from '../../ui/TextField'
 import { TrendChart } from '../../ui/TrendChart'
 import { Card, Dot, FillColumn, GlassIconButton, PillButton, Separator } from '../../ui/surfaces'
 import { Text } from '../../ui/Text'
+import { Button } from '../../ui/Button'
 
 type Props = FuelState &
   Pick<

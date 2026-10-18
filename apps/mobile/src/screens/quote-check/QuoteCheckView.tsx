@@ -7,7 +7,7 @@ import {
   type QuoteVerdict,
   type RepairWeighing,
 } from '@car/core'
-import { Button, Column, Row, ScrollView, Spacer } from '@expo/ui'
+import { Column, Row, ScrollView, Spacer } from '@expo/ui'
 import { Fragment } from 'react'
 import { ActivityIndicator, KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native'
 import { useColors, type ColorRole } from '../../theme'
@@ -24,6 +24,7 @@ import {
   TappableRow,
 } from '../../ui/surfaces'
 import { Text } from '../../ui/Text'
+import { Button } from '../../ui/Button'
 
 type Props = QuoteCheckState &
   Pick<

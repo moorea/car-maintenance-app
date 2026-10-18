@@ -1,5 +1,5 @@
 import type { AppTab, SessionActions, SessionState, Vehicle } from '@car/core'
-import { Button, Row } from '@expo/ui'
+import { Row } from '@expo/ui'
 import { ActivityIndicator, StyleSheet, View } from 'react-native'
 import { AccountScreen } from '../account/AccountScreen'
 import { AddCarScreen } from '../add-car/AddCarScreen'
@@ -23,6 +23,7 @@ import { BottomSafeArea } from '../../ui/BottomSafeArea'
 import { Host } from '../../ui/Host'
 import { TabBar, type TabBarItem } from '../../ui/TabBar'
 import { Text } from '../../ui/Text'
+import { Button } from '../../ui/Button'
 
 type Props = SessionState &
   Pick<

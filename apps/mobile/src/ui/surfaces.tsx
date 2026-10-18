@@ -1,9 +1,10 @@
-import { Button, Column, Row, type UniversalStyle } from '@expo/ui'
+import { Column, Row, type UniversalStyle } from '@expo/ui'
 import type { ReactNode } from 'react'
 import { useColors, type ColorRole } from '../theme'
 import { Symbol } from './Symbol'
 import type { SymbolName } from './symbols'
 import { Text } from './Text'
+import { Button } from './Button'
 
 // The web preview has no native Liquid Glass, so glass is a blurred translucent fill. These CSS
 // properties are not in the universal style type but react-native-web passes them through.

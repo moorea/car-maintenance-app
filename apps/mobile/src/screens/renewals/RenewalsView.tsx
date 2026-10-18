@@ -1,5 +1,5 @@
 import type { RenewalRow, RenewalsActions, RenewalsState, RenewalState } from '@car/core'
-import { BottomSheet, Button, Column, Picker, Row, ScrollView, Spacer } from '@expo/ui'
+import { BottomSheet, Column, Picker, Row, ScrollView, Spacer } from '@expo/ui'
 import type { ReactNode } from 'react'
 import { ActivityIndicator, StyleSheet } from 'react-native'
 import { useColors, type ColorRole } from '../../theme'
@@ -17,6 +17,7 @@ import {
   AttachStatus,
   type AttachmentsProps,
 } from '../attachments/AttachmentList'
+import { Button } from '../../ui/Button'
 
 type Props = RenewalsState &
   Pick<

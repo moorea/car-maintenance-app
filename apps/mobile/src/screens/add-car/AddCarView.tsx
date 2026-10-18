@@ -1,10 +1,11 @@
 import type { AddCarActions, AddCarState } from '@car/core'
-import { Button, Column, Row, ScrollView, Spacer, Switch } from '@expo/ui'
+import { Column, Row, ScrollView, Spacer, Switch } from '@expo/ui'
 import { Host } from '../../ui/Host'
 import { ErrorText, Note } from '../../ui/Note'
 import { GlassIconButton } from '../../ui/surfaces'
 import { TextField } from '../../ui/TextField'
 import { Text } from '../../ui/Text'
+import { Button } from '../../ui/Button'
 
 type Props = AddCarState &
   Pick<

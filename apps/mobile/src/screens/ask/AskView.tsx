@@ -1,5 +1,5 @@
 import type { AnswerSourceKind, AskActions, AskState, ChatMessage } from '@car/core'
-import { Button, Column, Row, ScrollView, Spacer } from '@expo/ui'
+import { Column, Row, ScrollView, Spacer } from '@expo/ui'
 import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native'
 import { useColors } from '../../theme'
 import { ChatComposer } from '../../ui/ChatComposer'
@@ -9,6 +9,7 @@ import { ErrorText, Note } from '../../ui/Note'
 import { Bubble, Card, Chip, GlassIconButton, GlassPill } from '../../ui/surfaces'
 import type { SymbolName } from '../../ui/symbols'
 import { Text } from '../../ui/Text'
+import { Button } from '../../ui/Button'
 
 type Props = AskState &
   Pick<AskActions, 'setDraft' | 'send' | 'ask' | 'stop' | 'retry' | 'newConversation'> & {

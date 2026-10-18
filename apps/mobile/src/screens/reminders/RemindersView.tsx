@@ -1,10 +1,11 @@
 import type { RemindersActions, RemindersState, UpcomingReminder } from '@car/core'
-import { Button, Column, ScrollView, Switch } from '@expo/ui'
+import { Column, ScrollView, Switch } from '@expo/ui'
 import { ActivityIndicator, StyleSheet } from 'react-native'
 import { Host } from '../../ui/Host'
 import { Note } from '../../ui/Note'
 import { TAB_BAR_CLEARANCE } from '../../ui/TabBar'
 import { Text } from '../../ui/Text'
+import { Button } from '../../ui/Button'
 
 type Props = RemindersState & Pick<RemindersActions, 'setOn' | 'openSettings'>
 
