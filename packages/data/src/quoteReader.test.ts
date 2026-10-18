@@ -1,7 +1,7 @@
 import { cancellation } from '@car/core'
 import { SAMPLE_PHOTO } from '@car/core/testing'
 import { describe, expect, it } from 'vitest'
-import { remoteQuoteReader } from './quoteReader'
+import { remoteOdometerReader, remoteQuoteReader } from './quoteReader'
 
 const URL = 'https://project.supabase.co/functions/v1/assistant/read-quote'
 
@@ -85,5 +85,35 @@ describe('remoteQuoteReader', () => {
     cancel()
     expect(seen?.aborted).toBe(true)
     await expect(reading).rejects.toBeDefined()
+  })
+})
+
+describe('remoteOdometerReader', () => {
+  const odometer = (respond: () => Response) =>
+    remoteOdometerReader({
+      url: 'https://project.supabase.co/functions/v1/assistant/read-odometer',
+      accessToken: async () => 'tok',
+      fetch: async () => respond(),
+    })
+
+  it('returns the miles read, or nothing when no odometer was found', async () => {
+    await expect(odometer(() => json(200, { miles: 36_012 })).read(SAMPLE_PHOTO)).resolves.toBe(
+      36_012,
+    )
+    await expect(
+      odometer(() => json(200, { miles: null })).read(SAMPLE_PHOTO),
+    ).resolves.toBeUndefined()
+  })
+
+  it('rejects an answer that is not whole miles', async () => {
+    await expect(
+      odometer(() => json(200, { miles: 'lots' })).read(SAMPLE_PHOTO),
+    ).rejects.toMatchObject({ kind: 'unknown' })
+  })
+
+  it('passes on why the server could not read it', async () => {
+    await expect(
+      odometer(() => json(429, { error: 'rate-limited' })).read(SAMPLE_PHOTO),
+    ).rejects.toMatchObject({ kind: 'rate-limited' })
   })
 })
