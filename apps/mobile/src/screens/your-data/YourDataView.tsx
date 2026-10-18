@@ -12,7 +12,10 @@ import { PAGE_TOP } from '../../ui/layout'
 import { Text } from '../../ui/Text'
 
 type Props = YourDataState &
-  Pick<YourDataActions, 'exportAll' | 'chooseImport' | 'confirmImport' | 'cancelImport'> & {
+  Pick<
+    YourDataActions,
+    'exportAll' | 'shareAgain' | 'chooseImport' | 'confirmImport' | 'cancelImport'
+  > & {
     onBack: () => void
   }
 
@@ -39,12 +42,22 @@ export function YourDataView(props: Props) {
             </Note>
           </Column>
 
-          {props.message ? <Message {...props.message} /> : null}
+          {props.message ? (
+            <Message
+              {...props.message}
+              {...(props.canShareAgain && {
+                shareAgain: {
+                  label: status === 'sharing' ? 'Sharing…' : 'Share again',
+                  onPress: busy ? undefined : () => void props.shareAgain(),
+                },
+              })}
+            />
+          ) : null}
 
           <Action
             symbol="share"
             title="Export everything"
-            detail="Your cars, service history, odometer readings, warranties and documents in one zip: spreadsheets (CSV), a JSON file, and the photos and PDFs themselves."
+            detail="Your cars with their services, odometer readings, fill-ups, warranties, renewal dates, schedule items and documents, in one zip: spreadsheets (CSV), a JSON file, and the photos and PDFs themselves."
             button={status === 'exporting' ? 'Exporting…' : 'Export'}
             onPress={busy ? undefined : () => void props.exportAll()}
           />
@@ -130,7 +143,7 @@ function ConfirmImport(props: Props & { plan: NonNullable<YourDataState['plan']>
         ))}
       </Column>
       <Note>
-        {`${adding.length === 1 ? 'With its' : 'With their'} history, warranties and documents.${
+        {`${adding.length === 1 ? 'With its' : 'With their'} services, odometer readings, fill-ups, warranties, renewal dates, schedule items and documents.${
           skipping.length > 0
             ? ` Already in your garage, so left as is: ${skipping.join(', ')}.`
             : ''
@@ -156,10 +169,15 @@ function ConfirmImport(props: Props & { plan: NonNullable<YourDataState['plan']>
   )
 }
 
-function Message({ tone, text }: NonNullable<YourDataState['message']>) {
+interface MessageProps extends NonNullable<YourDataState['message']> {
+  /** Offers the last export's zip again; absent once there is none to offer. */
+  shareAgain?: { label: string; onPress: (() => void) | undefined }
+}
+
+function Message({ tone, text, shareAgain }: MessageProps) {
   const colors = useColors()
   return (
-    <Card padding={14}>
+    <Card padding={14} spacing={12}>
       <Row alignment="start" spacing={10}>
         <Symbol
           name={tone === 'error' ? 'warning' : 'checkmark'}
@@ -170,6 +188,16 @@ function Message({ tone, text }: NonNullable<YourDataState['message']>) {
           {tone === 'error' ? <ErrorText>{text}</ErrorText> : <Text>{text}</Text>}
         </FillColumn>
       </Row>
+      {shareAgain ? (
+        <Row>
+          <PillButton
+            label={shareAgain.label}
+            onPress={shareAgain.onPress ?? (() => {})}
+            fill="neutralSubtle"
+            text={shareAgain.onPress ? 'textPrimary' : 'textSecondary'}
+          />
+        </Row>
+      ) : null}
     </Card>
   )
 }

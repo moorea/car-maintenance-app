@@ -28,7 +28,7 @@ export function ReminderOfferGate({ carName, onDone, children }: Props) {
     }),
   )
   const state = useStore(model)
-  if (state.status !== 'showing' && state.status !== 'saving') return children
+  if (state.status === 'loading' || state.status === 'done') return children
   // It replaces the garage and its tab bar, so it keeps clear of the home indicator itself.
   return (
     <BottomSafeArea>

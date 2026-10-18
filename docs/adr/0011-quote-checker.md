@@ -42,7 +42,8 @@ on the severe schedule, not on the schedule at all, a repair or wear part to be 
 - The keyword table misses unusual wording; those lines read "can't check" rather than guessing.
 - Against the general baseline schedule (ADR 0010) some verdicts are conservative, and the result
   says it was checked against a general schedule.
-- No prices: whether $229 is fair for a job needs a pricing source (a business decision).
+- No prices at first: whether $229 is fair for a job needed a pricing source. ADR 0020 adds AI
+  estimates of the usual range.
 
 ## Revisit if
 

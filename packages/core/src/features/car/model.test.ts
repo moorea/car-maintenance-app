@@ -163,6 +163,17 @@ describe('car model', () => {
     ])
   })
 
+  it('says a mileage-only item needs the mileage, last, when the car has no reading', async () => {
+    const { model } = setup({ odometer: [], records: [] })
+    model.getState().start()
+    await settle()
+    expect(model.getState().schedule.map((r) => [r.task, r.status, r.next])).toEqual([
+      ['Oil & filter change', 'upcoming', 'Jan 2027'],
+      ['Brake fluid', 'upcoming', 'Jan 2027'],
+      ['Tire rotation', 'unknown', 'Needs your mileage'],
+    ])
+  })
+
   it('shows the estimated odometer and how much the car is driven', async () => {
     const { model } = setup()
     model.getState().start()

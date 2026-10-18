@@ -41,6 +41,7 @@ import bulletinIcon from '@expo/material-symbols/build.xml'
 import gaugeIcon from '@expo/material-symbols/speed.xml'
 import tireIcon from '@expo/material-symbols/tire_repair.xml'
 import swapIcon from '@expo/material-symbols/sync.xml'
+import priceIcon from '@expo/material-symbols/attach_money.xml'
 
 interface Props {
   name: SymbolName
@@ -93,6 +94,7 @@ const MATERIAL: Record<SymbolName, ImageSourcePropType> = {
   gauge: gaugeIcon,
   tire: tireIcon,
   swap: swapIcon,
+  price: priceIcon,
 }
 
 /**

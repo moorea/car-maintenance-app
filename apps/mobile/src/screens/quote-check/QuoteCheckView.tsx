@@ -1,6 +1,9 @@
 import {
   formatCents,
   type CheckedLine,
+  type FairPrices,
+  type PricedLine,
+  type PriceFit,
   type QuoteCheck,
   type QuoteCheckActions,
   type QuoteCheckState,
@@ -39,6 +42,8 @@ type Props = QuoteCheckState &
     | 'startOver'
     | 'setValueDraft'
     | 'saveValue'
+    | 'setZip'
+    | 'estimatePrices'
   > & {
     onBack: () => void
     /** Asks the assistant about the line at this index. */
@@ -58,6 +63,14 @@ const PILLS: Record<QuoteVerdict, { fill: ColorRole; text: ColorRole }> = {
   condition: { fill: 'neutralSubtle', text: 'textSecondary' },
   'no-record': { fill: 'neutralSubtle', text: 'textSecondary' },
   unknown: { fill: 'neutralSubtle', text: 'textSecondary' },
+}
+
+/** How a line's price sits against the usual range: over it in warning, else quiet. */
+const FIT_COLORS: Record<PriceFit, ColorRole> = {
+  below: 'textSecondary',
+  within: 'accent',
+  above: 'warning',
+  'well-above': 'warning',
 }
 
 /** Pure rendering of checking a shop's quote: enter the lines, then each line's verdict. */
@@ -184,6 +197,7 @@ function Entry(props: Props) {
 function Result(props: Props & { result: QuoteCheck }) {
   const colors = useColors()
   const { result } = props
+  const fair = props.prices?.status === 'ready' ? props.prices.fair : undefined
   return (
     <>
       <Card spacing={6}>
@@ -201,6 +215,8 @@ function Result(props: Props & { result: QuoteCheck }) {
         ) : null}
       </Card>
 
+      <FairPricesCard {...props} fair={fair} />
+
       <Column spacing={8}>
         <Text
           style={{ paddingHorizontal: 4 }}
@@ -212,7 +228,11 @@ function Result(props: Props & { result: QuoteCheck }) {
           {result.lines.map((line, i) => (
             <Fragment key={line.index}>
               {i > 0 ? <Separator /> : null}
-              <LineRow line={line} onPress={() => props.onAsk(line.index)} />
+              <LineRow
+                line={line}
+                priced={fair?.lines.find((p) => p.index === line.index)}
+                onPress={() => props.onAsk(line.index)}
+              />
             </Fragment>
           ))}
         </Card>
@@ -302,9 +322,112 @@ function Weighing(props: Props & { weighing: RepairWeighing }) {
   )
 }
 
-function LineRow({ line, onPress }: { line: CheckedLine; onPress: () => void }) {
+/**
+ * Fair prices for the quote, which Claude estimates. Labeled as an estimate wherever it shows, as
+ * no one has seen the car.
+ */
+function FairPricesCard(props: Props & { fair: FairPrices | undefined }) {
+  const colors = useColors()
+  const { fair, prices } = props
+  const estimating = prices?.status === 'estimating'
+  return (
+    <Card spacing={10}>
+      <Row alignment="center" spacing={10}>
+        <Symbol name="price" size={20} color={colors.accent} />
+        <Text textStyle={{ fontSize: 16, fontWeight: '600' }}>Fair prices</Text>
+        <Spacer flexible />
+        <EstimateLabel />
+      </Row>
+      {fair ? (
+        <>
+          {fair.headline ? (
+            <Text textStyle={{ fontSize: 17, fontWeight: '600' }}>{fair.headline}</Text>
+          ) : null}
+          {fair.summary ? (
+            <Text
+              textStyle={{
+                fontSize: 15,
+                color: fair.lines.some((l) => l.fit === 'above' || l.fit === 'well-above')
+                  ? colors.warning
+                  : colors.textSecondary,
+              }}
+            >
+              {fair.summary}
+            </Text>
+          ) : null}
+          {fair.lines.length === 0 ? (
+            <Text textStyle={{ fontSize: 15, color: colors.textSecondary }}>
+              None of these lines could be estimated. Ask the shop what each one involves.
+            </Text>
+          ) : null}
+          <Text textStyle={{ fontSize: 15, color: colors.textSecondary }}>{fair.laborRate}</Text>
+          <Note>
+            An AI estimate from typical labor times, parts and shop rates for your car and area, not
+            a quote. Shops vary, and only one that has seen the car can say for sure.
+          </Note>
+        </>
+      ) : (
+        <Text>
+          See what these jobs usually cost near you. Claude estimates each one from typical labor
+          times, parts and local shop rates.
+        </Text>
+      )}
+      {prices?.status === 'failed' ? <ErrorText>{prices.error}</ErrorText> : null}
+      <TextField
+        label="Your ZIP code"
+        value={props.zipDraft}
+        onChangeText={props.setZip}
+        placeholder="5 digits, like 94110"
+        keyboardType="number-pad"
+      />
+      <Row alignment="center" spacing={10}>
+        <Button
+          label={estimating ? 'Estimating…' : fair ? 'Estimate again' : 'Estimate fair prices'}
+          disabled={!props.canEstimate}
+          onPress={() => void props.estimatePrices()}
+        />
+        {estimating ? <ActivityIndicator color={colors.accent} /> : null}
+      </Row>
+      {fair ? null : (
+        <Note>
+          The lines, your car and ZIP code are sent to Anthropic. The shop’s prices are not.
+        </Note>
+      )}
+    </Card>
+  )
+}
+
+/** The small "AI estimate" tag that marks every estimated price. */
+function EstimateLabel() {
+  const colors = useColors()
+  return (
+    <Text
+      textStyle={{ fontSize: 12, fontWeight: '600', color: colors.textSecondary }}
+      style={{
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 10,
+        backgroundColor: colors.neutralSubtle,
+      }}
+    >
+      AI estimate
+    </Text>
+  )
+}
+
+function LineRow({
+  line,
+  priced,
+  onPress,
+}: {
+  line: CheckedLine
+  priced: PricedLine | undefined
+  onPress: () => void
+}) {
   const colors = useColors()
   const pill = PILLS[line.verdict]
+  // A line the shop gave no price has a range but nothing to compare.
+  const fitColor = colors[priced?.fit ? FIT_COLORS[priced.fit] : 'textSecondary']
   return (
     <TappableRow spacing={4} onPress={onPress}>
       <Row alignment="center" spacing={10}>
@@ -332,6 +455,27 @@ function LineRow({ line, onPress }: { line: CheckedLine; onPress: () => void }) 
         <Spacer flexible />
       </Row>
       <Text textStyle={{ fontSize: 14, color: colors.textSecondary }}>{line.detail}</Text>
+      {priced ? (
+        <Column spacing={2}>
+          <Row alignment="center" spacing={8}>
+            <Symbol name="price" size={14} color={fitColor} />
+            <FillColumn>
+              <Text
+                textStyle={{
+                  fontSize: 13,
+                  fontWeight: '600',
+                  color: fitColor,
+                }}
+              >
+                {priced.fitLabel ? `${priced.range} · ${priced.fitLabel}` : priced.range}
+              </Text>
+            </FillColumn>
+          </Row>
+          <Text textStyle={{ fontSize: 12, color: colors.textSecondary }}>
+            {`AI estimate: ${priced.breakdown}`}
+          </Text>
+        </Column>
+      ) : null}
       {line.bulletins.map((b) => (
         <Row key={b.nhtsaId} alignment="center" spacing={8}>
           <Symbol

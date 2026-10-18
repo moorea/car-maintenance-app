@@ -47,7 +47,33 @@ appId: com.moorea.carmaintenance
     timeout: 30000
 - waitForAnimationToEnd
 - takeScreenshot: 5-account
+# Deleting asks first, saying everything it removes; cancel leaves the account as it was.
+- scrollUntilVisible:
+    element: 'Delete account'
+    centerElement: true
+    timeout: 30000
+- tapOn: 'Delete account'
+- extendedWaitUntil:
+    visible: 'Delete your account?'
+    timeout: 5000
+- takeScreenshot: 5-account-delete-confirm
+# The confirmation's buttons can sit below the fold, under the tab bar.
+- scrollUntilVisible:
+    element: 'Cancel'
+    centerElement: true
+    timeout: 30000
+- tapOn: 'Cancel'
+- scrollUntilVisible:
+    element: 'Sign out'
+    centerElement: true
+    timeout: 30000
+# Signing out takes a second tap, so a stray one cannot.
 - tapOn: 'Sign out'
+- extendedWaitUntil:
+    visible: 'Tap again to sign out'
+    timeout: 5000
+- takeScreenshot: 5-account-sign-out-confirm
+- tapOn: 'Tap again to sign out'
 - extendedWaitUntil:
     visible: 'Email me a code'
     timeout: 10000

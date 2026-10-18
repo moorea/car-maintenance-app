@@ -19,11 +19,13 @@ tracking**, and used only for **App Functionality**.
 | App Store category | Data type          | What it is in this app                                                                                                                                                                                                                    |
 | ------------------ | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Contact Info       | Email Address      | The sign-in address                                                                                                                                                                                                                       |
+| Location           | Coarse Location    | A ZIP code the owner types to estimate a shop quote's fair prices, sent with that request only                                                                                                                                            |
 | Identifiers        | User ID            | The account id every row is stored under                                                                                                                                                                                                  |
 | User Content       | Photos or Videos   | Receipts and documents attached to cars and services; shop quote and odometer photos sent to be read                                                                                                                                      |
 | User Content       | Other User Content | Cars (including a VIN if entered), odometer readings, service records, fill-ups and charging, warranties, tire sets, registration, inspection and insurance dates, schedule items and intervals the owner sets, Ask questions and answers |
 
-Leave everything else unchecked. In particular the app does **not** collect: location, contacts,
+Leave everything else unchecked. In particular the app does **not** collect: precise location (it never asks for the
+device's location), contacts,
 health, financial info (service costs are the owner's own notes, not payment details),
 browsing or search history, usage data, diagnostics, purchases, sensitive info or advertising
 data.
@@ -32,11 +34,13 @@ data.
 
 - **Third-party partners.** Supabase, PowerSync and Anthropic process data on our behalf. Apple
   counts their collection as ours, which is why it is all declared above.
-- **Anthropic (Ask, quote checks and odometer photos).** Covered by "Photos or Videos" and "Other User Content".
+- **Anthropic (Ask, quote checks, fair prices and odometer photos).** Covered by "Photos or
+  Videos", "Other User Content" and, for the ZIP code fair prices are estimated around, "Coarse
+  Location".
   Guideline 5.1.2(i) also needs in-app consent before personal data reaches a third-party AI;
   the app asks before the first question, quote check or odometer photo, and it can be turned off
   in Account.
 - **NHTSA VIN decoding** sends only the VIN, with nothing that identifies the person, to a public
   government service. The VIN is already declared under Other User Content.
 - **Data on the phone only** (reminder settings, the intro having been seen, who allowed AI
-  sharing, scheduled notifications) is not collected.
+  sharing, the last ZIP code used for fair prices, scheduled notifications) is not collected.

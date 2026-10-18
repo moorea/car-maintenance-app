@@ -99,6 +99,22 @@ describe('getDueItems', () => {
     expect((await getDueItems(d)('v1'))[0]).toMatchObject({ dueDate: '2026-10-01' })
   })
 
+  it('lists mileage items it cannot date, for a car with no readings, after the dated ones', async () => {
+    const d = {
+      ...deps(),
+      schedule: memorySchedule([
+        { id: 'atf', configId: 'rav4-2021', task: 'Transmission fluid', intervalMiles: 60_000 },
+        { id: 'battery', configId: 'rav4-2021', task: 'Battery test', intervalMonths: 12 },
+      ]),
+      records: memoryServiceRecords([]),
+      odometer: memoryOdometer([]),
+    }
+    expect((await getDueItems(d)('v1')).map((i) => [i.itemId, i.dueDate, i.status])).toEqual([
+      ['battery', '2027-01-01', 'upcoming'],
+      ['atf', undefined, 'unknown'],
+    ])
+  })
+
   it('fails loudly for an unknown vehicle', async () => {
     await expect(getDueItems(deps())('nope')).rejects.toThrow('Unknown vehicle nope')
   })

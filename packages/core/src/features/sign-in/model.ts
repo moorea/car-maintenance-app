@@ -4,13 +4,17 @@ import type { AuthPort } from '../../ports'
 import { codeSchema, emailSchema } from '../../schemas/signIn'
 
 export type SignInStep = 'email' | 'code'
+export type SignInRequest = 'sending' | 'verifying'
 
 export interface SignInState {
   step: SignInStep
   email: string
   code: string
-  /** True while a request is in flight; the form ignores submits meanwhile. */
-  busy: boolean
+  /**
+   * Which request is in flight, if any: sending a code (first or new) or verifying one. The form
+   * ignores submits meanwhile, and only the button that started the request says it is working.
+   */
+  busy?: SignInRequest | undefined
   /** A problem with what was typed, shown under the field. */
   fieldError?: string | undefined
   /** A problem with the request itself, shown above the button. */
@@ -55,14 +59,18 @@ export const createSignInModel = (deps: { auth: AuthPort; codeLength?: number })
   createStore<SignInState & SignInActions>()((set, get) => {
     const codeLength = deps.codeLength ?? SIGN_IN_CODE_LENGTH
     /** Runs one request with busy/error handling; returns whether it succeeded. */
-    const run = async (request: () => Promise<void>, onSuccess: Partial<SignInState> = {}) => {
-      set({ busy: true, error: undefined, notice: undefined })
+    const run = async (
+      busy: SignInRequest,
+      request: () => Promise<void>,
+      onSuccess: Partial<SignInState> = {},
+    ) => {
+      set({ busy, error: undefined, notice: undefined })
       try {
         await request()
-        set({ busy: false, ...onSuccess })
+        set({ busy: undefined, ...onSuccess })
         return true
       } catch (e) {
-        set({ busy: false, error: messageFor(e) })
+        set({ busy: undefined, error: messageFor(e) })
         return false
       }
     }
@@ -74,14 +82,14 @@ export const createSignInModel = (deps: { auth: AuthPort; codeLength?: number })
         return false
       }
       const email = parsed.data
-      return run(() => deps.auth.sendCode(email), { email, ...onSuccess })
+      return run('sending', () => deps.auth.sendCode(email), { email, ...onSuccess })
     }
 
     return {
       step: 'email',
       email: '',
       code: '',
-      busy: false,
+      busy: undefined,
 
       start: () => {},
       dispose: () => {},
@@ -115,7 +123,7 @@ export const createSignInModel = (deps: { auth: AuthPort; codeLength?: number })
           return false
         }
         const code = parsed.data
-        return run(() => deps.auth.verifyCode(get().email, code))
+        return run('verifying', () => deps.auth.verifyCode(get().email, code))
       },
 
       changeEmail: () =>

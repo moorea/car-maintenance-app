@@ -20,14 +20,16 @@ Questions or requests: **[CONTACT EMAIL]**.
 | Photos and files you attach, such as receipts, registration and insurance                                                                                                                                                                   | To keep them with the car or service they belong to                                                              | You, from your camera, photo library or Files |
 | Questions you ask in Ask, and the answers                                                                                                                                                                                                   | To answer you, keep the conversation going, and limit how many questions one account can ask a day               | You                                           |
 | Photos of shop quotes you check                                                                                                                                                                                                             | To read the quote's lines. They are not stored                                                                   | You                                           |
+| A ZIP code, if you ask for a quote's fair prices                                                                                                                                                                                            | To estimate shop labor rates near you. Kept on your phone to offer next time; not stored in your account         | You                                           |
 | Photos of your odometer you choose to have read                                                                                                                                                                                             | To read the miles, which you check before saving. They are not stored                                            | You                                           |
 
-We do not collect your location, contacts, browsing history, advertising identifiers,
+We do not collect your device's location, contacts, browsing history, advertising identifiers,
 diagnostics, or usage analytics. The app has no ads and no third-party analytics or tracking
 code.
 
 Service reminders are worked out and scheduled on your phone. Whether reminders are on, whether
-you have seen the introduction, and whether you allowed Ask to share data stay on your phone.
+you have seen the introduction, whether you allowed Ask to share data, and the last ZIP code you
+used for fair prices stay on your phone.
 
 ## Who else handles your data
 
@@ -38,8 +40,8 @@ to us:
   emails.
 - **PowerSync** keeps the copy of your data on your phone in sync with your account.
 - **Anthropic** runs Claude, the AI model behind Ask, the quote checker and reading the odometer
-  from a photo. It receives data only when you send a question, check a quote or send an odometer
-  photo, and only after you allow it in the app (see below).
+  from a photo. It receives data only when you send a question, check a quote, ask for a quote's fair
+  prices or send an odometer photo, and only after you allow it in the app (see below).
 - **NHTSA** (the US National Highway Traffic Safety Administration) decodes a VIN you enter into
   the car's year, make and model. Only the VIN is sent. Recalls and owner complaints are fetched
   from NHTSA by model and year, not by anything about you.
@@ -49,7 +51,8 @@ let anyone use it to track you across apps and websites.
 
 ## Ask and the quote checker
 
-Ask answers questions about your car, the quote checker reads photos of shop quotes, and the car
+Ask answers questions about your car, the quote checker reads photos of shop quotes and can
+estimate what the work usually costs, and the car
 page can read the miles from a photo of your odometer, using Claude, an AI model made by
 Anthropic. Before any of them sends anything, the app tells you what will
 be sent and asks for your permission. You can turn this off at any time in **Account → Privacy**,
@@ -58,7 +61,9 @@ and the rest of the app keeps working.
 When you ask a question, Anthropic receives the question, your car's details (including its VIN,
 nickname and the value you gave it), its maintenance schedule, your odometer readings and service records (including
 costs, shops and your notes), and the recalls and owner complaints for its model. When you check a
-quote or read your odometer from a photo, it receives that photo. Under its commercial terms, Anthropic does not use this data to
+quote or read your odometer from a photo, it receives that photo. When you ask for a quote's fair
+prices, it receives the quote's lines (not the shop's prices), your car's year, make, model, trim
+and engine, and the ZIP code you typed. Fair prices are estimates from an AI model, not quotes. Under its commercial terms, Anthropic does not use this data to
 train its models and generally deletes it within 30 days, though it may keep data flagged for
 breaking its usage policies longer. We keep your Ask
 conversations in your account until you delete your account.

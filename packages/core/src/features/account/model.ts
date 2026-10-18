@@ -11,10 +11,12 @@ import type {
 
 /**
  * - `ready`: showing the account.
+ * - `confirming-sign-out`: sign out was tapped once; tapping it again signs out.
  * - `confirming-delete`: asking the owner to confirm deleting their account.
  * - `deleting`, `signing-out`: waiting for that to finish; nothing else can be started.
  */
-export type AccountStatus = 'ready' | 'confirming-delete' | 'deleting' | 'signing-out'
+export type AccountStatus =
+  'ready' | 'confirming-sign-out' | 'confirming-delete' | 'deleting' | 'signing-out'
 
 /**
  * Whether service reminders are on, as the account page summarises it. `blocked` means the
@@ -33,7 +35,10 @@ export interface AccountState {
 
 export interface AccountActions {
   start: () => void
-  /** Signs out of this phone. Always ends signed out, even offline. */
+  /**
+   * The first tap asks for a second, so a stray tap cannot sign the owner out; the second signs
+   * out of this phone, which always ends signed out, even offline.
+   */
   signOut: () => Promise<void>
   /** Asks the owner to confirm before anything is deleted. */
   askToDelete: () => void
@@ -107,7 +112,12 @@ export const createAccountModel = (deps: AccountDeps): AccountModel => {
       },
 
       signOut: async () => {
-        if (get().status !== 'ready') return
+        const { status } = get()
+        if (status === 'ready') {
+          set({ status: 'confirming-sign-out', error: undefined })
+          return
+        }
+        if (status !== 'confirming-sign-out') return
         set({ status: 'signing-out', error: undefined })
         try {
           await deps.auth.signOut()
@@ -119,7 +129,9 @@ export const createAccountModel = (deps: AccountDeps): AccountModel => {
       },
 
       askToDelete: () => {
-        if (get().status === 'ready') set({ status: 'confirming-delete', error: undefined })
+        const { status } = get()
+        if (status === 'ready' || status === 'confirming-sign-out')
+          set({ status: 'confirming-delete', error: undefined })
       },
 
       cancelDelete: () => {

@@ -9,6 +9,8 @@ import type {
   MaintenanceItem,
   OdometerReading,
   PickedFile,
+  PriceEstimate,
+  PriceEstimateRequest,
   QuoteLine,
   QuotePhoto,
   Renewal,
@@ -324,6 +326,8 @@ export interface DevicePreferences {
   remindersOffered: boolean
   /** Cars whose service history the owner chose not to fill in from the garage. */
   historyDismissed: string[]
+  /** The ZIP code last used to estimate a quote's fair prices, to offer it next time. */
+  zip: string | null
 }
 
 export interface DevicePreferencesRepo {
@@ -427,6 +431,15 @@ export interface QuoteReader {
    * AssistantError, since it shares the assistant's service and daily limit.
    */
   read(photo: QuotePhoto, signal?: CancelSignal): Promise<QuoteLine[]>
+}
+
+/** Estimates what a quote's jobs usually cost for the car and area, on the server. */
+export interface PriceEstimator {
+  /**
+   * Resolves with the estimate. Rejects with AssistantError, since it shares the assistant's
+   * service and daily limit.
+   */
+  estimate(request: PriceEstimateRequest, signal?: CancelSignal): Promise<PriceEstimate>
 }
 
 /** Reads the miles from a photo of the car's odometer, on the server. Needs a connection. */

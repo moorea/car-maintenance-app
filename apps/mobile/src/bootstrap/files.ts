@@ -1,4 +1,10 @@
-import { AttachmentError, type FilePicker, type FilePreview, type PickedFile } from '@car/core'
+import {
+  ATTACHMENT_TYPES,
+  AttachmentError,
+  type FilePicker,
+  type FilePreview,
+  type PickedFile,
+} from '@car/core'
 import type { DeviceFiles } from '@car/data'
 import { Directory, File, Paths } from 'expo-file-system'
 import * as ImagePicker from 'expo-image-picker'
@@ -15,7 +21,8 @@ const photoName = () => `Photo ${new Date().toISOString().slice(0, 10)}.jpg`
 export const systemFilePicker = (): FilePicker => ({
   pick: async (source): Promise<PickedFile | undefined> => {
     if (source === 'files') {
-      const picked = await File.pickFileAsync({ mimeTypes: ['image/*', 'application/pdf'] })
+      // Only the types the app accepts, so the picker never offers a file it would then refuse.
+      const picked = await File.pickFileAsync({ mimeTypes: [...ATTACHMENT_TYPES] })
       if (picked.canceled) return undefined
       const file = picked.result
       return { uri: file.uri, name: file.name, contentType: file.type, sizeBytes: file.size }

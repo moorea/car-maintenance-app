@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js'
 import { anthropicModel } from './anthropic'
 import { createAssistantHandler } from './handler'
 import { anthropicOdometerReader, createOdometerHandler } from './odometer'
+import { anthropicPriceEstimator, createPriceHandler } from './prices'
 import { anthropicQuoteReader, createQuoteHandler } from './quotes'
 import { supabaseStore } from './supabase'
 
@@ -75,9 +76,19 @@ const readOdometer = createOdometerHandler({
   log,
 })
 
+// And estimating a quote's fair prices from labor times and local rates.
+const estimatePrices = createPriceHandler({
+  userFor,
+  storeFor,
+  reader: anthropic && anthropicPriceEstimator(anthropic, { model: modelName }),
+  dailyLimit,
+  log,
+})
+
 Deno.serve((request) => {
   const path = new URL(request.url).pathname
   if (path.endsWith('/read-quote')) return readQuote(request)
   if (path.endsWith('/read-odometer')) return readOdometer(request)
+  if (path.endsWith('/estimate-prices')) return estimatePrices(request)
   return answer(request)
 })

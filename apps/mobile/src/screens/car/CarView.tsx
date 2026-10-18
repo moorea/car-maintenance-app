@@ -367,6 +367,7 @@ const DOT: Record<DueStatus, ColorRole> = {
   overdue: 'warning',
   'due-soon': 'accent',
   upcoming: 'textSecondary',
+  unknown: 'textSecondary',
 }
 
 // What the dot's colour says, for VoiceOver.
@@ -374,6 +375,7 @@ const STATUS_LABEL: Record<DueStatus, string> = {
   overdue: 'Overdue',
   'due-soon': 'Due soon',
   upcoming: 'Upcoming',
+  unknown: 'Needs your mileage',
 }
 
 function Schedule(

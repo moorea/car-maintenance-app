@@ -37,7 +37,10 @@ const latestServiceFor = (itemId: string, records: ServiceRecord[]) =>
     .filter((r) => r.itemId === itemId)
     .sort((a, b) => b.performedOn.localeCompare(a.performedOn))[0]
 
-/** Items with no due date (a parked car's mileage-only items) sort last. */
+/**
+ * Items with no due date (a parked car's mileage-only items, and those `unknown` for want of an
+ * odometer reading) sort last.
+ */
 const byDueDate = (a: DueProjection, b: DueProjection) =>
   (a.dueDate ?? '￿').localeCompare(b.dueDate ?? '￿')
 
