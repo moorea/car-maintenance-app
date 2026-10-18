@@ -49,7 +49,7 @@ In the order they block submission:
 | 5.1.1(i) Privacy policy                   | Linked in App Store Connect and inside the app            | Drafted; linked from sign-in, Account and the AI sharing screen.                                                                                                                                                          |
 | 5.1.1(ii) Permission                      | Purpose strings that say why                              | Camera and photo library (image picker plugin), saving to photos (`infoPlist`). Notifications ask in context from the Reminders switch.                                                                                   |
 | 5.1.1(v) Account deletion                 | Delete the account in the app                             | Account → Delete account, which deletes everything on the server.                                                                                                                                                         |
-| 5.1.2(i) Data sharing with third-party AI | Say what is shared with which AI and get permission first | Added: Ask and the quote checker ask before the first send, per account, and can be turned off in Account → Privacy. Core refuses to send without it, whichever screen asks.                                              |
+| 5.1.2(i) Data sharing with third-party AI | Say what is shared with which AI and get permission first | Added: Ask, the quote checker and odometer photos ask before the first send, per account, and can be turned off in Account → Privacy. Core refuses to send without it, whichever screen asks.                             |
 | 5.1.2 Tracking                            | ATT if tracking                                           | No tracking, no ads, no analytics.                                                                                                                                                                                        |
 | 1.4.1 Physical harm                       | No risky advice                                           | Ask sends safety questions to a mechanic, and the listing says it is not a mechanic.                                                                                                                                      |
 | Privacy manifest                          | Required-reason APIs and collected data                   | `ios.privacyManifests` in `app.json`, matching the App Privacy answers.                                                                                                                                                   |
@@ -61,8 +61,9 @@ In the order they block submission:
 > sign-in creates the account. Add any car to see every feature, for example a 2021 Toyota
 > RAV4 chosen by year, make and model.
 >
-> Ask and the quote checker use Anthropic's Claude. The first time either is opened, the app
-> explains what is sent and asks for permission; it can be turned off in Account → Privacy.
+> Ask, the quote checker and reading the odometer from a photo (Car → Update → Take photo) use
+> Anthropic's Claude. The first time any of them is used, the app explains what is sent and asks
+> for permission; it can be turned off in Account → Privacy.
 > Account deletion is in Account → Delete account.
 
 ## Worth doing before launch, not required by review

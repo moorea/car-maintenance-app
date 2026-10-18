@@ -370,6 +370,9 @@ const DEMO_MILEAGE: [date: string, miles: number][] = [
   ['2026-10-16', 36_080],
 ]
 
+/** What a photo of the demo car's odometer reads, a little past its last reading. */
+export const DEMO_ODOMETER_PHOTO_MILES = 36_412
+
 const demoMilesOn = (date: string): number => {
   const after = DEMO_MILEAGE.findIndex(([d]) => d > date)
   const last = DEMO_MILEAGE.length - 1
