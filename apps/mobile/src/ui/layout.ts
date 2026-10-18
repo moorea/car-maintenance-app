@@ -5,7 +5,7 @@
 export const PAGE_TOP = 16
 
 /**
- * Where a page with no back or action row starts its title: one 44pt row lower, so tab and
- * settings titles sit level with those under a row of buttons.
+ * Where a page with no back or action row starts its title: as if a 44pt row of buttons sat
+ * above it, so the title does not ride up under the status bar.
  */
 export const TITLE_TOP = PAGE_TOP + 44
