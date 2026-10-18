@@ -172,7 +172,7 @@ export const createQuoteCheckModel = (deps: QuoteCheckDeps): QuoteCheckModel => 
       set({ status: 'checking', canCheck: false, error: undefined })
       try {
         const [items, records, readings] = await Promise.all([
-          deps.schedule.itemsForConfig(vehicle.configId),
+          deps.schedule.itemsForVehicle(vehicle),
           deps.records.listForVehicle(vehicle.id),
           deps.odometer.listForVehicle(vehicle.id),
         ])

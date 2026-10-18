@@ -24,3 +24,4 @@ and what would make us revisit it. Add a new record rather than editing an accep
 | [0016](0016-renewals.md)                | Paperwork dates are owner-typed and reminded on the phone           |
 | [0017](0017-odometer-photos.md)         | The odometer can be read from a photo; the owner confirms it        |
 | [0018](0018-repair-or-replace.md)       | A big quote is weighed against what the owner says the car is worth |
+| [0019](0019-custom-schedule-items.md)   | Owners add their own schedule items and set their own intervals     |

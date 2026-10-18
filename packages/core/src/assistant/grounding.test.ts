@@ -154,6 +154,34 @@ describe('groundingDocuments', () => {
     )
   })
 
+  it("says when an interval or an item is the owner's own rather than the schedule's", () => {
+    const changed: MaintenanceItem = {
+      id: 'oil',
+      configId: 'c1',
+      task: 'Oil & filter change',
+      source: 'baseline',
+      intervalMiles: 5_000,
+      owner: 'changed',
+    }
+    const added: MaintenanceItem = {
+      id: 'own-1',
+      configId: 'c1',
+      task: 'Cabin air filter',
+      source: 'owner',
+      intervalMonths: 12,
+      owner: 'added',
+    }
+    const [, oilDoc, filterDoc] = groundingDocuments(facts({ schedule: [changed, added] }))
+    // The owner's interval replaces the schedule's, so it is not called general guidance.
+    expect(oilDoc?.text.split('\n').slice(0, 2)).toEqual([
+      "Oil & filter change: every 5,000 mi, an interval the owner set themselves in place of the schedule's, for all driving conditions.",
+      "Last done on 2026-07-01 at 28,000 mi, according to the owner's service log.",
+    ])
+    expect(filterDoc?.text.split('\n')[0]).toBe(
+      'Cabin air filter: every 12 months. The owner added this item to the schedule themselves.',
+    )
+  })
+
   it('tells the model to say so when it quotes general guidance', () => {
     expect(ASSISTANT_SYSTEM_PROMPT).toContain(
       "when you quote one, say it is general guidance and that the owner's manual has the exact interval",

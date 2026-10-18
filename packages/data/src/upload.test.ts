@@ -135,6 +135,20 @@ describe('applyCrud', () => {
     expect(calls).toEqual([['update', 'renewals', 'row1', { due_on: '2027-11-01' }]])
   })
 
+  it("uploads a changed interval as an update, and deleting the owner's item as a delete", async () => {
+    const { backend, calls } = fakeBackend()
+    await applyCrud(
+      backend,
+      entry(UpdateType.PATCH, 'custom_items', { interval_miles: 7_500 }),
+      context(),
+    )
+    await applyCrud(backend, entry(UpdateType.DELETE, 'custom_items'), context())
+    expect(calls).toEqual([
+      ['update', 'custom_items', 'row1', { interval_miles: 7_500 }],
+      ['remove', 'custom_items', 'row1'],
+    ])
+  })
+
   it('never uploads tables that are read-only on the device', async () => {
     const { backend, calls } = fakeBackend()
     const dropped = await applyCrud(

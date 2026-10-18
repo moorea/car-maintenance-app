@@ -5,6 +5,7 @@ import {
   memoryFillUps,
   memoryOdometer,
   memoryRenewals,
+  memoryCustomItems,
   memorySafety,
   memorySchedule,
   memoryServiceRecords,
@@ -452,6 +453,18 @@ export const createDemoRepositories = () => {
     { vehicleId: 'demo', date: '2026-04-02', miles: 24_150 },
     { vehicleId: 'demo', date: '2026-10-10', miles: 35_780 },
   ])
+  // The owner's own schedule items and intervals, applied to the demo car's schedule.
+  const customItems = memoryCustomItems([
+    // The owner stretched the engine air filter to the interval in their manual.
+    {
+      id: 'demo-own-engine-air',
+      vehicleId: 'demo',
+      replacesItemId: 'demo-engine-air',
+      task: 'Engine air filter',
+      intervalMiles: 20_000,
+      intervalMonths: 24,
+    },
+  ])
   return {
     auth,
     // Deleting the demo account only signs out; the sample data stays for the next sign-in.
@@ -472,7 +485,8 @@ export const createDemoRepositories = () => {
     },
     odometer,
     fillUps: memoryFillUps(demoFillUps()),
-    schedule: memorySchedule(DEMO_SCHEDULE),
+    customItems,
+    schedule: memorySchedule(DEMO_SCHEDULE, customItems),
     safety: memorySafety({ demo: DEMO_SAFETY }),
     // Factory coverage as Toyota states it for a RAV4, from a sale in April 2022, plus a dealer's
     // add-on, so the demo shows coverage that has ended, is ending soon and has years left.
@@ -624,7 +638,7 @@ export const createDemoAssistant = (repositories: DemoRepositories, clock: Clock
         vehicle,
         today: clock.today(),
         readings: await repositories.odometer.listForVehicle(vehicleId),
-        schedule: await repositories.schedule.itemsForConfig(vehicle.configId),
+        schedule: await repositories.schedule.itemsForVehicle(vehicle),
         records: await repositories.records.listForVehicle(vehicleId),
         safety: DEMO_SAFETY,
         complaints: [],

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Attachment, MaintenanceItem, ServiceRecord } from '../../domain/types'
 import {
+  memoryCustomItems,
   fixedClock,
   memoryAttachments,
   memoryFilePicker,
@@ -8,6 +9,7 @@ import {
   memoryServiceRecords,
   sequentialIds,
 } from '../../testing'
+import { withCustomItems } from '../../lib/customSchedule'
 import { LIST_PAGE } from './history'
 import { createServiceLogModel } from './model'
 
@@ -282,12 +284,15 @@ describe('service log screen model', () => {
       const schedule = memorySchedule(tasks)
       const model = createServiceLogModel({
         vehicleId: 'v1',
-        schedule: {
-          itemsForConfig: (id) => {
-            reads++
-            return schedule.itemsForConfig(id)
+        schedule: withCustomItems(
+          {
+            itemsForConfig: (id) => {
+              reads++
+              return schedule.itemsForConfig(id)
+            },
           },
-        },
+          memoryCustomItems(),
+        ),
         records,
         attachments: memoryAttachments(),
         picker: memoryFilePicker(),
@@ -312,7 +317,10 @@ describe('service log screen model', () => {
       const model = createServiceLogModel({
         vehicleId: 'v1',
         configId: 'c1',
-        schedule: { itemsForConfig: () => Promise.reject(new Error('offline')) },
+        schedule: withCustomItems(
+          { itemsForConfig: () => Promise.reject(new Error('offline')) },
+          memoryCustomItems(),
+        ),
         records: memoryServiceRecords(history),
         attachments: memoryAttachments(),
         picker: memoryFilePicker(),

@@ -58,6 +58,7 @@ export interface YourDataDeps extends Omit<ExportDeps, keyof ImportDeps> {
   warranties: ExportDeps['warranties'] & ImportDeps['warranties']
   fillUps: ExportDeps['fillUps'] & ImportDeps['fillUps']
   renewals: ExportDeps['renewals'] & ImportDeps['renewals']
+  customItems: ExportDeps['customItems'] & ImportDeps['customItems']
   files: DataFiles
   ids: IdGenerator
 }

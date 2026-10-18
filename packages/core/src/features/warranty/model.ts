@@ -1,6 +1,6 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
 import { z } from 'zod'
-import type { MaintenanceItem, Vehicle, Warranty, WarrantyKind } from '../../domain/types'
+import type { Vehicle, Warranty, WarrantyKind } from '../../domain/types'
 import type {
   AttachmentRepo,
   CareReportExporter,
@@ -292,9 +292,7 @@ export const createWarrantyModel = (deps: WarrantyDeps): WarrantyModel => {
           const [records, readings, items, attachments] = await Promise.all([
             deps.records.listForVehicle(vehicle.id),
             deps.odometer.listForVehicle(vehicle.id),
-            vehicle.configId === undefined
-              ? Promise.resolve([] as MaintenanceItem[])
-              : deps.schedule.itemsForConfig(vehicle.configId),
+            deps.schedule.itemsForVehicle(vehicle),
             deps.attachments.listForVehicle(vehicle.id),
           ])
           const report = buildCareReport({

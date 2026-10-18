@@ -1,7 +1,7 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
 import type { IsoDate } from '../../lib/date'
 import { formatAgo, formatMiles, formatWeekday } from '../../lib/format'
-import type { MaintenanceItem, OdometerReading, Vehicle } from '../../domain/types'
+import type { OdometerReading, Vehicle } from '../../domain/types'
 import type { DevicePreferencesRepo, SafetyRepo, Unsubscribe } from '../../ports'
 import { getDueItems, type GetDueItemsDeps } from '../../reminders/getDueItems'
 import { currentOdometer } from './odometer'
@@ -102,9 +102,7 @@ export const createGarageModel = (deps: GarageDeps): GarageModel => {
           getDueItems(deps)(vehicle.id),
           deps.odometer.listForVehicle(vehicle.id),
           deps.records.listForVehicle(vehicle.id),
-          vehicle.configId === undefined
-            ? Promise.resolve([] as MaintenanceItem[])
-            : deps.schedule.itemsForConfig(vehicle.configId),
+          deps.schedule.itemsForVehicle(vehicle),
         ])
         if (mine !== generation) return
 
@@ -187,6 +185,7 @@ export const createGarageModel = (deps: GarageDeps): GarageModel => {
         subscriptions.push(
           deps.records.watchForVehicle(vehicle.id, () => void refresh()),
           deps.odometer.watchForVehicle(vehicle.id, () => void refresh()),
+          deps.schedule.watchForVehicle(vehicle, () => void refresh()),
         )
         if (vehicle.configId !== undefined)
           subscriptions.push(
