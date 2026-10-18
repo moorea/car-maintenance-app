@@ -20,9 +20,15 @@ fi
 
 docker rm -f "$name" > /dev/null 2>&1 || true
 sql() { docker exec "$db" psql -U postgres -v ON_ERROR_STOP=1 -qtAc "$1" > /dev/null; }
+# The old service's connection may outlive its container for a moment, keeping the slot active.
+sql "select pg_terminate_backend(active_pid) from pg_replication_slots where slot_name like 'powersync%' and active_pid is not null"
+sleep 1
 sql "select pg_drop_replication_slot(slot_name) from pg_replication_slots where slot_name like 'powersync%'"
 sql "drop database if exists powersync_storage with (force)"
 sql "create database powersync_storage"
+
+# The NHTSA job calls a real API every minute; recalls appearing mid-test would make runs vary.
+sql "select cron.unschedule(jobid) from cron.job where jobname = 'nhtsa-sync'"
 
 docker run -d --name "$name" --network "$network" -p 8080:8080 \
   -v "$PWD/packages/data/e2e/powersync.yaml:/config/service.yaml:ro" \

@@ -471,8 +471,9 @@ describe('changes that can no longer apply', () => {
 
     expect(a.dropped).toHaveLength(1)
     expect(await serverRows('attachments', 'id', registration.id)).toEqual([])
-    const { data } = await admin.storage.from('attachments').list(owner.id)
-    expect(data?.map((f) => f.name) ?? []).not.toContain(registration.id)
+    const { data, error } = await admin.storage.from('attachments').list(owner.id)
+    expect(error).toBeNull()
+    expect(data?.map((f) => f.name)).not.toContain(registration.id)
     await eventually(
       () => a.attachments.listForVehicle(vehicleId),
       (list) => list.length === 0,
@@ -630,7 +631,8 @@ describe('attachments', () => {
       'deletion',
     )
     await until(async () => (await a.files.read(receipt.id)) === undefined, 'the local file')
-    const { data } = await admin.storage.from('attachments').list(owner.id)
+    const { data, error } = await admin.storage.from('attachments').list(owner.id)
+    expect(error).toBeNull()
     expect(data?.map((f) => f.name)).not.toContain(receipt.id)
   })
 
@@ -642,9 +644,12 @@ describe('attachments', () => {
     await a.attachments.add(receipt, pickedPdf('private'))
     await a.uploaded()
 
-    const { data, error } = await b.supabase.storage
-      .from('attachments')
-      .createSignedUrl(attachmentPath(alice.id, receipt.id), 60)
+    const path = attachmentPath(alice.id, receipt.id)
+    // The file is there: its owner can download it.
+    const own = await a.supabase.storage.from('attachments').createSignedUrl(path, 60)
+    expect(own.error).toBeNull()
+
+    const { data, error } = await b.supabase.storage.from('attachments').createSignedUrl(path, 60)
     expect(data).toBeNull()
     expect(error).not.toBeNull()
   })
