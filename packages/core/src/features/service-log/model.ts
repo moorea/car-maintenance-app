@@ -39,8 +39,14 @@ export interface ServiceLogState {
   receipts: PickedFile[]
   /** Why the last receipt could not be picked or attached. */
   receiptError?: string | undefined
-  /** The logged service the owner opened, to see or add its receipts. */
+  /** The logged service the owner opened, to see or add its receipts, correct or delete it. */
   openEntryId?: string | undefined
+  /** The logged service the form is correcting; absent while logging a new one. */
+  editingId?: string | undefined
+  /** Deleting the open service: asked to confirm, or under way. */
+  deleting?: 'confirm' | 'deleting' | undefined
+  /** Why the open service could not be deleted. */
+  deleteError?: string | undefined
   /** The car's scheduled tasks, for "what was done". */
   tasks: { id: string; task: string }[]
   /** What the owner typed in the search field. */
@@ -75,6 +81,10 @@ export interface ServiceLogActions {
   removeReceipt: (index: number) => void
   openEntry: (id: string) => void
   closeEntry: () => void
+  /** Opens the form filled in with the open service, to correct it. */
+  editEntry: () => void
+  /** Deletes the open service and its receipts; the first call only asks to confirm. */
+  deleteEntry: () => Promise<void>
   /** Validates and saves the draft. Resolves true on success. */
   save: () => Promise<boolean>
   /** Stops watching the database. Call when the screen unmounts. */
@@ -178,6 +188,7 @@ export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => 
       openForm: (itemId, options) =>
         set({
           adding: true,
+          editingId: undefined,
           draft: draftFor(itemId, options?.earlier),
           fieldErrors: {},
           saveError: undefined,
@@ -209,9 +220,64 @@ export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => 
       removeReceipt: (index) =>
         set((s) => ({ receipts: s.receipts.filter((_, i) => i !== index) })),
 
-      openEntry: (id) => set({ openEntryId: id }),
+      openEntry: (id) => set({ openEntryId: id, deleting: undefined, deleteError: undefined }),
 
-      closeEntry: () => set({ openEntryId: undefined }),
+      closeEntry: () => {
+        // A delete under way finishes; the sheet just stops showing it.
+        if (get().deleting === 'deleting') set({ openEntryId: undefined })
+        else set({ openEntryId: undefined, deleting: undefined, deleteError: undefined })
+      },
+
+      editEntry: () => {
+        const record = get().records.find((r) => r.id === get().openEntryId)
+        if (!record || get().deleting === 'deleting') return
+        set({
+          openEntryId: undefined,
+          deleting: undefined,
+          deleteError: undefined,
+          adding: true,
+          editingId: record.id,
+          draft: {
+            performedOn: record.performedOn,
+            // Kept even when the schedule has not loaded or no longer lists it, so a correction to
+            // the mileage never drops the link that reminders count from.
+            itemId: record.itemId ?? '',
+            odometerMiles: record.odometerMiles?.toString() ?? '',
+            cost: record.costCents !== undefined ? (record.costCents / 100).toFixed(2) : '',
+            shop: record.shop ?? '',
+            notes: record.notes ?? '',
+          },
+          fieldErrors: {},
+          saveError: undefined,
+          receipts: [],
+          receiptError: undefined,
+        })
+      },
+
+      deleteEntry: async () => {
+        const { openEntryId: id, deleting } = get()
+        if (id === undefined || deleting === 'deleting') return
+        if (deleting !== 'confirm') {
+          set({ deleting: 'confirm', deleteError: undefined })
+          return
+        }
+        set({ deleting: 'deleting' })
+        try {
+          await deps.records.remove(id)
+        } catch {
+          // Only the sheet still showing this service says so; another one opened since is left be.
+          set((s) =>
+            s.openEntryId === id
+              ? { deleting: undefined, deleteError: 'The service could not be deleted. Try again.' }
+              : { deleting: undefined },
+          )
+          return
+        }
+        set((s) => ({
+          deleting: undefined,
+          openEntryId: s.openEntryId === id ? undefined : s.openEntryId,
+        }))
+      },
 
       save: async () => {
         if (get().status === 'saving') return false
@@ -227,8 +293,9 @@ export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => 
           return false
         }
         const d = parsed.data
+        const editingId = get().editingId
         const record: ServiceRecord = {
-          id: deps.ids.next(),
+          id: editingId ?? deps.ids.next(),
           vehicleId: deps.vehicleId,
           performedOn: d.performedOn,
           ...(d.itemId !== undefined && { itemId: d.itemId }),
@@ -239,7 +306,8 @@ export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => 
         }
         set({ status: 'saving' })
         try {
-          await deps.records.add(record)
+          if (editingId !== undefined) await deps.records.update(record)
+          else await deps.records.add(record)
         } catch (e) {
           // Reopen the form if it was closed mid-save, so the error and the draft are not lost.
           set({
@@ -261,6 +329,7 @@ export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => 
         set({
           status: 'ready',
           adding: false,
+          editingId: undefined,
           draft: draftFor(),
           fieldErrors: {},
           receipts: [],

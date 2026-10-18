@@ -8,7 +8,7 @@ import { ErrorText, Note } from '../../ui/Note'
 import { SearchField } from '../../ui/SearchField'
 import { TAB_BAR_CLEARANCE } from '../../ui/TabBar'
 import { TextField } from '../../ui/TextField'
-import { Card, FillColumn, GlassIconButton, Separator } from '../../ui/surfaces'
+import { Card, FillColumn, GlassIconButton, PillButton, Separator } from '../../ui/surfaces'
 import { Symbol } from '../../ui/Symbol'
 import { ActionMenu } from '../../ui/ActionMenu'
 import { ChoiceField } from '../../ui/ChoiceField'
@@ -36,6 +36,8 @@ type Props = ServiceLogState &
     | 'removeReceipt'
     | 'openEntry'
     | 'closeEntry'
+    | 'editEntry'
+    | 'deleteEntry'
   > & {
     carName: string
     /** What is attached to the car's services. */
@@ -214,8 +216,20 @@ function EntryRow({ entry, receipts, onPress }: EntryRowProps) {
   )
 }
 
-/** A logged service with its receipts and photos, where more can be attached. */
-function EntrySheet({ groups, openEntryId, closeEntry, attachments }: Props) {
+/**
+ * A logged service with its notes and its receipts and photos, where more can be attached, and
+ * where it can be corrected or deleted.
+ */
+function EntrySheet({
+  groups,
+  openEntryId,
+  closeEntry,
+  editEntry,
+  deleteEntry,
+  deleting,
+  deleteError,
+  attachments,
+}: Props) {
   const colors = useColors()
   const entry = groups.flatMap((g) => g.entries).find((e) => e.id === openEntryId)
   if (!entry) return null
@@ -224,12 +238,17 @@ function EntrySheet({ groups, openEntryId, closeEntry, attachments }: Props) {
     <ScrollView>
       <Column spacing={14} style={{ padding: 16 }}>
         <Row alignment="center">
+          <Button variant="text" label="Edit" onPress={editEntry} />
           <Spacer flexible />
           <Button variant="text" label="Done" onPress={closeEntry} />
         </Row>
         <Card padding={0}>
           <EntryRow entry={entry} receipts={0} />
         </Card>
+        <Column spacing={4} style={{ paddingHorizontal: 4 }}>
+          <Text textStyle={{ fontSize: 15, color: colors.textSecondary }}>{entry.date}</Text>
+          {entry.notes ? <Text textStyle={{ fontSize: 15 }}>{entry.notes}</Text> : null}
+        </Column>
         <Row alignment="center" style={{ paddingHorizontal: 4 }}>
           <Text textStyle={{ ...OVERLINE, color: colors.textSecondary }}>RECEIPTS AND PHOTOS</Text>
           <Spacer flexible />
@@ -246,6 +265,30 @@ function EntrySheet({ groups, openEntryId, closeEntry, attachments }: Props) {
           <Note>Attach the receipt or a photo of the work, so it is here when you need it.</Note>
         )}
         <AttachStatus adding={attachments.adding} error={attachments.error} />
+        <Column spacing={6} style={{ paddingTop: 16 }}>
+          <Row>
+            <PillButton
+              label={
+                deleting === 'deleting'
+                  ? 'Deleting…'
+                  : deleting === 'confirm'
+                    ? 'Tap again to delete'
+                    : 'Delete service'
+              }
+              onPress={() => void deleteEntry()}
+              fill={deleting ? 'danger' : 'neutralSubtle'}
+              text={deleting ? 'onDanger' : 'danger'}
+            />
+          </Row>
+          {deleting === 'confirm' ? (
+            <Note>
+              {items.length > 0
+                ? 'This deletes the service and its receipts and photos from all your phones. It can’t be undone.'
+                : 'This deletes the service from all your phones. It can’t be undone.'}
+            </Note>
+          ) : null}
+          {deleteError ? <ErrorText>{deleteError}</ErrorText> : null}
+        </Column>
       </Column>
     </ScrollView>
   )
@@ -254,6 +297,7 @@ function EntrySheet({ groups, openEntryId, closeEntry, attachments }: Props) {
 const OTHER = ''
 
 function LogForm({
+  editingId,
   draft,
   fieldErrors,
   saveError,
@@ -274,7 +318,9 @@ function LogForm({
         <Row alignment="center">
           <Button variant="text" label="Cancel" onPress={closeForm} />
           <Spacer flexible />
-          <Text textStyle={{ fontSize: 17, fontWeight: '600' }}>Log a service</Text>
+          <Text textStyle={{ fontSize: 17, fontWeight: '600' }}>
+            {editingId !== undefined ? 'Edit service' : 'Log a service'}
+          </Text>
           <Spacer flexible />
           <Button
             variant="text"
@@ -290,6 +336,10 @@ function LogForm({
               value={draft.itemId}
               options={[
                 ...tasks.map((t) => ({ value: t.id, label: t.task })),
+                // A service being corrected keeps a task the schedule no longer lists.
+                ...(draft.itemId !== OTHER && !tasks.some((t) => t.id === draft.itemId)
+                  ? [{ value: draft.itemId, label: 'As logged' }]
+                  : []),
                 { value: OTHER, label: 'Something else' },
               ]}
               onChange={(v) => setField('itemId', v)}

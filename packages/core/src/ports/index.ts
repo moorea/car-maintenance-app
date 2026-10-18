@@ -93,6 +93,10 @@ export interface ServiceRecordRepo {
   /** Calls `onChange` with the full list now and after every change, like a live query. */
   watchForVehicle(vehicleId: VehicleId, onChange: (records: ServiceRecord[]) => void): Unsubscribe
   add(record: ServiceRecord): Promise<void>
+  /** Saves a correction to a logged service; its car stays the same. */
+  update(record: ServiceRecord): Promise<void>
+  /** Deletes a logged service and its receipts, on this phone and on the server. */
+  remove(id: string): Promise<void>
 }
 
 export interface OdometerRepo {

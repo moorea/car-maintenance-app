@@ -54,3 +54,26 @@ appId: com.moorea.carmaintenance
 - tapOn: 'Log service'
 - waitForAnimationToEnd
 - takeScreenshot: 43-log-form
+- back
+- waitForAnimationToEnd
+
+# A logged service opens in a sheet, to correct or delete it.
+- tapOn: 'Engine air filter.*'
+- extendedWaitUntil:
+    visible: 'Done'
+    timeout: 5000
+- waitForAnimationToEnd
+- takeScreenshot: 44-log-entry
+# The sheet opens half height, so the delete button may sit below its fold.
+- scrollUntilVisible:
+    element: 'Delete service'
+    timeout: 10000
+- tapOn: 'Delete service'
+- assertVisible: 'Tap again to delete'
+- takeScreenshot: 44-log-entry-delete
+- tapOn: 'Edit'
+- extendedWaitUntil:
+    visible: 'Edit service'
+    timeout: 5000
+- waitForAnimationToEnd
+- takeScreenshot: 44-log-edit
