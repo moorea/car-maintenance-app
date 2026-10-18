@@ -19,6 +19,7 @@ import { FuelScreen } from '../fuel/FuelScreen'
 import { RenewalsScreen } from '../renewals/RenewalsScreen'
 import { YourDataScreen } from '../your-data/YourDataScreen'
 import { askModelFor } from '../../models/askModels'
+import { BottomSafeArea } from '../../ui/BottomSafeArea'
 import { Host } from '../../ui/Host'
 import { TabBar, type TabBarItem } from '../../ui/TabBar'
 import { Text } from '../../ui/Text'
@@ -47,8 +48,27 @@ const TABS: TabBarItem<AppTab>[] = [
 
 const CAR_PAGES = new Set<AppTab>(['warranty', 'fuel', 'driving', 'renewals'])
 
+// Ask, the quote checker and the code lookup fill the screen with their own back button.
+const FULL_SCREEN = new Set<AppTab>(['ask', 'quote', 'codes'])
+
 /** Picks the screen for the session: sign-in, adding a car, or the tabs for the selected car. */
 export function RootView(props: Props) {
+  // Lists run on behind the floating tab bar; every other screen keeps clear of the home indicator.
+  if (showsTabBar(props)) return <SessionScreen {...props} />
+  return (
+    <BottomSafeArea>
+      <SessionScreen {...props} />
+    </BottomSafeArea>
+  )
+}
+
+function showsTabBar(props: Props): boolean {
+  const { status, vehicles, selectedVehicleId, addingCar, tab } = props
+  const hasCar = vehicles.some((v) => v.id === selectedVehicleId)
+  return status === 'ready' && hasCar && !addingCar && !FULL_SCREEN.has(tab)
+}
+
+function SessionScreen(props: Props) {
   const { status, user, vehicles, selectedVehicleId, addingCar } = props
   if (status === 'starting') return <ActivityIndicator style={styles.fill} />
   if (status === 'signed-out' || !user) return <SignInScreen />
@@ -58,8 +78,7 @@ export function RootView(props: Props) {
     const tabs = (
       <View style={styles.fill}>
         <TabContent {...props} vehicle={vehicle} />
-        {/* Ask, the quote checker and the code lookup fill the screen with their own back button. */}
-        {props.tab === 'ask' || props.tab === 'quote' || props.tab === 'codes' ? null : (
+        {FULL_SCREEN.has(props.tab) ? null : (
           <TabBar
             tabs={TABS}
             // The car's own pages (warranty, fuel, driving, renewals) keep its tab selected.
