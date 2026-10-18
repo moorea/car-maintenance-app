@@ -568,6 +568,33 @@ describe('service log screen model', () => {
       expect(model.getState()).toMatchObject({ adding: false, editingId: undefined })
     })
 
+    it('keeps the task of a service being corrected, even one the schedule no longer lists', async () => {
+      const { model } = setup([
+        { id: 'gone', vehicleId: 'v1', itemId: 'dropped', performedOn: '2026-08-14', notes: 'DIY' },
+      ])
+      await settle()
+      model.getState().openEntry('gone')
+      model.getState().editEntry()
+      expect(model.getState().draft.itemId).toBe('dropped')
+    })
+
+    it('shows a failed delete only on the service it was for', async () => {
+      const { model, records } = setup([
+        { id: 'a', vehicleId: 'v1', performedOn: '2026-08-14', notes: 'A' },
+        { id: 'b', vehicleId: 'v1', performedOn: '2026-08-15', notes: 'B' },
+      ])
+      let fail: (e: Error) => void = () => {}
+      records.remove = () => new Promise((_, reject) => (fail = reject))
+      model.getState().openEntry('a')
+      await model.getState().deleteEntry()
+      const deleting = model.getState().deleteEntry()
+      model.getState().closeEntry()
+      model.getState().openEntry('b')
+      fail(new Error('disk full'))
+      await deleting
+      expect(model.getState()).toMatchObject({ openEntryId: 'b', deleteError: undefined })
+    })
+
     it('logs a new service after a correction, rather than correcting again', async () => {
       const { model, records } = setup()
       await settle()

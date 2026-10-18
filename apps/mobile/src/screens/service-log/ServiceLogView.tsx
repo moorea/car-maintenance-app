@@ -335,6 +335,10 @@ function LogForm({
               value={draft.itemId}
               options={[
                 ...tasks.map((t) => ({ value: t.id, label: t.task })),
+                // A service being corrected keeps a task the schedule no longer lists.
+                ...(draft.itemId !== OTHER && !tasks.some((t) => t.id === draft.itemId)
+                  ? [{ value: draft.itemId, label: 'As logged' }]
+                  : []),
                 { value: OTHER, label: 'Something else' },
               ]}
               onChange={(v) => setField('itemId', v)}

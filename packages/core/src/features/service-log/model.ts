@@ -230,7 +230,7 @@ export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => 
 
       editEntry: () => {
         const record = get().records.find((r) => r.id === get().openEntryId)
-        if (!record) return
+        if (!record || get().deleting === 'deleting') return
         set({
           openEntryId: undefined,
           deleting: undefined,
@@ -239,9 +239,9 @@ export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => 
           editingId: record.id,
           draft: {
             performedOn: record.performedOn,
-            // A task no longer on the schedule reads as "something else", described by the notes.
-            itemId:
-              record.itemId !== undefined && taskNames.has(record.itemId) ? record.itemId : '',
+            // Kept even when the schedule has not loaded or no longer lists it, so a correction to
+            // the mileage never drops the link that reminders count from.
+            itemId: record.itemId ?? '',
             odometerMiles: record.odometerMiles?.toString() ?? '',
             cost: record.costCents !== undefined ? (record.costCents / 100).toFixed(2) : '',
             shop: record.shop ?? '',
@@ -265,7 +265,12 @@ export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => 
         try {
           await deps.records.remove(id)
         } catch {
-          set({ deleting: undefined, deleteError: 'The service could not be deleted. Try again.' })
+          // Only the sheet still showing this service says so; another one opened since is left be.
+          set((s) =>
+            s.openEntryId === id
+              ? { deleting: undefined, deleteError: 'The service could not be deleted. Try again.' }
+              : { deleting: undefined },
+          )
           return
         }
         set((s) => ({
