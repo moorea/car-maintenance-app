@@ -48,6 +48,11 @@ appId: com.moorea.carmaintenance
 - takeScreenshot: 33-fuel
 - scroll
 - takeScreenshot: 34-fuel-charts
+# How far one scroll goes depends on how much of the page has laid out, so bring the switch back
+# into view rather than assume it is still on screen.
+- scrollUntilVisible:
+    element: 'Costs'
+    direction: UP
 - tapOn: 'Costs'
 - waitForAnimationToEnd
 - takeScreenshot: 34-fuel-costs
