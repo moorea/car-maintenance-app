@@ -51,6 +51,9 @@ appId: com.moorea.carmaintenance
 - tapOn: 'Costs'
 - waitForAnimationToEnd
 - takeScreenshot: 34-fuel-costs
+- scrollUntilVisible:
+    element: 'Log a fill-up'
+    direction: UP
 - tapOn: 'Log a fill-up'
 - waitForAnimationToEnd
 - takeScreenshot: 34-fuel-form
