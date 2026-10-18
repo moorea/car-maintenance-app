@@ -1,4 +1,9 @@
-import { createGarageCardsModel, createGarageModel, type Vehicle } from '@car/core'
+import {
+  createArrangeCarsModel,
+  createGarageCardsModel,
+  createGarageModel,
+  type Vehicle,
+} from '@car/core'
 import { useStore } from 'zustand'
 import { deps } from '../../bootstrap/deps'
 import { useScreenModel } from '../../models/useScreenModel'
@@ -26,12 +31,18 @@ export function GarageScreen({ vehicles, vehicle, ...navigation }: Props) {
     () => createGarageCardsModel({ cars: vehicles, ...deps }),
   )
   const nextDue = useStore(cards, (s) => s.nextDue)
+  // Arranges the cars as the garage lists them now, so a new order from sync starts afresh.
+  const arrange = useScreenModel(vehicles.map((v) => v.id).join('|'), () =>
+    createArrangeCarsModel({ cars: vehicles, vehicles: deps.vehicles }),
+  )
+  const arrangeState = useStore(arrange)
   return (
     <GarageView
       {...state}
       vehicles={vehicles}
       vehicle={vehicle}
       nextDue={nextDue}
+      arrange={arrangeState}
       {...navigation}
     />
   )

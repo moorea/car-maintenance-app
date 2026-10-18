@@ -1,4 +1,6 @@
 import type {
+  ArrangeCarsActions,
+  ArrangeCarsState,
   DueRow,
   DueStatus,
   GarageActions,
@@ -23,6 +25,7 @@ import {
 } from '../../ui/surfaces'
 import { Symbol } from '../../ui/Symbol'
 import { Text } from '../../ui/Text'
+import { ArrangeCarsSheet } from './ArrangeCarsSheet'
 
 export interface GarageNavigation {
   onOpenCar: (id: string) => void
@@ -40,7 +43,12 @@ export interface GarageNavigation {
 type Props = GarageState &
   Pick<GarageActions, 'dismissCatchUp'> &
   GarageNavigation &
-  Pick<GarageCardsState, 'nextDue'> & { vehicles: Vehicle[]; vehicle: Vehicle }
+  Pick<GarageCardsState, 'nextDue'> & {
+    vehicles: Vehicle[]
+    vehicle: Vehicle
+    /** Putting the cars in the owner's order, from the Reorder button. */
+    arrange: ArrangeCarsState & ArrangeCarsActions
+  }
 
 const OVERLINE = { fontSize: 13, fontWeight: '600', letterSpacing: 0.5 } as const
 
@@ -63,12 +71,17 @@ export function GarageView(props: Props) {
               <GlassIconButton symbol="plus" label="Add car" onPress={props.onAddCar} />
             </Row>
           </Row>
-          <Column spacing={2}>
-            <Text textStyle={{ ...OVERLINE, color: colors.textSecondary }}>
-              {props.today.toUpperCase()}
-            </Text>
-            <Text textStyle={{ fontSize: 34, fontWeight: '700' }}>Garage</Text>
-          </Column>
+          <Row alignment="center">
+            <FillColumn spacing={2}>
+              <Text textStyle={{ ...OVERLINE, color: colors.textSecondary }}>
+                {props.today.toUpperCase()}
+              </Text>
+              <Text textStyle={{ fontSize: 34, fontWeight: '700' }}>Garage</Text>
+            </FillColumn>
+            {props.vehicles.length > 1 ? (
+              <Button variant="text" label="Reorder" onPress={props.arrange.open} />
+            ) : null}
+          </Row>
 
           {props.vehicles.map((v) => (
             <CarCard
@@ -88,6 +101,7 @@ export function GarageView(props: Props) {
           <ComingUp {...props} />
         </Column>
       </ScrollView>
+      <ArrangeCarsSheet {...props.arrange} />
     </Host>
   )
 }

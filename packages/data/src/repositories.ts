@@ -279,7 +279,8 @@ export const createPowerSyncRepositories = (db: CommonPowerSyncDatabase): PowerS
       watchOwned: (ownerId, onChange) =>
         watchRows(
           db,
-          'select * from vehicles where owner_id = ? order by nickname',
+          // As the owner arranged them, then any not yet placed by name (as byGarageOrder does).
+          'select * from vehicles where owner_id = ? order by garage_position is null, garage_position, nickname',
           [ownerId],
           'vehicles',
           (rows) => onChange(rows.map(toVehicle)),
@@ -322,6 +323,17 @@ export const createPowerSyncRepositories = (db: CommonPowerSyncDatabase): PowerS
           now(),
           id,
         ])
+      },
+      // One transaction, so every phone sees the whole new order at once rather than part of it.
+      reorder: async (ids) => {
+        const at = now()
+        await db.writeTransaction(async (tx) => {
+          for (const [position, id] of ids.entries())
+            await tx.execute(
+              'update vehicles set garage_position = ?, updated_at = ? where id = ?',
+              [position, at, id],
+            )
+        })
       },
       // The server deletes the rest of the car's history with it, and sync then clears it here.
       // Its attachments go first, in the same transaction, so the upload deletes their files in
