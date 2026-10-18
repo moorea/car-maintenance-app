@@ -9,6 +9,7 @@ import {
   memorySchedule,
   memoryServiceRecords,
   memoryVehicles,
+  memoryTireSets,
   memoryWarranties,
   memoryRenewals,
   OWNER,
@@ -64,6 +65,7 @@ const setup = (
     ]),
     odometer: memoryOdometer([{ vehicleId: 'v1', date: '2026-09-29', miles: 33_000 }]),
     warranties: memoryWarranties(),
+    tireSets: memoryTireSets(),
     renewals: memoryRenewals(),
     clock: { today: () => calendar.today },
     notifier: memoryNotifier({ permission: options.permission ?? 'granted' }),
@@ -96,6 +98,7 @@ const openWatches = (d: ReturnType<typeof setup>) => {
       records: { ...d.records, watchForVehicle: counted(d.records.watchForVehicle) },
       odometer: { ...d.odometer, watchForVehicle: counted(d.odometer.watchForVehicle) },
       warranties: { ...d.warranties, watchForVehicle: counted(d.warranties.watchForVehicle) },
+      tireSets: { ...d.tireSets, watchForVehicle: counted(d.tireSets.watchForVehicle) },
       renewals: { ...d.renewals, watchForVehicle: counted(d.renewals.watchForVehicle) },
     },
   }
@@ -375,6 +378,31 @@ describe('createReminderScheduler', () => {
     expect(await ids(notifier)).toEqual(PLANNED)
   })
 
+  it('reminds before a tire set turns six, and drops the reminder when the set is gone', async () => {
+    const { scheduler, notifier, tireSets } = setup()
+    scheduler.start()
+    await scheduler.refresh()
+    await tireSets.save({
+      id: 't1',
+      vehicleId: 'v1',
+      name: 'Winter',
+      madeWeek: 2,
+      madeYear: 2021,
+      mounted: false,
+      priorMiles: 0,
+    })
+    await scheduler.refresh()
+    const notice = (await notifier.scheduled()).find((n) => n.id === 'tires:v1:t1:6')
+    expect(notice).toMatchObject({
+      date: '2026-12-12',
+      title: 'RAV4: tires getting old',
+      body: 'Winter tires turn 6 on Jan 11, 2027. Most carmakers say to replace tires by then, even with tread left.',
+    })
+    await tireSets.remove('t1')
+    await scheduler.refresh()
+    expect(await ids(notifier)).toEqual(PLANNED)
+  })
+
   it('reminds before a registration expires, and moves the reminders when it is renewed', async () => {
     const { scheduler, notifier, renewals } = setup()
     scheduler.start()
@@ -411,7 +439,7 @@ describe('createReminderScheduler', () => {
     const scheduler = createReminderScheduler({ ...d, ...counter.repos })
     scheduler.start()
     await scheduler.refresh()
-    expect(counter.open()).toBe(4)
+    expect(counter.open()).toBe(5)
 
     const car = await d.vehicles.get('v1')
     if (!car) throw new Error('missing fixture')
@@ -419,7 +447,7 @@ describe('createReminderScheduler', () => {
     expect(counter.open()).toBe(0)
 
     d.vehicles.set([car])
-    expect(counter.open()).toBe(4)
+    expect(counter.open()).toBe(5)
     await d.auth.signOut()
     expect(counter.open()).toBe(0)
   })

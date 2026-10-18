@@ -63,6 +63,7 @@ const ALLOWED: Record<UploadableTable, readonly UpdateType[]> = {
   odometer_readings: [UpdateType.PUT],
   warranties: [UpdateType.PUT, UpdateType.PATCH, UpdateType.DELETE],
   fill_ups: [UpdateType.PUT, UpdateType.PATCH, UpdateType.DELETE],
+  tire_sets: [UpdateType.PUT, UpdateType.PATCH, UpdateType.DELETE],
   renewals: [UpdateType.PUT, UpdateType.PATCH, UpdateType.DELETE],
   custom_items: [UpdateType.PUT, UpdateType.PATCH, UpdateType.DELETE],
   attachments: [UpdateType.PUT, UpdateType.DELETE],

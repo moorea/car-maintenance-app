@@ -148,6 +148,12 @@ describe('applyCrud', () => {
     expect(calls).toEqual([['update', 'fill_ups', 'row1', { odometer_miles: 41_100 }]])
   })
 
+  it('uploads a tire swap as an update, since tire sets are editable', async () => {
+    const { backend, calls } = fakeBackend()
+    await applyCrud(backend, entry(UpdateType.PATCH, 'tire_sets', { mounted: 1 }), context())
+    expect(calls).toEqual([['update', 'tire_sets', 'row1', { mounted: 1 }]])
+  })
+
   it('uploads a renewal as an update, since renewing moves its date on', async () => {
     const { backend, calls } = fakeBackend()
     await applyCrud(

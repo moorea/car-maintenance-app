@@ -2,6 +2,7 @@ import { addDays, type IsoDate } from '../lib/date'
 import { formatAgo, formatLongDate } from '../lib/format'
 import type { Renewal, Vehicle } from '../domain/types'
 import { RENEWAL_NOTICE_DAYS, renewalReminder, renewalTitle } from '../features/renewals/renewals'
+import { TIRE_AGE_NOTICE_DAYS, type TireAgeMilestone } from '../features/tires/tires'
 import type { LocalNotification } from '../ports'
 import { checkInNoticeDate, type OdometerCheckIn } from './odometerCheckIn'
 import { DUE_SOON_DAYS, type DueProjection } from './projectDue'
@@ -20,7 +21,13 @@ export const MAX_SCHEDULED_REMINDERS = 60
  * Every id `planNotifications` gives starts with one of these, so a device adapter can tell the
  * app's own notifications from any others and never touch the rest.
  */
-export const PLANNED_ID_PREFIXES = ['reminder:', 'warranty:', 'renewal:', 'odometer:'] as const
+export const PLANNED_ID_PREFIXES = [
+  'reminder:',
+  'warranty:',
+  'renewal:',
+  'tires:',
+  'odometer:',
+] as const
 
 /** Whether a scheduled notification is one this app planned. */
 export const isPlannedNotification = (id: string): boolean =>
@@ -50,6 +57,8 @@ export interface VehicleDue {
   vehicle: Vehicle
   due: DueProjection[]
   warranties?: WarrantyEnding[]
+  /** Tire sets' sixth and tenth birthdays still ahead. */
+  tires?: TireAgeMilestone[]
   renewals?: Renewal[]
   /** An odometer reading worth asking for, when one would move a reminder. */
   checkIn?: OdometerCheckIn | undefined
@@ -113,6 +122,29 @@ const warrantyNotices = (cars: VehicleDue[], today: IsoDate): LocalNotification[
     ),
   )
 
+const tireBody = (m: TireAgeMilestone): string =>
+  m.years >= 10
+    ? `${m.name} tires turn 10 on ${formatLongDate(m.on)}. Replace them: no tire should stay in service that long.`
+    : `${m.name} tires turn 6 on ${formatLongDate(m.on)}. Most carmakers say to replace tires by then, even with tread left.`
+
+const tireNotices = (cars: VehicleDue[], today: IsoDate): LocalNotification[] =>
+  cars.flatMap(({ vehicle, tires = [] }) =>
+    tires.flatMap((m): LocalNotification[] => {
+      const date = addDays(m.on, -TIRE_AGE_NOTICE_DAYS)
+      if (date <= today) return []
+      return [
+        {
+          id: `tires:${vehicle.id}:${m.setId}:${m.years}`,
+          date,
+          hour: REMINDER_HOUR,
+          title: `${vehicle.nickname}: tires getting old`,
+          body: tireBody(m),
+          vehicleId: vehicle.id,
+        },
+      ]
+    }),
+  )
+
 const renewalNotices = (cars: VehicleDue[], today: IsoDate): LocalNotification[] =>
   cars.flatMap(({ vehicle, renewals = [] }) =>
     renewals.flatMap((r) =>
@@ -159,9 +191,10 @@ const checkInNotices = (cars: VehicleDue[], today: IsoDate): LocalNotification[]
  * car share one notification. Only dates after today are scheduled, so planning again never
  * repeats a reminder that was due to fire already, and items that are already due are left to
  * the app's own screens. Each warranty still running gets a heads-up WARRANTY_NOTICE_DAYS before
- * it ends, and each registration, inspection or insurance date RENEWAL_NOTICE_DAYS before it. A
- * car whose next mileage reminder rests on an old reading gets one request for a new reading.
- * Soonest first, capped at MAX_SCHEDULED_REMINDERS.
+ * it ends, each registration, inspection or insurance date RENEWAL_NOTICE_DAYS before it, and each
+ * tire set a heads-up TIRE_AGE_NOTICE_DAYS before it turns six and ten. A car whose next mileage
+ * reminder rests on an old reading gets one request for a new reading. Soonest first, capped at
+ * MAX_SCHEDULED_REMINDERS.
  */
 export const planNotifications = (cars: VehicleDue[], today: IsoDate): LocalNotification[] => {
   const groups = new Map<
@@ -201,6 +234,7 @@ export const planNotifications = (cars: VehicleDue[], today: IsoDate): LocalNoti
     ...service,
     ...warrantyNotices(cars, today),
     ...renewalNotices(cars, today),
+    ...tireNotices(cars, today),
     ...checkInNotices(cars, today),
   ]
     .sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
