@@ -153,7 +153,8 @@ const checkInNotices = (cars: VehicleDue[], today: IsoDate): LocalNotification[]
   })
 
 /**
- * The notifications to have scheduled today: for every item with a projected due date, one two
+ * The notifications to have scheduled today: for every item with a projected due date (other than
+ * one guessed only from the car's age), one two
  * weeks before it and one on the day, at REMINDER_HOUR. Items falling on the same day for the same
  * car share one notification. Only dates after today are scheduled, so planning again never
  * repeats a reminder that was due to fire already, and items that are already due are left to
@@ -171,6 +172,9 @@ export const planNotifications = (cars: VehicleDue[], today: IsoDate): LocalNoti
   for (const { vehicle, due } of cars) {
     for (const item of due) {
       if (item.dueDate === undefined) continue
+      // A date guessed from the car's age alone is no reason to interrupt anyone; the garage asks
+      // when it was last done instead.
+      if (item.historyUnknown && item.trigger === 'time') continue
       const stages: [Stage, IsoDate][] = [
         ['soon', addDays(item.dueDate, -DUE_SOON_DAYS)],
         ['due', item.dueDate],

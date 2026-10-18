@@ -15,6 +15,10 @@ appId: com.moorea.carmaintenance
 - waitForAnimationToEnd
 - takeScreenshot: 8-large-text-service-log
 - tapOn: 'Car'
+# At this size the tab can take a moment to switch; scrolling the log by mistake loses the way.
+- extendedWaitUntil:
+    visible: 'ODOMETER'
+    timeout: 30000
 - waitForAnimationToEnd
 - takeScreenshot: 9-large-text-car
 # The demo car's recall card, whose "Risk and fix" toggle label scales too. The Car tab opens on

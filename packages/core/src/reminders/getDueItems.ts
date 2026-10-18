@@ -42,7 +42,8 @@ const byDueDate = (a: DueProjection, b: DueProjection) =>
   (a.dueDate ?? '￿').localeCompare(b.dueDate ?? '￿')
 
 export interface DueInput {
-  vehicle: Pick<Vehicle, 'id' | 'severeDuty'>
+  /** With the model year when known, so items with no history are not all due at once. */
+  vehicle: Pick<Vehicle, 'id' | 'severeDuty'> & Partial<Pick<Vehicle, 'year'>>
   items: MaintenanceItem[]
   records: ServiceRecord[]
   readings: OdometerReading[]
@@ -62,6 +63,12 @@ export const dueItemsFor = ({ vehicle, items, records, readings, today }: DueInp
   const mileage = learnMilesPerDay(readingsFrom(vehicle.id, readings, records))
   const { milesPerDay, latest } = mileage
   const currentMiles = latest ? estimateMilesOn(latest, milesPerDay, today) : undefined
+  // A row with a missing or broken year reads as 0; one bad car must not break the rest.
+  const year = vehicle.year
+  const inServiceSince =
+    year !== undefined && Number.isInteger(year) && year >= 1900 && year <= 9999
+      ? `${year}-01-01`
+      : undefined
 
   const due = items
     .flatMap((item) => {
@@ -79,6 +86,7 @@ export const dueItemsFor = ({ vehicle, items, records, readings, today }: DueInp
         currentMiles,
         milesPerDay,
         severeDuty: vehicle.severeDuty,
+        inServiceSince,
         today,
       })
       return projection ? [projection] : []

@@ -401,8 +401,9 @@ describe('car model', () => {
     expect(model.getState().schedule.map((r) => [r.task, r.interval, r.next, r.own])).toEqual([
       // 5,000 miles after the last change at 30,000 has passed; the maker's 10,000 had not.
       ['Oil & filter change', 'Every 5,000 mi', 'Overdue', 'changed'],
-      ['Wiper blades', 'Every 12 months', 'Oct 2026', 'added'],
       ['Tire rotation', 'Every 5,000 mi', '40,000 mi', undefined],
+      // Never logged, so assumed done every 12 months since the car's model year.
+      ['Wiper blades', 'Every 12 months', 'Jan 2027', 'added'],
     ])
   })
 })

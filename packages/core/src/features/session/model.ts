@@ -46,9 +46,11 @@ export interface SessionState {
   tab: AppTab
   /**
    * Set when the owner asked to log a service from elsewhere (such as "Log it done"), until the
-   * log has opened its form. `seq` changes with every request.
+   * log has opened its form. `seq` changes with every request. `earlier` when the service was
+   * done some time ago, so the form asks for its date rather than assume today.
    */
-  logRequest?: { itemId?: string | undefined; seq: number } | undefined
+  logRequest?:
+    { itemId?: string | undefined; earlier?: boolean | undefined; seq: number } | undefined
   /**
    * Set when the owner asked to update the odometer from elsewhere (such as the garage asking for
    * a reading), until the car's page has opened its editor. `seq` changes with every request.
@@ -70,8 +72,11 @@ export interface SessionActions {
    * its own back button goes to. False when there is nowhere to go back to, so the app can close.
    */
   systemBack: () => boolean
-  /** Opens the service log with its form, for a scheduled task if one is given. */
-  logService: (itemId?: string) => void
+  /**
+   * Opens the service log with its form, for a scheduled task if one is given, and with no date
+   * when the service was done `earlier` (such as filling in a new car's history).
+   */
+  logService: (itemId?: string, options?: { earlier?: boolean }) => void
   /** The log has opened its form for the request, so it is not opened again. */
   logRequestHandled: () => void
   /** Selects a car and opens its page. */
@@ -257,9 +262,12 @@ export const createSessionModel = (deps: {
         return true
       },
 
-      logService: (itemId) => {
+      logService: (itemId, options) => {
         openedFrom = []
-        set({ tab: 'log', logRequest: { itemId, seq: ++logRequests } })
+        set({
+          tab: 'log',
+          logRequest: { itemId, earlier: options?.earlier, seq: ++logRequests },
+        })
       },
 
       logRequestHandled: () => set({ logRequest: undefined }),

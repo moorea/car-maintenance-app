@@ -58,8 +58,11 @@ export interface ServiceLogActions {
   /** Starts watching the database. Safe to call again after dispose. */
   start: () => void
   setField: (field: DraftField, value: string) => void
-  /** Opens the form, optionally with a scheduled task already chosen. */
-  openForm: (itemId?: string) => void
+  /**
+   * Opens the form, optionally with a scheduled task already chosen. Dated today, unless the
+   * service was done `earlier`, when the date is left for the owner to fill in.
+   */
+  openForm: (itemId?: string, options?: { earlier?: boolean }) => void
   /** Closes the form. A save already under way finishes, and reopens the form if it fails. */
   closeForm: () => void
   /** Follows the schedule of the car's configuration once it has synced or changed. */
@@ -122,7 +125,10 @@ export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => 
   let configId = deps.configId
   let stopSchedule: Unsubscribe | undefined
   const today = () => deps.clock.today()
-  const draftFor = (itemId?: string) => ({ ...emptyDraft(today()), itemId: itemId ?? '' })
+  const draftFor = (itemId?: string, earlier = false) => ({
+    ...emptyDraft(earlier ? '' : today()),
+    itemId: itemId ?? '',
+  })
 
   return createStore<ServiceLogState & ServiceLogActions>()((set, get) => {
     /** Recomputes what the history shows from the records, the search and how much is shown. */
@@ -169,10 +175,10 @@ export const createServiceLogModel = (deps: ServiceLogDeps): ServiceLogModel => 
           return { draft: { ...s.draft, [field]: value }, fieldErrors }
         }),
 
-      openForm: (itemId) =>
+      openForm: (itemId, options) =>
         set({
           adding: true,
-          draft: draftFor(itemId),
+          draft: draftFor(itemId, options?.earlier),
           fieldErrors: {},
           saveError: undefined,
           receipts: [],
