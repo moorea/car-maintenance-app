@@ -116,8 +116,11 @@ jobs:
             CODE_SIGNING_ALLOWED=NO | tail -n 200
       - name: Boot a simulator and install the app
         run: |
+          # The UI flows tap round buttons by screen position, so prefer one standard size and
+          # only fall back to whichever iPhone the runner image has.
           udid=$(xcrun simctl list devices available --json \
-            | jq -r '[.devices[][] | select(.name | startswith("iPhone"))][0].udid')
+            | jq -r '[.devices[][] | select(.name | startswith("iPhone"))]
+                | ([.[] | select(.name == "iPhone 17 Pro")] + .)[0].udid')
           [ "$udid" != null ] || { echo "No iPhone simulator available"; xcrun simctl list; exit 1; }
           echo "Booting $udid"
           xcrun simctl boot "$udid"
@@ -128,7 +131,7 @@ jobs:
           curl -fsSL "https://get.maestro.mobile.dev" | bash
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
           "$HOME/.maestro/bin/maestro" --version
-      - name: Smoke test
+      - name: UI flows (smoke test and screen sweep)
         run: maestro test --test-output-dir "$RUNNER_TEMP/maestro" apps/mobile/e2e
       - name: Collect screenshots
         if: ${{ !cancelled() }}

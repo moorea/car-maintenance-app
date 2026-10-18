@@ -290,7 +290,13 @@ function LogForm({
           </Column>
         ) : null}
         <TextField
-          label={draft.itemId === OTHER ? 'Describe it' : 'Notes (optional)'}
+          label={
+            draft.itemId !== OTHER
+              ? 'Notes (optional)'
+              : tasks.length > 0
+                ? 'Describe it'
+                : 'What was done'
+          }
           value={draft.notes}
           onChangeText={(v) => setField('notes', v)}
           error={fieldErrors.notes}
