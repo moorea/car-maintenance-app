@@ -14,7 +14,7 @@
 #                                                      Swaps the bundle into the cached build.
 set -euo pipefail
 
-command=$1 platform=$2 dir=$3
+command=$1 platform=$2 dir=${3:-}
 root="$(cd "$(dirname "$0")/.." && pwd)"
 mobile="$root/apps/mobile"
 # Bump to drop every cached build, for example after changing how the native build is made.

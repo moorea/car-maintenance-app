@@ -109,7 +109,9 @@ jobs:
         run: scripts/reuse-native-build.sh bundle android "$RUNNER_TEMP/js"
       - name: Fingerprint the native build
         id: native
-        run: echo "key=$(scripts/reuse-native-build.sh key android "$RUNNER_TEMP/js")" >> "$GITHUB_OUTPUT"
+        run: |
+          key=$(scripts/reuse-native-build.sh key android "$RUNNER_TEMP/js")
+          echo "key=$key" >> "$GITHUB_OUTPUT"
       - name: Restore a native build with the same fingerprint
         id: cached
         if: github.event_name == 'pull_request'
@@ -292,7 +294,9 @@ jobs:
       # A change to JavaScript only reuses a cached native build; see scripts/reuse-native-build.sh.
       - name: Fingerprint the native build
         id: native
-        run: echo "key=$(scripts/reuse-native-build.sh key ios)" >> "$GITHUB_OUTPUT"
+        run: |
+          key=$(scripts/reuse-native-build.sh key ios)
+          echo "key=$key" >> "$GITHUB_OUTPUT"
       - name: Restore a native build with the same fingerprint
         id: cached
         if: github.event_name == 'pull_request'
