@@ -20,6 +20,7 @@ const SOURCE_SYMBOLS: Record<AnswerSourceKind, SymbolName> = {
   schedule: 'clock',
   service: 'log',
   recall: 'warning',
+  bulletin: 'bulletin',
   complaints: 'source',
   complaint: 'source',
 }

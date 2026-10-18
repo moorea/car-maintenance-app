@@ -2,36 +2,64 @@ import { Row } from '@expo/ui'
 import {
   DropdownMenu,
   DropdownMenuItem,
-  HorizontalDivider,
   Text as ComposeText,
   TextButton,
 } from '@expo/ui/jetpack-compose'
-import { Fragment, useState } from 'react'
+import { useState } from 'react'
 import { useColors } from '../theme'
-import type { ActionMenuProps } from './ActionMenu'
+import type { ActionMenuProps, MenuAction, MenuGroup } from './ActionMenu'
 import { GlassIconButton } from './surfaces'
 import { Symbol } from './Symbol'
+import type { SymbolName } from './symbols'
 import { Text } from './Text'
 
 /**
- * A button that opens Material's dropdown menu. Groups are listed one after another with a divider
- * between them, as Material menus have no submenus.
+ * A button that opens Material's dropdown menu. With several groups the menu first lists the
+ * groups, and choosing one shows its actions in the same menu under a row that leads back, as iOS
+ * opens a submenu.
  */
 export function ActionMenu({ label, symbol, variant, groups }: ActionMenuProps) {
   const colors = useColors()
-  // Purely visual: whether the menu is open (ADR 0003 allows it here).
+  // Purely visual: whether the menu is open and which group it shows (ADR 0003 allows it here).
   const [open, setOpen] = useState(false)
-  const choose = (onPress: () => void) => () => {
+  const [group, setGroup] = useState<MenuGroup | undefined>()
+  const close = () => {
     setOpen(false)
-    onPress()
+    setGroup(undefined)
   }
-  return (
-    <DropdownMenu
-      expanded={open}
-      onDismissRequest={() => setOpen(false)}
-      color={colors.surface}
-      cornerRadius={16}
+  const shown = group ?? (groups.length === 1 ? groups[0] : undefined)
+  const item = (key: string, text: string, icon: SymbolName, onClick: () => void, tint: string) => (
+    <DropdownMenuItem
+      key={key}
+      onClick={onClick}
+      elementColors={{ textColor: tint, leadingIconColor: tint, trailingIconColor: tint }}
     >
+      <DropdownMenuItem.LeadingIcon>
+        <Symbol name={icon} size={20} color={tint} />
+      </DropdownMenuItem.LeadingIcon>
+      <DropdownMenuItem.Text>
+        <ComposeText color={tint}>{text}</ComposeText>
+      </DropdownMenuItem.Text>
+      {shown ? null : (
+        <DropdownMenuItem.TrailingIcon>
+          <Symbol name="chevron" size={20} color={colors.textSecondary} />
+        </DropdownMenuItem.TrailingIcon>
+      )}
+    </DropdownMenuItem>
+  )
+  const action = (a: MenuAction) =>
+    item(
+      a.label,
+      a.label,
+      a.symbol,
+      () => {
+        close()
+        a.onPress()
+      },
+      a.destructive ? colors.danger : colors.textPrimary,
+    )
+  return (
+    <DropdownMenu expanded={open} onDismissRequest={close} color={colors.surface} cornerRadius={16}>
       <DropdownMenu.Trigger>
         {variant === 'icon' ? (
           <GlassIconButton
@@ -51,28 +79,16 @@ export function ActionMenu({ label, symbol, variant, groups }: ActionMenuProps) 
         )}
       </DropdownMenu.Trigger>
       <DropdownMenu.Items>
-        {groups.map((group, i) => (
-          <Fragment key={group.title}>
-            {i > 0 ? <HorizontalDivider color={colors.separator} /> : null}
-            {group.actions.map((action) => {
-              const tint = action.destructive ? colors.danger : colors.textPrimary
-              return (
-                <DropdownMenuItem
-                  key={action.label}
-                  onClick={choose(action.onPress)}
-                  elementColors={{ textColor: tint, leadingIconColor: tint }}
-                >
-                  <DropdownMenuItem.LeadingIcon>
-                    <Symbol name={action.symbol} size={20} color={tint} />
-                  </DropdownMenuItem.LeadingIcon>
-                  <DropdownMenuItem.Text>
-                    <ComposeText color={tint}>{action.label}</ComposeText>
-                  </DropdownMenuItem.Text>
-                </DropdownMenuItem>
-              )
-            })}
-          </Fragment>
-        ))}
+        {group
+          ? [
+              item('back', group.title, 'back', () => setGroup(undefined), colors.textSecondary),
+              ...group.actions.map(action),
+            ]
+          : shown
+            ? shown.actions.map(action)
+            : groups.map((g) =>
+                item(g.title, g.title, g.symbol, () => setGroup(g), colors.textPrimary),
+              )}
       </DropdownMenu.Items>
     </DropdownMenu>
   )

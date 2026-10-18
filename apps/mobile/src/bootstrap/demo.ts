@@ -44,10 +44,14 @@ export const demoVinDecoder = () =>
 
 const DEMO_CHECKED = '2026-10-17 12:00:00Z'
 
-/** Made-up recalls and complaints for the demo car, shaped like NHTSA's. Not real campaigns. */
+/**
+ * Made-up recalls, complaints and bulletins for the demo car, shaped like NHTSA's. Not real
+ * campaigns or bulletins.
+ */
 const DEMO_SAFETY: SafetyReport = {
   recallsCheckedAt: DEMO_CHECKED,
   complaintsCheckedAt: DEMO_CHECKED,
+  bulletinsCheckedAt: DEMO_CHECKED,
   recalls: [
     {
       id: 'demo-r1',
@@ -95,6 +99,13 @@ const DEMO_SAFETY: SafetyReport = {
         },
         { filedOn: '2026-02-11', summary: 'Sample complaint. Fuel smell after filling up.' },
       ],
+      byMileage: [
+        { from: 10_000, complaints: 3 },
+        { from: 20_000, complaints: 5 },
+        { from: 30_000, complaints: 9 },
+        { from: 40_000, complaints: 6 },
+        { from: 50_000, complaints: 2 },
+      ],
     },
     {
       id: 'demo-c2',
@@ -107,6 +118,83 @@ const DEMO_SAFETY: SafetyReport = {
       deaths: 0,
       latestFiledOn: '2025-11-04',
       recent: [{ filedOn: '2025-11-04', summary: 'Sample complaint. Brakes squeal when cold.' }],
+      byMileage: [
+        { from: 20_000, complaints: 1 },
+        { from: 30_000, complaints: 3 },
+        { from: 40_000, complaints: 1 },
+      ],
+    },
+    {
+      id: 'demo-c3',
+      configId: 'demo',
+      component: 'POWER TRAIN',
+      complaints: 8,
+      crashes: 0,
+      fires: 0,
+      injuries: 0,
+      deaths: 0,
+      latestFiledOn: '2026-05-21',
+      recent: [
+        {
+          filedOn: '2026-05-21',
+          summary: 'Sample complaint. The transmission shudders between 25 and 40 mph.',
+        },
+      ],
+      byMileage: [
+        { from: 30_000, complaints: 2 },
+        { from: 40_000, complaints: 4 },
+        { from: 60_000, complaints: 2 },
+      ],
+    },
+  ],
+  bulletins: [
+    {
+      id: 'demo-b1',
+      configId: 'demo',
+      nhtsaId: 900001,
+      documentId: 'ZH1',
+      kind: 'warranty',
+      issuedOn: '2025-09-12',
+      components: ['FUEL/PROPULSION SYSTEM'],
+      system: 'Fuel / Fuel pump',
+      summary:
+        'COVERAGE FOR THE LOW PRESSURE FUEL PUMP IS EXTENDED TO 10 YEARS OR 150,000 MILES. THE ENGINE MAY HESITATE OR STALL IF THE PUMP FAILS. SAMPLE BULLETIN.',
+    },
+    {
+      id: 'demo-b2',
+      configId: 'demo',
+      nhtsaId: 900002,
+      documentId: 'T-SB-0042-25',
+      kind: 'bulletin',
+      issuedOn: '2025-04-03',
+      components: ['POWER TRAIN'],
+      system: 'Drivetrain / Automatic transmission',
+      summary:
+        'SOME VEHICLES MAY EXHIBIT A SHUDDER BETWEEN 25 AND 40 MPH. UPDATE THE TCM SOFTWARE AND RECHECK. SAMPLE BULLETIN.',
+    },
+    {
+      id: 'demo-b3',
+      configId: 'demo',
+      nhtsaId: 900003,
+      documentId: 'T-SB-0017-24',
+      kind: 'bulletin',
+      issuedOn: '2024-11-18',
+      components: ['SERVICE BRAKES'],
+      system: 'Brakes / Front brakes',
+      summary:
+        'A SQUEAL FROM THE FRONT BRAKES WHEN COLD MAY BE HEARD. INSTALL THE REVISED PAD SHIMS. SAMPLE BULLETIN.',
+    },
+    {
+      id: 'demo-b4',
+      configId: 'demo',
+      nhtsaId: 900004,
+      documentId: 'T-SB-0031-24',
+      kind: 'software',
+      issuedOn: '2024-06-07',
+      components: ['ELECTRICAL SYSTEM'],
+      system: 'Audio / Multimedia',
+      summary:
+        'THE MULTIMEDIA SCREEN MAY FREEZE ON START UP. UPDATE THE HEAD UNIT SOFTWARE. SAMPLE BULLETIN.',
     },
   ],
 }

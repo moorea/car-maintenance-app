@@ -13,6 +13,8 @@ issues, with reminders and an AI assistant grounded in that data. US only at lau
   Node with `@powersync/node`. See ADR 0004.
 - `packages/server`: the AI assistant's edge function (ADR 0009). Bundled into
   `supabase/functions/assistant` by `pnpm --filter @car/server build`; tested on Node.
+- `packages/importer`: imports NHTSA's bulk files (service bulletins, complaint mileages) from a
+  scheduled GitHub Actions job (ADR 0015). Runs on Node 24 straight from TypeScript.
 - `powersync/sync-rules.yaml`: which rows sync to each user's phone. Tested in `packages/data`.
 - `apps/mobile`: Expo (React Native) app. Thin: screens wire models to pure views.
   `src/bootstrap/deps.ts` is the composition root that picks real or demo adapters.
@@ -46,4 +48,6 @@ and tests to CI whenever they make merging safer.
 - `pnpm install`
 - `pnpm check`: typecheck, lint, format check and tests. CI runs the same.
 - `pnpm --filter @car/core test -- --watch`
+- `supabase start && scripts/start-local-sync.sh && pnpm --filter @car/data test:e2e`: end-to-end
+  sync tests against a local Supabase and PowerSync in Docker. CI runs them too.
 - `pnpm --filter @car/mobile start`

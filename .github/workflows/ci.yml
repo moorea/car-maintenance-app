@@ -256,6 +256,31 @@ jobs:
         run: supabase db lint --level warning --fail-on warning
       - run: supabase test db
 
+  # Real sync, end to end: the app's data layer on Node, as two or more phones, against a local
+  # Supabase (this repo's migrations, RLS, Storage) and a self-hosted PowerSync serving this repo's
+  # sync rules. Covers what mocks cannot: offline queues, other owners, and deletes propagating.
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.121.0
+      # Only what the data layer talks to: Postgres, Auth, PostgREST, Storage and the gateway.
+      - run: supabase start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor,mailpit,realtime,postgres-meta
+      - run: scripts/start-local-sync.sh
+      - run: pnpm --filter @car/data test:e2e
+      - name: PowerSync logs
+        if: ${{ failure() }}
+        run: docker logs powersync_car-maintenance-app 2>&1 | tail -n 300
+
   # Builds the app for the iOS simulator and launches it, since screens are otherwise only run on
   # the web build. Needs no Apple account: simulator builds are not code signed.
   ios:

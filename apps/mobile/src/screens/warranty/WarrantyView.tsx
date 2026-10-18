@@ -1,5 +1,5 @@
 import type { CoverageState, WarrantyActions, WarrantyRow, WarrantyState } from '@car/core'
-import { BottomSheet, Button, Column, Picker, Row, ScrollView, Spacer } from '@expo/ui'
+import { BottomSheet, Button, Column, Row, ScrollView, Spacer } from '@expo/ui'
 import type { ReactNode } from 'react'
 import { ActivityIndicator, StyleSheet } from 'react-native'
 import { useColors, type ColorRole } from '../../theme'
@@ -7,6 +7,7 @@ import { Host } from '../../ui/Host'
 import { ErrorText, Note } from '../../ui/Note'
 import { TAB_BAR_CLEARANCE } from '../../ui/TabBar'
 import { TextField } from '../../ui/TextField'
+import { ChoiceField } from '../../ui/ChoiceField'
 import { Symbol } from '../../ui/Symbol'
 import { Card, FillColumn, GlassIconButton, PillButton, ProgressBar } from '../../ui/surfaces'
 import { Text } from '../../ui/Text'
@@ -186,11 +187,11 @@ function WarrantyForm({ form, kinds, setField, save, remove, closeForm }: Props)
         </Row>
         <Column spacing={4}>
           <Text textStyle={{ fontSize: 13, fontWeight: '600' }}>What it covers</Text>
-          <Picker selectedValue={draft.kind} onValueChange={(v) => setField('kind', String(v))}>
-            {kinds.map((k) => (
-              <Picker.Item key={k.kind} label={k.label} value={k.kind} />
-            ))}
-          </Picker>
+          <ChoiceField
+            value={draft.kind}
+            options={kinds.map((k) => ({ value: k.kind, label: k.label }))}
+            onChange={(v) => setField('kind', v)}
+          />
         </Column>
         <TextField
           label="Provider"

@@ -1,0 +1,30 @@
+name: NHTSA files
+
+# Reads NHTSA's real bulk files with the importer and stores nothing, to prove they still parse:
+# on every change to the importer, and weekly in case NHTSA changes a layout.
+on:
+  pull_request:
+    paths: ['packages/importer/**', '.github/workflows/nhtsa-files.yml']
+  schedule:
+    - cron: '41 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dry-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --filter @car/importer
+      # Two popular model years that have bulletins and complaints with mileages.
+      - run: >-
+          node packages/importer/src/main.ts --dry-run
+          --model-year honda/cr-v/2017 --model-year toyota/rav4/2021

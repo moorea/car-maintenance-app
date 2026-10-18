@@ -1,5 +1,5 @@
-# Run by the CI job `ios` after the smoke test, with the simulator set to the largest accessibility
-# text size, so the screenshots show Dynamic Type at its limit.
+# Run by the CI jobs `ios` and `android` after the other flows, with the largest text size set, so
+# the screenshots show Dynamic Type (or Android's font scale) at its limit.
 appId: com.moorea.carmaintenance
 ---
 - launchApp:

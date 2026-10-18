@@ -274,6 +274,26 @@ function LineRow({ line, onPress }: { line: CheckedLine; onPress: () => void }) 
         <Spacer flexible />
       </Row>
       <Text textStyle={{ fontSize: 14, color: colors.textSecondary }}>{line.detail}</Text>
+      {line.bulletins.map((b) => (
+        <Row key={b.nhtsaId} alignment="center" spacing={8}>
+          <Symbol
+            name={b.mayBeFree ? 'shield' : 'bulletin'}
+            size={14}
+            color={b.mayBeFree ? colors.accent : colors.textSecondary}
+          />
+          <FillColumn>
+            <Text
+              textStyle={{
+                fontSize: 13,
+                fontWeight: b.mayBeFree ? '600' : '400',
+                color: b.mayBeFree ? colors.accent : colors.textSecondary,
+              }}
+            >
+              {`${b.name}: ${b.title}`}
+            </Text>
+          </FillColumn>
+        </Row>
+      ))}
     </TappableRow>
   )
 }
