@@ -45,7 +45,7 @@ export interface GarageState {
   catchUp?: { itemId: string; task: string; others: number } | undefined
   /**
    * Asks for an odometer reading when the next mileage reminder rests on an old one: "Oil change"
-   * is due "at 45,000 mi", going by a reading from "5 weeks ago". Absent otherwise.
+   * is due "around 45,000 mi", going by a reading from "5 weeks ago". Absent otherwise.
    */
   checkOdometer?: { task: string; dueMiles: string; readAgo: string } | undefined
   /** Set when the schedule could not be read. */
@@ -166,7 +166,7 @@ export const createGarageModel = (deps: GarageDeps): GarageModel => {
             checkIn && checkInShowing(checkIn, today)
               ? {
                   task: checkIn.task,
-                  dueMiles: `at ${formatMiles(checkIn.dueMiles)}`,
+                  dueMiles: `around ${formatMiles(checkIn.dueMiles)}`,
                   readAgo: formatAgo(checkIn.readOn, today),
                 }
               : undefined,

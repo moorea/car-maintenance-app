@@ -16,6 +16,16 @@ export const REMINDER_HOUR = 9
  */
 export const MAX_SCHEDULED_REMINDERS = 60
 
+/**
+ * Every id `planNotifications` gives starts with one of these, so a device adapter can tell the
+ * app's own notifications from any others and never touch the rest.
+ */
+export const PLANNED_ID_PREFIXES = ['reminder:', 'warranty:', 'renewal:', 'odometer:'] as const
+
+/** Whether a scheduled notification is one this app planned. */
+export const isPlannedNotification = (id: string): boolean =>
+  PLANNED_ID_PREFIXES.some((prefix) => id.startsWith(prefix))
+
 /** A heads-up two weeks ahead, when an item turns "due soon", and a nudge on the due date. */
 type Stage = 'soon' | 'due'
 
@@ -148,8 +158,8 @@ const checkInNotices = (cars: VehicleDue[], today: IsoDate): LocalNotification[]
  * car share one notification. Only dates after today are scheduled, so planning again never
  * repeats a reminder that was due to fire already, and items that are already due are left to
  * the app's own screens. Each warranty still running gets a heads-up WARRANTY_NOTICE_DAYS before
- * it ends, and each registration, inspection or insurance date RENEWAL_NOTICE_DAYS before it. A car
-whose next mileage reminder rests on an old reading gets one request for a new reading.
+ * it ends, and each registration, inspection or insurance date RENEWAL_NOTICE_DAYS before it. A
+ * car whose next mileage reminder rests on an old reading gets one request for a new reading.
  * Soonest first, capped at MAX_SCHEDULED_REMINDERS.
  */
 export const planNotifications = (cars: VehicleDue[], today: IsoDate): LocalNotification[] => {

@@ -36,7 +36,8 @@ export interface OdometerCheckIn {
  * Whether the owner should be asked for an odometer reading, and about which item. Asks only when
  * a reading would change a reminder: an item the car reaches by mileage rather than time is
  * coming up (or estimated just past), and its date rests on a reading that will by then be old
- * enough (or a pace guessed enough) to be off by days. Absent otherwise, so owners are never nagged on a schedule.
+ * enough (or a pace guessed enough) to be off by days. Absent otherwise, so owners are never
+ * nagged on a schedule.
  */
 export const odometerCheckIn = (
   due: readonly DueProjection[],

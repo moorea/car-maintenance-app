@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Renewal, Vehicle } from '../domain/types'
 import { addDays } from '../lib/date'
 import {
+  isPlannedNotification,
   MAX_SCHEDULED_REMINDERS,
   planNotifications,
   type WarrantyEnding,
@@ -286,5 +287,33 @@ describe('planNotifications', () => {
       )
       expect(plan.map((n) => n.id)).toEqual(['renewal:v1:r1:0'])
     })
+  })
+
+  it('gives every kind of notification an id the device adapter recognises as its own', () => {
+    const plan = planNotifications(
+      [
+        {
+          vehicle: rav4,
+          due: [due({ itemId: 'oil', trigger: 'miles', dueDate: '2026-12-01', dueMiles: 45_000 })],
+          warranties: [
+            { id: 'w1', coverage: 'Basic coverage', endsOn: '2027-01-01', endsBy: 'time' },
+          ],
+          renewals: [{ id: 'r1', vehicleId: 'v1', kind: 'registration', dueOn: '2027-01-01' }],
+          checkIn: {
+            itemId: 'oil',
+            task: 'Oil change',
+            dueMiles: 45_000,
+            dueDate: '2026-12-01',
+            readOn: '2026-09-01',
+            from: '2026-11-10',
+          },
+        },
+      ],
+      '2026-10-01',
+    )
+    const kinds = new Set(plan.map((n) => n.id.split(':')[0]))
+    expect(kinds).toEqual(new Set(['reminder', 'warranty', 'renewal', 'odometer']))
+    expect(plan.every((n) => isPlannedNotification(n.id))).toBe(true)
+    expect(isPlannedNotification('another-app:1')).toBe(false)
   })
 })

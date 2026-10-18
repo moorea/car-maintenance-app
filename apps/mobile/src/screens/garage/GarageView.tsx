@@ -175,7 +175,7 @@ function CheckOdometerCard(props: Props) {
         </FillColumn>
       </Row>
       <Text textStyle={{ fontSize: 15, color: colors.textSecondary }}>
-        {`The last reading was ${checkOdometer.readAgo}, so when it's due is an estimate. A new reading keeps the reminder on the right day.`}
+        {`The last reading was ${checkOdometer.readAgo}, so the due date is an estimate. A new reading keeps the reminder on the right day.`}
       </Text>
       <Row spacing={10}>
         <PillButton

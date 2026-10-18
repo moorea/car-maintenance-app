@@ -307,7 +307,7 @@ describe('garage model, filling in the history', () => {
     await settle()
     expect(model.getState().checkOdometer).toEqual({
       task: 'Tire rotation',
-      dueMiles: 'at 40,000 mi',
+      dueMiles: 'around 40,000 mi',
       readAgo: '8 weeks ago',
     })
 
