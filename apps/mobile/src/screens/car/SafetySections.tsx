@@ -5,7 +5,8 @@ import {
   type SafetyActions,
   type SafetyState,
 } from '@car/core'
-import { Button, Collapsible, Column, Row } from '@expo/ui'
+import { Button, Column, Row } from '@expo/ui'
+import { Collapsible } from '../../ui/Collapsible'
 import { Fragment } from 'react'
 import { Linking } from 'react-native'
 import { useColors } from '../../theme'

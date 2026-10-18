@@ -17,3 +17,10 @@ appId: com.moorea.carmaintenance
 - tapOn: 'Car'
 - waitForAnimationToEnd
 - takeScreenshot: 9-large-text-car
+# The demo car's recall card, whose "Risk and fix" toggle label scales too.
+- scrollUntilVisible:
+    element: 'Risk and fix'
+    direction: DOWN
+    timeout: 30000
+    centerElement: true
+- takeScreenshot: 10-large-text-recall

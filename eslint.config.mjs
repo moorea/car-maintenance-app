@@ -45,8 +45,8 @@ const themeImportBans = {
     },
     {
       name: '@expo/ui',
-      importNames: ['Text'],
-      message: 'Use Text from src/ui/Text, which scales with Dynamic Type on iOS.',
+      importNames: ['Text', 'Collapsible'],
+      message: 'Use Text and Collapsible from src/ui, whose text scales with Dynamic Type on iOS.',
     },
   ],
   patterns: [
@@ -163,6 +163,7 @@ export default tseslint.config(
       'apps/mobile/src/theme/**',
       'apps/mobile/src/ui/Host.tsx',
       'apps/mobile/src/ui/Text*.tsx',
+      'apps/mobile/src/ui/Collapsible*.tsx',
     ],
     rules: { '@typescript-eslint/no-restricted-imports': ['error', themeImportBans] },
   },
