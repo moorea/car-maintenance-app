@@ -1,7 +1,7 @@
 -- Run with `supabase test db`. Proves table access exists only where a migration grants it.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(21);
+select plan(22);
 
 select ok(
   not exists (
@@ -26,6 +26,8 @@ select table_privs_are('public', 'warranties', 'authenticated',
   array['SELECT', 'INSERT', 'UPDATE', 'DELETE'], 'owners can correct their warranties');
 select table_privs_are('public', 'fill_ups', 'authenticated',
   array['SELECT', 'INSERT', 'UPDATE', 'DELETE'], 'owners can correct their fill-ups');
+select table_privs_are('public', 'renewals', 'authenticated',
+  array['SELECT', 'INSERT', 'UPDATE', 'DELETE'], 'owners can renew and correct their renewal dates');
 select table_privs_are('public', 'odometer_readings', 'authenticated',
   array['SELECT', 'INSERT'], 'odometer readings are append-only');
 select table_privs_are('public', 'reminders', 'authenticated',

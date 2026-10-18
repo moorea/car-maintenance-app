@@ -17,6 +17,7 @@ import {
   type VehicleId,
   type Warranty,
   type FillUp,
+  type Renewal,
 } from '../domain/types'
 import type {
   AttachmentRepo,
@@ -45,6 +46,7 @@ import type {
   ServiceRecordRepo,
   VehicleRepo,
   WarrantyRepo,
+  RenewalRepo,
 } from '../ports'
 import type { IsoDate } from '../lib/date'
 import type { CareReport } from '../features/care-report/report'
@@ -645,6 +647,50 @@ export const memoryReportExporter = () => {
     },
   }
   return exporter
+}
+
+const soonestFirst = (a: Renewal, b: Renewal) =>
+  a.dueOn.localeCompare(b.dueOn) || a.id.localeCompare(b.id)
+
+/** Renewals kept in memory, soonest first. `failNext` makes the next save or removal throw. */
+export const memoryRenewals = (initial: Renewal[] = []) => {
+  let renewals = [...initial]
+  const watchers = new Set<{ vehicleId: VehicleId; onChange: (r: Renewal[]) => void }>()
+  let nextFailure: string | undefined
+  const forVehicle = (vehicleId: VehicleId) =>
+    renewals.filter((r) => r.vehicleId === vehicleId).sort(soonestFirst)
+  const notify = () => {
+    for (const w of watchers) w.onChange(forVehicle(w.vehicleId))
+  }
+  const failIfScheduled = () => {
+    if (nextFailure === undefined) return
+    const message = nextFailure
+    nextFailure = undefined
+    throw new Error(message)
+  }
+  const repo: RenewalRepo & { failNext: (message: string) => void } = {
+    listForVehicle: async (vehicleId) => forVehicle(vehicleId),
+    watchForVehicle: (vehicleId, onChange) => {
+      const watcher = { vehicleId, onChange }
+      watchers.add(watcher)
+      onChange(forVehicle(vehicleId))
+      return () => watchers.delete(watcher)
+    },
+    save: async (renewal) => {
+      failIfScheduled()
+      renewals = [...renewals.filter((r) => r.id !== renewal.id), renewal]
+      notify()
+    },
+    remove: async (id) => {
+      failIfScheduled()
+      renewals = renewals.filter((r) => r.id !== id)
+      notify()
+    },
+    failNext: (message) => {
+      nextFailure = message
+    },
+  }
+  return repo
 }
 
 const newestFirst = (a: FillUp, b: FillUp) =>

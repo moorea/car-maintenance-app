@@ -20,3 +20,5 @@ and what would make us revisit it. Add a new record rather than editing an accep
 | [0013](0013-data-export.md)             | Owners can export all their data as an open zip, and import it    |
 | [0014](0014-fill-ups.md)                | Fill-ups are editable; their mileage is read as odometer readings |
 | [0015](0015-bulletins-and-mileage.md)   | Bulletins and complaint mileages come from NHTSA's bulk files     |
+| [0015](0015-trouble-codes.md)           | Check-engine codes are looked up on the phone from a fixed table  |
+| [0016](0016-renewals.md)                | Paperwork dates are owner-typed and reminded on the phone         |

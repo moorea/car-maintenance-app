@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Vehicle } from '../domain/types'
+import type { Renewal, Vehicle } from '../domain/types'
 import { addDays } from '../lib/date'
 import {
   MAX_SCHEDULED_REMINDERS,
@@ -227,6 +227,64 @@ describe('planNotifications', () => {
       )
       expect(plan).toHaveLength(MAX_SCHEDULED_REMINDERS)
       expect(plan[0]?.id).toBe('warranty:v1:w1:30')
+    })
+  })
+
+  describe('renewals', () => {
+    const insurance: Renewal = {
+      id: 'r1',
+      vehicleId: 'v1',
+      kind: 'insurance',
+      dueOn: '2027-03-14',
+      everyMonths: 6,
+    }
+
+    it('reminds a month and a week ahead and on the day, with what to do', () => {
+      const plan = planNotifications(
+        [{ vehicle: rav4, due: [], renewals: [insurance] }],
+        '2026-10-01',
+      )
+      expect(plan.map((n) => [n.date, n.title, n.body])).toEqual([
+        [
+          '2027-02-12',
+          'RAV4: Insurance coming up',
+          'Insurance renews in about a month, on Mar 14, 2027. A good time to compare quotes.',
+        ],
+        [
+          '2027-03-07',
+          'RAV4: Insurance coming up',
+          'Insurance renews in a week, on Mar 14, 2027. A good time to compare quotes.',
+        ],
+        ['2027-03-14', 'RAV4: Insurance today', 'Insurance renews today.'],
+      ])
+    })
+
+    it('names an inspection as due, and an owner-named one by its name', () => {
+      const plan = planNotifications(
+        [
+          {
+            vehicle: rav4,
+            due: [],
+            renewals: [
+              { ...insurance, id: 'r2', kind: 'inspection' },
+              { ...insurance, id: 'r3', kind: 'other', title: 'Parking permit' },
+            ],
+          },
+        ],
+        '2027-03-10',
+      )
+      expect(plan.map((n) => n.body)).toEqual([
+        'Safety inspection is due today.',
+        'Parking permit is due today.',
+      ])
+    })
+
+    it('leaves out heads-ups whose day has passed', () => {
+      const plan = planNotifications(
+        [{ vehicle: rav4, due: [], renewals: [insurance] }],
+        '2027-03-07',
+      )
+      expect(plan.map((n) => n.id)).toEqual(['renewal:v1:r1:0'])
     })
   })
 })

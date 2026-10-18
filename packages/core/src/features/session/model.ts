@@ -12,8 +12,8 @@ export type SessionStatus = 'starting' | 'signed-out' | 'syncing' | 'no-vehicles
  * The app's main sections: one per tab (the garage, the service log, the car and the assistant),
  * plus the reminder settings and the owner's account, opened from the garage, the owner's data
  * (export and import), opened from the account, and the quote checker, the check-engine code
- * lookup, how the car is driven, the car's warranties and its fuel and running costs, opened
- * from the car.
+ * lookup, how the car is driven, the car's warranties, its fuel and running costs, and its
+ * registration, inspection and insurance dates, opened from the car.
  */
 export type AppTab =
   | 'garage'
@@ -28,6 +28,7 @@ export type AppTab =
   | 'fuel'
   | 'codes'
   | 'driving'
+  | 'renewals'
 
 export interface SessionState {
   status: SessionStatus
@@ -80,6 +81,8 @@ export type SessionModel = StoreApi<SessionState & SessionActions>
 const PARENT: Partial<Record<AppTab, AppTab>> = {
   fuel: 'car',
   warranty: 'car',
+  driving: 'car',
+  renewals: 'car',
   data: 'account',
 }
 
