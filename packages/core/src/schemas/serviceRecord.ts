@@ -3,7 +3,7 @@ import { NOTES_MAX, SHORT_TEXT_MAX, optionalText } from './text'
 
 const isoDate = z.iso.date({
   error: (issue) =>
-    issue.input === '' ? 'Add when it was done, even roughly' : 'Enter a date as YYYY-MM-DD',
+    issue.input === '' ? 'Add the date it was done, as YYYY-MM-DD' : 'Enter a date as YYYY-MM-DD',
 })
 /** Plain digits only (no "1e3", "0x10" or "1,000"), then range-checked as a number. */
 const optionalNumber = (pattern: RegExp, check: z.ZodNumber) =>

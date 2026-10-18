@@ -444,6 +444,8 @@ describe('session model, adding a car', () => {
   it('passes on that a service to log was done earlier, so the form does not assume today', () => {
     const { model } = setup(true, [civic])
     model.getState().start()
+    model.getState().logService('oil')
+    expect(model.getState().logRequest?.earlier).toBeFalsy()
     model.getState().logService('oil', { earlier: true })
     expect(model.getState().logRequest).toMatchObject({ itemId: 'oil', earlier: true })
   })

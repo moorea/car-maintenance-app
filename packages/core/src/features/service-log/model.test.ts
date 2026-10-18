@@ -317,7 +317,10 @@ describe('service log screen model', () => {
       const { model } = setup()
       expect(model.getState().adding).toBe(false)
       model.getState().openForm('oil')
-      expect(model.getState()).toMatchObject({ adding: true, draft: { itemId: 'oil' } })
+      expect(model.getState()).toMatchObject({
+        adding: true,
+        draft: { itemId: 'oil', performedOn: '2026-10-17' },
+      })
       model.getState().closeForm()
       expect(model.getState().adding).toBe(false)
     })
@@ -328,7 +331,9 @@ describe('service log screen model', () => {
       model.getState().openForm('oil', { earlier: true })
       expect(model.getState().draft).toMatchObject({ itemId: 'oil', performedOn: '' })
       expect(await model.getState().save()).toBe(false)
-      expect(model.getState().fieldErrors.performedOn).toBe('Add when it was done, even roughly')
+      expect(model.getState().fieldErrors.performedOn).toBe(
+        'Add the date it was done, as YYYY-MM-DD',
+      )
       expect(await records.listForVehicle('v1')).toHaveLength(before)
     })
 
