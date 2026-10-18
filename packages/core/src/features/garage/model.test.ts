@@ -116,7 +116,7 @@ describe('garage model', () => {
     model.getState().start()
     await settle()
     expect(model.getState().nextUp?.question).toBe(
-      'Tire rotation is overdue on my car. What does it involve, and can it wait?',
+      'My car is overdue for tire rotation. What does it involve, and can it wait?',
     )
   })
 
@@ -125,7 +125,7 @@ describe('garage model', () => {
     model.getState().start()
     await settle()
     expect(model.getState().nextUp?.question).toBe(
-      'Oil & filter change is coming up on my car. What does it involve, and can it wait?',
+      'My car is due soon for oil & filter change. What does it involve, and can it wait?',
     )
   })
 

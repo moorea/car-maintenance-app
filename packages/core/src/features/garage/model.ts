@@ -24,9 +24,9 @@ export interface NextUp extends DueRow {
   question: string
 }
 
-/** "Tire rotation is overdue on my car. What does it involve, and can it wait?" */
+/** "My car is overdue for tire rotation. What does it involve, and can it wait?" */
 const questionAbout = (row: DueRow): string =>
-  `${row.task} is ${row.status === 'overdue' ? 'overdue' : 'coming up'} on my car. What does it involve, and can it wait?`
+  `My car is ${row.status === 'overdue' ? 'overdue' : 'due soon'} for ${row.task.toLowerCase()}. What does it involve, and can it wait?`
 
 export interface GarageState {
   status: GarageStatus
