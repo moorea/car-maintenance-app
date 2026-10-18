@@ -10,6 +10,7 @@ import type {
   PickedFile,
   QuoteLine,
   QuotePhoto,
+  Renewal,
   SafetyReport,
   ServiceRecord,
   Vehicle,
@@ -110,6 +111,17 @@ export interface FillUpRepo {
   watchForVehicle(vehicleId: VehicleId, onChange: (fillUps: FillUp[]) => void): Unsubscribe
   /** Adds the fill-up, or replaces the one with the same id. */
   save(fillUp: FillUp): Promise<void>
+  remove(id: string): Promise<void>
+}
+
+/** The car's registration, inspection and insurance dates. Editable. */
+export interface RenewalRepo {
+  /** The car's renewals, soonest first. */
+  listForVehicle(vehicleId: VehicleId): Promise<Renewal[]>
+  /** Calls `onChange` with the car's renewals, soonest first, now and after every change. */
+  watchForVehicle(vehicleId: VehicleId, onChange: (renewals: Renewal[]) => void): Unsubscribe
+  /** Adds the renewal, or replaces the one with the same id. */
+  save(renewal: Renewal): Promise<void>
   remove(id: string): Promise<void>
 }
 

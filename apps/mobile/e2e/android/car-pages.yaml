@@ -85,6 +85,17 @@ appId: com.moorea.carmaintenance
 - back
 
 - scrollUntilVisible:
+    element: 'Registration & insurance.*'
+    centerElement: true
+    timeout: 30000
+- tapOn: 'Registration & insurance.*'
+- extendedWaitUntil:
+    visible: 'Renewals'
+    timeout: 5000
+- takeScreenshot: 35-renewals
+- back
+
+- scrollUntilVisible:
     element: 'Check a shop.s quote'
     centerElement: true
     timeout: 30000

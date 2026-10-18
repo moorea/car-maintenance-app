@@ -16,9 +16,20 @@ appId: com.moorea.carmaintenance
 - waitForAnimationToEnd
 - takeScreenshot: 2-service-log
 - tapOn: 'Car'
-- assertVisible: 'Recalls · 2'
+- extendedWaitUntil:
+    visible: 'Registration & insurance.*'
+    timeout: 10000
 - waitForAnimationToEnd
 - takeScreenshot: 3-car
+- tapOn: 'Registration & insurance.*'
+- assertVisible: 'Renewals'
+- waitForAnimationToEnd
+- takeScreenshot: 3-renewals
+- tapOn: 'Back'
+- scrollUntilVisible:
+    element: 'Recalls · 2'
+    centerElement: true
+    timeout: 30000
 - tapOn: 'Garage'
 - extendedWaitUntil:
     visible: 'Demo car.*'

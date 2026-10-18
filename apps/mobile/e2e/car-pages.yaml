@@ -10,6 +10,7 @@ appId: com.moorea.carmaintenance
     visible: 'Demo car'
     timeout: 60000
 - tapOn: 'Car'
+# Centred, so the add button can't sit under the tab bar floating over the bottom of the page.
 - scrollUntilVisible:
     element: 'Add a document'
     centerElement: true
@@ -80,6 +81,23 @@ appId: com.moorea.carmaintenance
 - scroll
 - waitForAnimationToEnd
 - takeScreenshot: 35-warranty-care-report
+
+- tapOn: 'Car'
+- scrollUntilVisible:
+    element: 'Registration & insurance.*'
+    centerElement: true
+    timeout: 30000
+- tapOn: 'Registration & insurance.*'
+- extendedWaitUntil:
+    visible: 'Renewals'
+    timeout: 5000
+- takeScreenshot: 35-renewals
+- tapOn: 'Edit'
+- extendedWaitUntil:
+    visible: 'Edit date'
+    timeout: 5000
+- takeScreenshot: 35-renewals-edit
+- tapOn: 'Cancel'
 
 - tapOn: 'Car'
 - scrollUntilVisible:

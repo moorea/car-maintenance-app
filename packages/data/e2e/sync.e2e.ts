@@ -2,7 +2,15 @@ import { writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import type { Attachment, FillUp, SafetyReport, ServiceRecord, Vehicle, Warranty } from '@car/core'
+import type {
+  Attachment,
+  FillUp,
+  Renewal,
+  SafetyReport,
+  ServiceRecord,
+  Vehicle,
+  Warranty,
+} from '@car/core'
 import { afterEach, describe, expect, it } from 'vitest'
 import { schema, UPLOADABLE_TABLES } from '../src'
 import { attachmentPath } from '../src/upload'
@@ -49,6 +57,15 @@ const warranty = (vehicleId: string, fields: Partial<Warranty> = {}): Warranty =
   startsOn: '2019-03-01',
   months: 60,
   endMiles: 60_000,
+  ...fields,
+})
+
+const renewal = (vehicleId: string, fields: Partial<Renewal> = {}): Renewal => ({
+  id: id(),
+  vehicleId,
+  kind: 'registration',
+  dueOn: '2026-11-01',
+  everyMonths: 12,
   ...fields,
 })
 
@@ -242,6 +259,41 @@ describe('two phones signed in as one owner', () => {
     )
     expect(await serverRows('fill_ups', 'vehicle_id', vehicleId)).toEqual([])
     expect(await serverRows('service_records', 'vehicle_id', vehicleId)).toEqual([])
+  })
+
+  it('each see the renewal dates the other added, renewed and deleted', async () => {
+    const owner = await createUser()
+    const [a, b] = [await open(owner), await open(owner)]
+    const { id: vehicleId } = await addCar(a)
+    const registration = renewal(vehicleId, { notes: 'Plate 7ABC123' })
+    const { everyMonths: _, ...permit } = renewal(vehicleId, {
+      kind: 'other',
+      title: 'Parking permit',
+      dueOn: '2027-01-15',
+    })
+    await a.renewals.save(registration)
+    await a.renewals.save(permit)
+    expect(
+      await eventually(
+        () => b.renewals.listForVehicle(vehicleId),
+        (r) => r.length === 2,
+        'renewals',
+      ),
+    ).toEqual([registration, permit])
+
+    // Renewing moves only the date; the notes the first phone typed survive.
+    const renewed = { ...registration, dueOn: '2027-11-01' }
+    await b.renewals.save(renewed)
+    await b.renewals.remove(permit.id)
+    expect(
+      await eventually(
+        () => a.renewals.listForVehicle(vehicleId),
+        (r) => r.length === 1 && r[0]?.dueOn === '2027-11-01',
+        'the renewed date',
+      ),
+    ).toEqual([renewed])
+    expect(await serverRows('renewals', 'id', permit.id)).toEqual([])
+    expect([...a.dropped, ...b.dropped]).toEqual([])
   })
 
   it('agree on one version when both edit the same warranty', async () => {
@@ -575,6 +627,7 @@ describe('owner isolation', () => {
     await a.records.add(service(vehicleId))
     await a.warranties.save(warranty(vehicleId))
     await a.fillUps.save(fillUp(vehicleId))
+    await a.renewals.save(renewal(vehicleId))
     await a.attachments.add(attachment(vehicleId, { sizeBytes: 20 }), pickedPdf('alice'))
     await a.uploaded()
     expect(await serverRows('attachments', 'vehicle_id', vehicleId)).toHaveLength(1)
@@ -598,6 +651,7 @@ describe('owner isolation', () => {
       service_records: 0,
       warranties: 0,
       fill_ups: 0,
+      renewals: 0,
       attachments: 0,
     })
   })
@@ -612,6 +666,7 @@ describe('owner isolation', () => {
     await b.records.add(service(vehicleId))
     await b.warranties.save(warranty(vehicleId))
     await b.fillUps.save(fillUp(vehicleId))
+    await b.renewals.save(renewal(vehicleId))
     await b.odometer.add({ vehicleId, date: '2026-10-05', miles: 99_999 })
     await b.db.execute(
       'insert into vehicles (id, owner_id, year, make, model, nickname) values (?, ?, ?, ?, ?, ?)',
@@ -619,8 +674,8 @@ describe('owner isolation', () => {
     )
     await b.uploaded()
 
-    expect(b.dropped).toHaveLength(5)
-    for (const table of ['service_records', 'warranties', 'fill_ups'])
+    expect(b.dropped).toHaveLength(6)
+    for (const table of ['service_records', 'warranties', 'fill_ups', 'renewals'])
       expect(await serverRows(table, 'vehicle_id', vehicleId)).toEqual([])
     expect(await serverRows('odometer_readings', 'vehicle_id', vehicleId)).toHaveLength(1)
     expect(await serverRows('vehicles', 'id', vehicleId)).toMatchObject([
@@ -730,6 +785,7 @@ describe('deletes', () => {
     await a.records.add(oilChange)
     await a.warranties.save(warranty(vehicleId))
     await a.fillUps.save(fillUp(vehicleId))
+    await a.renewals.save(renewal(vehicleId))
     const receipt = attachment(vehicleId, { sizeBytes: 20 })
     await a.attachments.add(receipt, pickedPdf('receipt'))
     await a.uploaded()
@@ -798,6 +854,7 @@ describe('coverage', () => {
     'service_records',
     'warranties',
     'fill_ups',
+    'renewals',
     'attachments',
   ]
 

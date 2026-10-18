@@ -70,12 +70,19 @@ describe('attachments screen model', () => {
     const s = model.getState()
     expect(s.status).toBe('ready')
     expect(s.documents).toEqual([
-      { id: 'reg', title: 'Registration', detail: 'PDF · 240 KB · Mar 2', pdf: true },
+      {
+        id: 'reg',
+        kind: 'registration',
+        title: 'Registration',
+        detail: 'PDF · 240 KB · Mar 2',
+        pdf: true,
+      },
     ])
     expect(s.byService).toEqual({
       oil: [
         {
           id: 'oil-receipt',
+          kind: 'receipt',
           serviceRecordId: 'oil',
           title: 'Receipt',
           detail: 'Photo · 1.2 MB · Aug 14',
@@ -83,6 +90,18 @@ describe('attachments screen model', () => {
         },
       ],
     })
+  })
+
+  it('groups the car’s documents by kind, for the renewal each goes with', async () => {
+    const { model, picker } = setup()
+    picker.queue(photo)
+    await model.getState().attach({ kind: 'inspection' }, 'camera')
+    const { documentsByKind } = model.getState()
+    expect(documentsByKind.registration?.map((d) => d.id)).toEqual(['reg'])
+    expect(documentsByKind.inspection?.map((d) => [d.id, d.title])).toEqual([
+      ['att-1', 'Inspection report'],
+    ])
+    expect(documentsByKind.receipt).toBeUndefined()
   })
 
   it('attaches a picked photo to a service as a receipt, dated today', async () => {
