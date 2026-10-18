@@ -87,7 +87,8 @@ export const anthropicPriceEstimator = (
         schema: OUTPUT_SCHEMA,
         // Recalling labor-guide times for a specific car takes more thought than reading a photo.
         effort: 'medium',
-        maxTokens: 4_000,
+        // Up to MAX_QUOTE_LINES lines of about 60 tokens each, with room for thinking at medium.
+        maxTokens: 16_000,
         what: 'price estimate',
       },
       [{ type: 'text', text: JSON.stringify(request) }],
@@ -97,9 +98,12 @@ export const anthropicPriceEstimator = (
     if (!parsePriceEstimate({ laborRateCents, lines: [] }))
       throw new AssistantError('unknown', 'The price estimate had no plausible labor rate')
     const asked = new Set(request.lines.map((l) => l.index))
+    const seen = new Set<number>()
     // One implausible line drops that line rather than wasting the whole estimate.
     const lines = raw.lines.flatMap((l): PriceEstimate['lines'] => {
-      if (!l.estimable || !asked.has(l.index)) return []
+      // A line answered twice keeps its first answer.
+      if (!l.estimable || !asked.has(l.index) || seen.has(l.index)) return []
+      seen.add(l.index)
       const parsed = parsePriceEstimate({
         laborRateCents,
         lines: [

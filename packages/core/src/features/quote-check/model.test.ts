@@ -471,6 +471,27 @@ describe('quote check model', () => {
       expect(state()).toMatchObject({ prices: undefined, canEstimate: false })
     })
 
+    it('follows a ZIP saved from another car, dropping prices for the old one', async () => {
+      const preferences = memoryPreferences({ zip: '94110' })
+      const { state, estimateCall } = await checked(preferences)
+      void state().estimatePrices()
+      await preferences.update({ zip: '10001' })
+      expect(estimateCall(0).signal?.aborted).toBe(true)
+      expect(state()).toMatchObject({ zipDraft: '10001', prices: undefined, canEstimate: true })
+    })
+
+    it('shows the estimate even when the ZIP cannot be saved', async () => {
+      const preferences = memoryPreferences()
+      const { state, estimateCall } = await checked(preferences)
+      preferences.failNextUpdate()
+      state().setZip('94110')
+      void state().estimatePrices()
+      estimateCall(0).resolve({ ...estimate, lines: [] })
+      await settle()
+      const prices = state().prices
+      expect(prices?.status === 'ready' && prices.fair.lines).toEqual([])
+    })
+
     it('stops estimating when the screen goes away', async () => {
       const { state, estimateCall, model } = await checked()
       state().setZip('94110')

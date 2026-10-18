@@ -104,6 +104,13 @@ describe('fair price ranges', () => {
     expect(fair.lines[0]?.fit).toBe('below')
   })
 
+  it('never says a line over the range is over by $0', () => {
+    const result = check([line(0, 'Oil change', { priceCents: 13_540 })])
+    expect(comparePrices(result, estimate, '94110').summary).toBe(
+      '1 line is priced above the usual range, by $1 in all.',
+    )
+  })
+
   it('gives a range without a fit for a line the shop did not price', () => {
     const fair = comparePrices(check([line(0, 'Oil change')]), estimate, '94110')
     expect(fair.lines[0]).toMatchObject({ range: 'Usually $80–$135', fit: undefined })

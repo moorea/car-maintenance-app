@@ -359,7 +359,13 @@ export const createQuoteCheckModel = (deps: QuoteCheckDeps): QuoteCheckModel => 
         disposed = false
         stopPreferences = deps.preferences.watch(({ zip }) => {
           if (zipTouched || zip === null || zip === get().zipDraft) return
-          set({ zipDraft: zip, canEstimate: canEstimate(get().result, zip, get().prices) })
+          // Another car's quote saved a new ZIP: prices for the old one no longer match the field.
+          stopEstimating()
+          set({
+            zipDraft: zip,
+            prices: undefined,
+            canEstimate: canEstimate(get().result, zip, undefined),
+          })
         })
         stopSafety = deps.safety.watchForConfig(vehicle.configId, (report) => {
           recalls = report.recalls

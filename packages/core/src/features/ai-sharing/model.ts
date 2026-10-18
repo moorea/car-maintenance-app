@@ -109,8 +109,8 @@ interface AiServices {
 }
 
 /**
- * Wraps the assistant, the photo readers and the price estimator so nothing reaches Anthropic unless the signed-in
- * owner allowed it, whichever screen asks. Refuses with AssistantError `not-allowed` otherwise.
+ * Wraps the assistant, the photo readers and the price estimator so nothing reaches Anthropic
+ * unless the signed-in owner allowed it, whichever screen asks. Refuses with AssistantError `not-allowed` otherwise.
  * Lives for as long as the app runs.
  */
 export const guardAiSharing = (deps: AiSharingDeps, services: AiServices): AiServices => {

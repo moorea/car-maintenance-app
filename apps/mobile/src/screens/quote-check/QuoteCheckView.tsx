@@ -424,6 +424,8 @@ function LineRow({
 }) {
   const colors = useColors()
   const pill = PILLS[line.verdict]
+  // A line the shop gave no price has a range but nothing to compare.
+  const fitColor = colors[priced?.fit ? FIT_COLORS[priced.fit] : 'textSecondary']
   return (
     <TappableRow spacing={4} onPress={onPress}>
       <Row alignment="center" spacing={10}>
@@ -454,13 +456,13 @@ function LineRow({
       {priced ? (
         <Column spacing={2}>
           <Row alignment="center" spacing={8}>
-            <Symbol name="price" size={14} color={colors[FIT_COLORS[priced.fit ?? 'below']]} />
+            <Symbol name="price" size={14} color={fitColor} />
             <FillColumn>
               <Text
                 textStyle={{
                   fontSize: 13,
                   fontWeight: '600',
-                  color: colors[FIT_COLORS[priced.fit ?? 'below']],
+                  color: fitColor,
                 }}
               >
                 {priced.fitLabel ? `${priced.range} · ${priced.fitLabel}` : priced.range}

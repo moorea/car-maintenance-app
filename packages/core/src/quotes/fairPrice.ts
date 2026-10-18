@@ -168,7 +168,7 @@ export const comparePrices = (
         ? undefined
         : over.length === 0
           ? 'Every priced line is within or below the usual range.'
-          : `${plural(over.length, 'line')} ${over.length === 1 ? 'is' : 'are'} priced above the usual range, by ${dollars(Math.round(overCents / 100) * 100)} in all.`,
+          : `${plural(over.length, 'line')} ${over.length === 1 ? 'is' : 'are'} priced above the usual range, by ${dollars(Math.ceil(overCents / 100) * 100)} in all.`,
     laborRate: `Shop labor around ${zip} is usually ${spanText({ low: roundDown(rate.low), high: roundUp(rate.high) })} an hour.`,
   }
 }

@@ -96,6 +96,11 @@ describe('estimating prices with Claude', () => {
     expect((await estimate(api)).lines).toEqual([])
   })
 
+  it('keeps the first answer for a line answered twice', async () => {
+    const api = fakeApi(() => reply([job(0), job(0, { labor_hours_high: 3 })]))
+    expect((await estimate(api)).lines.map((l) => l.laborHours.high)).toEqual([0.5])
+  })
+
   it('fails rather than show prices with an implausible labor rate', async () => {
     const api = fakeApi(() => reply([job(0)], { low_cents: 0, high_cents: 0 }))
     await expect(estimate(api)).rejects.toMatchObject({ kind: 'unknown' })
