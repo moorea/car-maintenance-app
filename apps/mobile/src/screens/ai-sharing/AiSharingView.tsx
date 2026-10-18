@@ -7,6 +7,7 @@ import { ErrorText, Note } from '../../ui/Note'
 import { Card, FillColumn, GlassIconButton, PillButton } from '../../ui/surfaces'
 import { Symbol } from '../../ui/Symbol'
 import type { SymbolName } from '../../ui/symbols'
+import { PAGE_TOP } from '../../ui/layout'
 import { Text } from '../../ui/Text'
 import { Button } from '../../ui/Button'
 
@@ -34,7 +35,7 @@ export function AiSharingView(props: Props) {
   return (
     <Host style={styles.fill}>
       <ScrollView>
-        <Column spacing={16} style={{ padding: 16, paddingTop: 60 }}>
+        <Column spacing={16} style={{ padding: 16, paddingTop: PAGE_TOP }}>
           <Row>
             <GlassIconButton symbol="back" label="Back" onPress={props.onBack} />
           </Row>

@@ -15,6 +15,7 @@ import { TAB_BAR_CLEARANCE } from '../../ui/TabBar'
 import { Card, FillColumn, GlassIconButton, PillButton } from '../../ui/surfaces'
 import { Symbol } from '../../ui/Symbol'
 import type { SymbolName } from '../../ui/symbols'
+import { PAGE_TOP, TITLE_TOP } from '../../ui/layout'
 import { Text } from '../../ui/Text'
 
 type Props = AccountState &
@@ -46,7 +47,11 @@ export function AccountView(props: Props) {
       <ScrollView>
         <Column
           spacing={16}
-          style={{ padding: 16, paddingTop: 60, paddingBottom: TAB_BAR_CLEARANCE }}
+          style={{
+            padding: 16,
+            paddingTop: props.onBack ? PAGE_TOP : TITLE_TOP,
+            paddingBottom: TAB_BAR_CLEARANCE,
+          }}
         >
           {props.onBack ? (
             <Row>

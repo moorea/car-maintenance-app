@@ -15,6 +15,7 @@ import { Symbol } from '../../ui/Symbol'
 import type { SymbolName } from '../../ui/symbols'
 import { TextField } from '../../ui/TextField'
 import { Card, FillColumn, GlassIconButton, PillButton } from '../../ui/surfaces'
+import { PAGE_TOP } from '../../ui/layout'
 import { Text } from '../../ui/Text'
 import { Button } from '../../ui/Button'
 
@@ -240,6 +241,6 @@ function CodeCard({
 const styles = StyleSheet.create({
   fill: { flex: 1 },
   bar: { width: '100%' },
-  header: { paddingTop: 58, paddingHorizontal: 16, paddingBottom: 8 },
+  header: { paddingTop: PAGE_TOP, paddingHorizontal: 16, paddingBottom: 8 },
   balance: { width: 44 },
 })
