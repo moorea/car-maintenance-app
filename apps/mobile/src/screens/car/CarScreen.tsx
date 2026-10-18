@@ -2,6 +2,7 @@ import {
   createAttachmentsModel,
   createCarModel,
   createSafetyModel,
+  createScheduleItemModel,
   type SessionState,
   type Vehicle,
 } from '@car/core'
@@ -12,7 +13,7 @@ import { openPrivacyPolicy } from '../../bootstrap/links'
 import { useScreenModel } from '../../models/useScreenModel'
 import { CarView } from './CarView'
 
-/** Wires the car, safety and documents models to the view. No state or logic lives here (ADR 0003). */
+/** Wires the car, safety, schedule item and documents models to the view. No state or logic lives here (ADR 0003). */
 export function CarScreen({
   vehicle,
   odometerRequest,
@@ -47,6 +48,9 @@ export function CarScreen({
   }, [carModel, odometerRequest, onOdometerRequestHandled])
   const car = useStore(carModel)
   const safety = useStore(useScreenModel(key, () => createSafetyModel({ vehicle, ...deps })))
+  const scheduleItem = useStore(
+    useScreenModel(key, () => createScheduleItemModel({ vehicle, ...deps })),
+  )
   const documents = useStore(
     useScreenModel(vehicle.id, () => createAttachmentsModel({ vehicleId: vehicle.id, ...deps })),
   )
@@ -54,6 +58,7 @@ export function CarScreen({
     <CarView
       car={car}
       safety={safety}
+      scheduleItem={scheduleItem}
       documents={documents}
       onCheckQuote={onCheckQuote}
       onTroubleCodes={onTroubleCodes}

@@ -25,8 +25,8 @@ export interface ReminderSchedulerDeps extends GetDueItemsDeps {
 
 export interface ReminderScheduler {
   /**
-   * Follows sign-in, the owner's cars, their service logs, warranties, renewals and the reminder
-   * setting.
+   * Follows sign-in, the owner's cars, their service logs, warranties, renewals, custom schedule
+   * items and the reminder setting.
    */
   start: () => void
   /**
@@ -146,7 +146,8 @@ export const createReminderScheduler = (deps: ReminderSchedulerDeps): ReminderSc
     }
     for (const id of ids) {
       if (stopCarData.has(id)) continue
-      // A service or an odometer reading can move a due date or a warranty's mileage end. Every callback re-plans, the first
+      // A service, an odometer reading or a changed interval can move a due date or a warranty's
+      // mileage end. Every callback re-plans, the first
       // included: it may carry a change made since the last plan read the data, and a pass with
       // nothing new changes nothing on the device.
       const stops = [
@@ -154,6 +155,8 @@ export const createReminderScheduler = (deps: ReminderSchedulerDeps): ReminderSc
         deps.odometer.watchForVehicle(id, () => void refresh()),
         deps.warranties.watchForVehicle(id, () => void refresh()),
         deps.renewals.watchForVehicle(id, () => void refresh()),
+        // The owner's own items and intervals; the schedule a config brings changes with the car.
+        deps.schedule.watchForVehicle({ id }, () => void refresh()),
       ]
       stopCarData.set(id, () => {
         for (const stop of stops) stop()

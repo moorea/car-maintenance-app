@@ -88,6 +88,29 @@ export const groupHistory = (
   return groups
 }
 
+/**
+ * How many entries a list shows before "Show earlier": enough for a few years of services, while
+ * decades of history never lay out at once.
+ */
+export const LIST_PAGE = 50
+
+/** The first `limit` entries of the groups, and how many entries are left out. */
+export const firstEntries = (
+  groups: readonly LogGroup[],
+  limit: number,
+): { groups: LogGroup[]; hidden: number } => {
+  const shown: LogGroup[] = []
+  let room = limit
+  let hidden = 0
+  for (const group of groups) {
+    const entries = group.entries.slice(0, Math.max(0, room))
+    hidden += group.entries.length - entries.length
+    room -= entries.length
+    if (entries.length > 0) shown.push({ ...group, entries })
+  }
+  return { groups: shown, hidden }
+}
+
 /** What was spent this calendar year and how many services are logged in all. */
 export const summarizeHistory = (records: readonly ServiceRecord[], today: IsoDate): LogSummary => {
   const year = today.slice(0, 4)

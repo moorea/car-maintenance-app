@@ -30,6 +30,7 @@ type Props = ServiceLogState &
     | 'openForm'
     | 'closeForm'
     | 'setQuery'
+    | 'showMore'
     | 'addReceipt'
     | 'removeReceipt'
     | 'openEntry'
@@ -111,7 +112,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   )
 }
 
-function History({ groups, summary, query, attachments, openEntry }: Props) {
+function History({ groups, hidden, summary, query, attachments, openEntry, showMore }: Props) {
   if (summary.count === 0) return <Note>No services logged yet. Tap + to add one.</Note>
   if (groups.length === 0) return <Note>{`Nothing matches "${query.trim()}".`}</Note>
   return (
@@ -119,6 +120,9 @@ function History({ groups, summary, query, attachments, openEntry }: Props) {
       {groups.map((g) => (
         <Group key={g.label} group={g} receipts={attachments.byService} onOpen={openEntry} />
       ))}
+      {hidden > 0 ? (
+        <Button variant="text" label={`Show earlier services (${hidden})`} onPress={showMore} />
+      ) : null}
     </>
   )
 }
