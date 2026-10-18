@@ -89,6 +89,34 @@ describe('projectDue', () => {
     })
   })
 
+  it('assumes an item with no history was done on schedule since the car went into service', () => {
+    const wipers: MaintenanceItem = {
+      id: 'w',
+      configId: 'c1',
+      task: 'Wiper blades',
+      intervalMonths: 12,
+    }
+    // Every 12 months from Jan 2021: the next is Jan 1, 2027, not today.
+    expect(
+      projectDue(input({ item: wipers, lastService: undefined, inServiceSince: '2021-01-01' })),
+    ).toMatchObject({ dueDate: '2027-01-01', trigger: 'time', status: 'upcoming' })
+    // A car newer than one interval is due one interval after it went into service.
+    expect(
+      projectDue(input({ item: wipers, lastService: undefined, inServiceSince: '2027-01-01' })),
+    ).toMatchObject({ dueDate: '2028-01-01' })
+  })
+
+  it('takes whichever comes first for an item with no history and both limits', () => {
+    // 6-month boundaries from Jan 2021 put the next on Jan 1, 2027, before 45,000 miles at 40 a
+    // day; at 100 a day, 45,000 miles comes first.
+    expect(
+      projectDue(input({ lastService: undefined, inServiceSince: '2021-01-01' })),
+    ).toMatchObject({ dueDate: '2027-01-01', trigger: 'time' })
+    expect(
+      projectDue(input({ lastService: undefined, milesPerDay: 100, inServiceSince: '2021-01-01' })),
+    ).toMatchObject({ dueMiles: 45_000, dueDate: '2026-11-10', trigger: 'miles' })
+  })
+
   it('gives a parked car no mileage due date until it reaches the mileage', () => {
     const tyres: MaintenanceItem = { id: 't', configId: 'c1', task: 'Rotate', intervalMiles: 5_000 }
     expect(projectDue(input({ item: tyres, milesPerDay: 0 }))).toEqual({
