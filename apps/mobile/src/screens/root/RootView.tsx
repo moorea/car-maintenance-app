@@ -9,6 +9,7 @@ import { CarScreen } from '../car/CarScreen'
 import { DrivingScreen } from '../driving/DrivingScreen'
 import { GarageScreen } from '../garage/GarageScreen'
 import { QuoteCheckScreen } from '../quote-check/QuoteCheckScreen'
+import { ReminderOfferGate } from '../reminder-offer/ReminderOfferScreen'
 import { RemindersScreen } from '../reminders/RemindersScreen'
 import { ServiceLogScreen } from '../service-log/ServiceLogScreen'
 import { SignInScreen } from '../sign-in/SignInScreen'
@@ -33,6 +34,7 @@ type Props = SessionState &
     | 'addCar'
     | 'cancelAddCar'
     | 'carAdded'
+    | 'remindersOffered'
   >
 
 const TABS: TabBarItem<AppTab>[] = [
@@ -51,7 +53,7 @@ export function RootView(props: Props) {
 
   const vehicle = vehicles.find((v) => v.id === selectedVehicleId)
   if (status === 'ready' && vehicle && !addingCar) {
-    return (
+    const tabs = (
       <View style={styles.fill}>
         <TabContent {...props} vehicle={vehicle} />
         {/* Ask, the quote checker and the code lookup fill the screen with their own back button. */}
@@ -70,6 +72,16 @@ export function RootView(props: Props) {
           />
         )}
       </View>
+    )
+    // Reminders become useful the moment there is a car, so they are offered then, once per phone.
+    if (props.offerRemindersFor !== vehicle.id) return tabs
+    return (
+      <ReminderOfferGate
+        carName={vehicle.nickname || `${vehicle.year} ${vehicle.make} ${vehicle.model}`}
+        onDone={props.remindersOffered}
+      >
+        {tabs}
+      </ReminderOfferGate>
     )
   }
   // Without a car there is no garage to open the account from, yet the owner must still be able

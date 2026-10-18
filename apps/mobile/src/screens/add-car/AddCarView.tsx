@@ -49,10 +49,11 @@ function VinStep({
 }: Props) {
   return (
     <>
-      <Text textStyle={TITLE}>Add your car</Text>
+      {/* Without a way back, this is the first car: the first thing a new owner does. */}
+      <Text textStyle={TITLE}>{onCancel ? 'Add your car' : 'Add your first car'}</Text>
       <Text>
         Enter your VIN and we'll look up the exact model, so your schedule and recalls match your
-        car.
+        car. No VIN to hand? Enter the year, make and model instead.
       </Text>
       <TextField
         label="VIN"
@@ -130,8 +131,13 @@ function DetailsStep(props: Props) {
         value={draft.odometerMiles}
         onChangeText={(v) => setField('odometerMiles', v)}
         error={fieldErrors.odometerMiles}
+        placeholder="e.g. 36000"
         keyboardType="number-pad"
       />
+      <Note>
+        It's on your dashboard. What's due and when your reminders come both follow your mileage, so
+        adding it now gets them right from the start.
+      </Note>
       <TextField
         label="Nickname (optional)"
         value={draft.nickname}
