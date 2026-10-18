@@ -38,6 +38,10 @@ export const SYMBOLS = {
   plus: { ios: 'plus', paths: ['M12 5v14M5 12h14'] },
   chevron: { ios: 'chevron.right', paths: ['M9 6l6 6-6 6'] },
   back: { ios: 'chevron.left', paths: ['M15 6l-6 6 6 6'] },
+  calendar: {
+    ios: 'calendar',
+    paths: ['M4 6h16v14H4z', 'M4 10h16', 'M8 3v4M16 3v4', 'M8 14h3M8 17h3'],
+  },
   clock: { ios: 'clock', paths: ['M12 4a8 8 0 1 0 0.01 0', 'M12 8v4l3 2'] },
   warning: { ios: 'exclamationmark.triangle', paths: ['M12 3l10 18H2z', 'M12 10v5M12 18v.01'] },
   send: { ios: 'arrow.up', paths: ['M12 19V5M6 11l6-6 6 6'] },

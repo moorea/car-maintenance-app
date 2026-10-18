@@ -57,6 +57,7 @@ export interface YourDataDeps extends Omit<ExportDeps, keyof ImportDeps> {
   attachments: ExportDeps['attachments'] & ImportDeps['attachments']
   warranties: ExportDeps['warranties'] & ImportDeps['warranties']
   fillUps: ExportDeps['fillUps'] & ImportDeps['fillUps']
+  renewals: ExportDeps['renewals'] & ImportDeps['renewals']
   files: DataFiles
   ids: IdGenerator
 }
@@ -76,8 +77,9 @@ const exportedText = (r: ExportResult) => {
     count(r.cars, 'car'),
     count(r.services, 'service'),
     count(r.warranties, 'warranty', 'warranties'),
-    // Only cars with fill-ups mention them.
+    // Only cars with fill-ups or renewals mention them.
     ...(r.fillUps > 0 ? [count(r.fillUps, 'fill-up')] : []),
+    ...(r.renewals > 0 ? [count(r.renewals, 'renewal date')] : []),
     count(r.documents, 'document'),
   ]
   const missing =
@@ -92,6 +94,7 @@ const importedText = (r: ImportResult) => {
     count(r.services, 'service'),
     count(r.warranties, 'warranty', 'warranties'),
     ...(r.fillUps > 0 ? [count(r.fillUps, 'fill-up')] : []),
+    ...(r.renewals > 0 ? [count(r.renewals, 'renewal date')] : []),
     count(r.documents, 'document'),
   ])}.`
   const skipped =

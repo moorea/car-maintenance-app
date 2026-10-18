@@ -1,7 +1,7 @@
 import { Column, TextInput, useNativeState, type TextInputProps } from '@expo/ui'
-import { accessibilityLabel } from '@expo/ui/swift-ui/modifiers'
 import { useEffect, useRef } from 'react'
 import { useColors } from '../theme'
+import { fieldModifiers } from './fieldModifiers'
 import { Text } from './Text'
 
 interface Props {
@@ -47,8 +47,7 @@ export function TextField({ label, value, onChangeText, error, ...input }: Props
         {...(input.lines !== undefined && input.lines > 1
           ? { multiline: true, numberOfLines: input.lines }
           : {})}
-        // VoiceOver reads the field by the label shown above it, not just its placeholder.
-        modifiers={[accessibilityLabel(label)]}
+        modifiers={fieldModifiers(label)}
         // Filled like an iOS search field. Without a fill the native field draws nothing, so an
         // empty field with no placeholder is invisible on iOS. Padding rather than a fixed height
         // so multiline fields and large text sizes still fit.

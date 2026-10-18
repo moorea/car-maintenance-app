@@ -7,6 +7,8 @@ import type {
   MaintenanceItem,
   OdometerReading,
   Recall,
+  Renewal,
+  RenewalKind,
   SafetyReport,
   ServiceRecord,
   Vehicle,
@@ -158,7 +160,45 @@ export const fromFillUp = (f: FillUp) => ({
   notes: f.notes ?? null,
 })
 
-const KINDS: readonly AttachmentKind[] = ['receipt', 'registration', 'insurance', 'other']
+const RENEWAL_KINDS = new Set<string>([
+  'registration',
+  'inspection',
+  'emissions',
+  'insurance',
+  'other',
+] satisfies RenewalKind[])
+
+export const toRenewal = (r: Row): Renewal => {
+  const kind = text(r.kind)
+  return defined({
+    id: required(text(r.id), 'id'),
+    vehicleId: required(text(r.vehicle_id), 'vehicle_id'),
+    // A kind added by a newer app version reads as "other" rather than hiding the date.
+    kind: kind !== undefined && RENEWAL_KINDS.has(kind) ? (kind as RenewalKind) : 'other',
+    title: text(r.title),
+    dueOn: required(text(r.due_on), 'due_on'),
+    everyMonths: num(r.every_months),
+    notes: text(r.notes),
+  })
+}
+
+export const fromRenewal = (r: Renewal) => ({
+  id: r.id,
+  vehicle_id: r.vehicleId,
+  kind: r.kind,
+  title: r.title ?? null,
+  due_on: r.dueOn,
+  every_months: r.everyMonths ?? null,
+  notes: r.notes ?? null,
+})
+
+const KINDS: readonly AttachmentKind[] = [
+  'receipt',
+  'registration',
+  'inspection',
+  'insurance',
+  'other',
+]
 const kind = (v: unknown): AttachmentKind => KINDS.find((k) => k === v) ?? 'other'
 
 export const toAttachment = (r: Row): Attachment =>

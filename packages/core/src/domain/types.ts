@@ -139,11 +139,32 @@ export interface Warranty {
   notes?: string
 }
 
+/** A dated piece of the car's paperwork that has to be renewed. */
+export type RenewalKind = 'registration' | 'inspection' | 'emissions' | 'insurance' | 'other'
+
+/**
+ * A deadline the owner typed from the car's paperwork: when the registration expires, the state
+ * inspection or emissions test is due, or the insurance policy renews. Editable.
+ */
+export interface Renewal {
+  id: string
+  vehicleId: VehicleId
+  kind: RenewalKind
+  /** The owner's own name for it, such as "Parking permit". Shown instead of the kind's name. */
+  title?: string
+  /** When it expires or is due. */
+  dueOn: IsoDate
+  /** How often it comes round, in months; absent when it doesn't repeat. */
+  everyMonths?: number
+  /** Policy or plate number, the insurer, where to renew. */
+  notes?: string
+}
+
 /**
  * What an attached file is. Receipts and photos belong to a logged service; the rest are the car's
  * own documents.
  */
-export type AttachmentKind = 'receipt' | 'registration' | 'insurance' | 'other'
+export type AttachmentKind = 'receipt' | 'registration' | 'inspection' | 'insurance' | 'other'
 
 /** A photo or PDF the owner attached to a car, or to a service in its log. */
 export interface Attachment {

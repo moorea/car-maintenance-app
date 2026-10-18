@@ -2,7 +2,7 @@
 -- that a receipt outlives the service it was attached to.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(18);
+select plan(20);
 
 insert into auth.users (id) values
   ('00000000-0000-0000-0000-00000000000a'),
@@ -84,6 +84,19 @@ select throws_ok(
      values ('20000000-0000-0000-0000-00000000000a', 'other', 'x.pdf', 'application/pdf',
              26214401, '2026-01-01') $$,
   '23514', null, 'files over 25 MiB cannot be attached'
+);
+select lives_ok(
+  $$ insert into public.attachments (vehicle_id, kind, name, content_type, size_bytes, added_on)
+     values ('20000000-0000-0000-0000-00000000000a', 'inspection', 'Smog.pdf', 'application/pdf',
+             1000, '2026-01-01') $$,
+  'owner can attach an inspection report to their car'
+);
+delete from public.attachments where name = 'Smog.pdf';
+select throws_ok(
+  $$ insert into public.attachments (vehicle_id, kind, name, content_type, size_bytes, added_on)
+     values ('20000000-0000-0000-0000-00000000000a', 'manual', 'x.pdf', 'application/pdf',
+             1000, '2026-01-01') $$,
+  '23514', null, 'an attachment must be a known kind'
 );
 
 select is((select count(*) from public.attachments)::int, 2,

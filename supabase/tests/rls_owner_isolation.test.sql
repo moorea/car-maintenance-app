@@ -1,7 +1,7 @@
 -- Run with `supabase test db`. Proves one owner can never read or write another owner's car data.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(20);
+select plan(24);
 
 insert into auth.users (id) values
   ('00000000-0000-0000-0000-00000000000a'),
@@ -19,6 +19,9 @@ insert into public.warranties (id, vehicle_id, kind, starts_on, months) values
 insert into public.fill_ups (id, vehicle_id, filled_on, odometer_miles, energy, quantity) values
   ('50000000-0000-0000-0000-00000000000a', '20000000-0000-0000-0000-00000000000a', '2026-01-01', 1000, 'fuel', 12.4),
   ('50000000-0000-0000-0000-00000000000b', '20000000-0000-0000-0000-00000000000b', '2026-01-01', 1000, 'fuel', 12.4);
+insert into public.renewals (id, vehicle_id, kind, due_on, every_months) values
+  ('60000000-0000-0000-0000-00000000000a', '20000000-0000-0000-0000-00000000000a', 'registration', '2026-11-01', 12),
+  ('60000000-0000-0000-0000-00000000000b', '20000000-0000-0000-0000-00000000000b', 'registration', '2026-11-01', 12);
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', true);
@@ -107,6 +110,24 @@ select is(
   (json_populate_record(null::public.fill_ups, '{"full_tank": 0, "missed_previous": 1}'))
     .missed_previous,
   true, 'a fill-up uploaded with 0 and 1 for its switches reads as booleans'
+);
+
+select is((select count(*) from public.renewals)::int, 1,
+  'owner sees only the renewal dates of their own car');
+select lives_ok(
+  $$ update public.renewals set due_on = '2027-11-01'
+     where id = '60000000-0000-0000-0000-00000000000a' $$,
+  'owner can renew a registration on their own car'
+);
+select throws_ok(
+  $$ update public.renewals set vehicle_id = '20000000-0000-0000-0000-00000000000b'
+     where id = '60000000-0000-0000-0000-00000000000a' $$,
+  '42501', null, 'owner cannot move a renewal date onto someone else''s car'
+);
+select throws_ok(
+  $$ insert into public.renewals (vehicle_id, kind, due_on)
+     values ('20000000-0000-0000-0000-00000000000b', 'insurance', '2027-01-01') $$,
+  '42501', null, 'owner cannot add a renewal date to someone else''s car'
 );
 
 select * from finish();
