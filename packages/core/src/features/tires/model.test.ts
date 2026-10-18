@@ -179,6 +179,38 @@ describe('tires screen', () => {
       })
     })
 
+    it('asks when a new set went on if the car has no mileage yet, and checks it', async () => {
+      const { model, tireSets } = setup([allSeason], { readings: false })
+      await settle()
+      model.getState().openNew()
+      model.getState().setField('name', 'Summer')
+      model.getState().setMounted(true)
+      expect(await model.getState().save()).toBe(false)
+      expect(model.getState().form?.fieldErrors.mountedAtMiles).toBe(
+        'Enter the odometer when they went on',
+      )
+      model.getState().setField('mountedAtMiles', '29,000')
+      expect(await model.getState().save()).toBe(false)
+      expect(model.getState().form?.fieldErrors.mountedAtMiles).toBe(
+        "That's less than the 30,000 mi the other set went on at",
+      )
+      model.getState().setField('mountedAtMiles', '33,000')
+      expect(await model.getState().save()).toBe(true)
+      expect((await tireSets.listForVehicle('v1')).find((t) => t.id === 't-all')).toMatchObject({
+        mounted: false,
+        priorMiles: 3_000,
+      })
+    })
+
+    it('keeps the mileage the set on the car went on at when that field is cleared', async () => {
+      const { model, tireSets } = setup([allSeason])
+      await settle()
+      model.getState().openEdit('t-all')
+      model.getState().setField('mountedAtMiles', '')
+      expect(await model.getState().save()).toBe(true)
+      expect((await tireSets.listForVehicle('v1'))[0]?.mountedAtMiles).toBe(30_000)
+    })
+
     it('explains what is wrong with the form, field by field', async () => {
       const { model } = setup([])
       await settle()
@@ -326,6 +358,24 @@ describe('tires screen', () => {
       await settle()
       model.getState().openSwap('t-winter')
       expect(model.getState().swap).toMatchObject({ miles: '', note: undefined })
+    })
+
+    it('closes the swap if another phone put the set on the car meanwhile', async () => {
+      const { model, tireSets } = setup([allSeason, winter])
+      await settle()
+      model.getState().openSwap('t-winter')
+      const { mountedAtMiles: _, ...stored } = allSeason
+      await tireSets.save(
+        { ...winter, mounted: true, mountedAtMiles: 40_000 },
+        { ...stored, mounted: false },
+      )
+      await settle()
+      expect(await model.getState().confirmSwap()).toBe(false)
+      expect(model.getState().swap).toBeUndefined()
+      expect((await tireSets.listForVehicle('v1')).find((t) => t.id === 't-winter')).toMatchObject({
+        mounted: true,
+        mountedAtMiles: 40_000,
+      })
     })
 
     it('ignores a swap to the set already on the car', async () => {

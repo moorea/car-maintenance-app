@@ -122,7 +122,10 @@ export const assessTires = (set: TireSet, today: IsoDate): TireAssessment => {
     if (tread <= TREAD_LEGAL_MIN)
       found.push({
         condition: 'replace',
-        advice: `Tread is at ${tread}/32″, the legal limit in most states. Replace them.`,
+        advice:
+          tread < TREAD_LEGAL_MIN
+            ? `Tread is down to ${tread}/32″, below the legal limit in most states. Replace them.`
+            : `Tread is at ${tread}/32″, the legal limit in most states. Replace them.`,
       })
     else if (tread <= TREAD_LOW)
       found.push({

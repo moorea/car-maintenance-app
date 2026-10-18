@@ -21,7 +21,7 @@ measured tread depth.
 - **Editable**, like warranties and fill-ups: PUT, PATCH and DELETE upload, and RLS lets owners
   write rows on their own cars only.
 - **Reminders are the phone's own** (ADR 0008): a heads-up a month before a set turns six and ten.
-  The id names the set and the birthday, so editing the DOT code moves them.
+  The id names the set and the age, and the date follows the DOT code, so editing it moves them.
 - Two phones swapping offline at once can both leave a set on the car until one is corrected; the
   page still lists every set, so nothing is hidden.
 

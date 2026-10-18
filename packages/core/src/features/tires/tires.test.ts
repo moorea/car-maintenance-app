@@ -37,6 +37,9 @@ describe('DOT codes', () => {
   it('refuses a week that does not exist, and codes too short to hold a date', () => {
     expect(parseDotCode('5421')).toBeUndefined()
     expect(parseDotCode('0021')).toBeUndefined()
+    // 2020 has a week 53; 2021 does not.
+    expect(parseDotCode('5320')).toEqual({ week: 53, year: 2020 })
+    expect(parseDotCode('5321')).toBeUndefined()
     expect(parseDotCode('321')).toBeUndefined()
     expect(parseDotCode('winter')).toBeUndefined()
   })
@@ -89,6 +92,10 @@ describe('assessing a set', () => {
     expect(assessTires({ ...winter, madeYear: 2025, treadDepth32nds: 2 }, '2026-10-17')).toEqual({
       condition: 'replace',
       advice: 'Tread is at 2/32″, the legal limit in most states. Replace them.',
+    })
+    expect(assessTires({ ...winter, madeYear: 2025, treadDepth32nds: 1 }, '2026-10-17')).toEqual({
+      condition: 'replace',
+      advice: 'Tread is down to 1/32″, below the legal limit in most states. Replace them.',
     })
   })
 

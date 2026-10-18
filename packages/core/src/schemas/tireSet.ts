@@ -17,7 +17,17 @@ export const parseDotCode = (text: string): { week: number; year: number } | und
   if (!match) return undefined
   const week = Number(match[1])
   // Codes have had four digits since 2000; older tires had three and are long past replacing.
-  return week >= 1 && week <= 53 ? { week, year: 2000 + Number(match[2]) } : undefined
+  const year = 2000 + Number(match[2])
+  return week >= 1 && week <= isoWeeksIn(year) ? { week, year } : undefined
+}
+
+/**
+ * 53 for years whose ISO calendar has a week 53 (those starting on a Thursday, or leap years
+ * starting on a Wednesday), otherwise 52.
+ */
+const isoWeeksIn = (year: number): number => {
+  const p = (y: number) => (y + Math.floor(y / 4) - Math.floor(y / 100) + Math.floor(y / 400)) % 7
+  return p(year) === 4 || p(year - 1) === 3 ? 53 : 52
 }
 
 const optionalMiles = (message: string) =>

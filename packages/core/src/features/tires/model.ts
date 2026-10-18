@@ -313,7 +313,25 @@ export const createTiresModel = (deps: TiresDeps): TiresModel => {
         }
         const existing = form.id ? sets.find((s) => s.id === form.id) : undefined
         const mounted = existing ? existing.mounted : d.mounted
-        const mountedAtMiles = mounted ? (d.mountedAtMiles ?? currentMiles) : undefined
+        // Left blank, an edit keeps the mileage the set went on at, and a new set goes on today.
+        const mountedAtMiles = mounted
+          ? (d.mountedAtMiles ?? (existing ? existing.mountedAtMiles : currentMiles))
+          : undefined
+        if (mounted && mountedAtMiles === undefined) {
+          // Without it the set would never count miles, and the one it replaces would lose its season.
+          updateForm({ fieldErrors: { mountedAtMiles: 'Enter the odometer when they went on' } })
+          return false
+        }
+        const outgoing = !existing && mounted ? sets.filter((s) => s.mounted) : []
+        const lowest = Math.max(...outgoing.map((s) => s.mountedAtMiles ?? 0), 0)
+        if (mountedAtMiles !== undefined && mountedAtMiles < lowest) {
+          updateForm({
+            fieldErrors: {
+              mountedAtMiles: `That's less than the ${formatMiles(lowest)} the other set went on at`,
+            },
+          })
+          return false
+        }
         // A new reading keeps today's date; an unchanged one keeps the day it was measured.
         const treadCheckedOn =
           d.treadDepth === undefined
@@ -336,12 +354,7 @@ export const createTiresModel = (deps: TiresDeps): TiresModel => {
           ...(d.notes !== undefined && { notes: d.notes }),
         }
         // A new set going on the car takes the one there off, at the mileage it went on.
-        const replaced =
-          !existing && mounted
-            ? sets
-                .filter((s) => s.mounted)
-                .map((s) => takenOff(s, tireSet.mountedAtMiles ?? currentMiles ?? 0))
-            : []
+        const replaced = outgoing.map((s) => takenOff(s, tireSet.mountedAtMiles ?? lowest))
         updateForm({ saving: true, error: undefined })
         try {
           await deps.tireSets.save(tireSet, ...replaced)
@@ -406,11 +419,12 @@ export const createTiresModel = (deps: TiresDeps): TiresModel => {
         }
         const miles = Number(text.replaceAll(',', ''))
         const incoming = sets.find((s) => s.id === swap.id)
-        if (!incoming) {
+        // Gone, or put on the car from another phone while the sheet was open.
+        if (!incoming || incoming.mounted) {
           set({ swap: undefined })
           return false
         }
-        const outgoing = sets.filter((s) => s.mounted)
+        const outgoing = sets.filter((s) => s.mounted && s.id !== incoming.id)
         const lowest = Math.max(...outgoing.map((s) => s.mountedAtMiles ?? 0), 0)
         if (miles < lowest) {
           updateSwap({
