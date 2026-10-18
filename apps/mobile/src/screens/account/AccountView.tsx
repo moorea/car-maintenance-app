@@ -132,7 +132,7 @@ function Privacy({ aiSharing, onPrivacyPolicy }: Props) {
       <Card padding={0}>
         <Row style={{ paddingHorizontal: 16, paddingVertical: 10 }}>
           <Switch
-            label="Share with Anthropic for Ask and quote checks"
+            label="Share with Anthropic for Ask and photo reading"
             value={aiSharing.on}
             disabled={aiSharing.status !== 'ready'}
             onValueChange={(on) => void aiSharing.setOn(on)}
@@ -141,8 +141,8 @@ function Privacy({ aiSharing, onPrivacyPolicy }: Props) {
       </Card>
       {aiSharing.error ? <ErrorText>{aiSharing.error}</ErrorText> : null}
       <Note>
-        Ask and the quote checker send your question, your car's records or a quote's photo to
-        Anthropic, whose Claude model writes the answer. Off means they ask first.
+        Ask, the quote checker and odometer photos send your question, your car's records or the
+        photo to Anthropic, whose Claude model reads or answers it. Off means they ask first.
       </Note>
       <Card padding={0} onPress={onPrivacyPolicy}>
         <SettingRow symbol="shield" label="Privacy policy" chevron />

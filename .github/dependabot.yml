@@ -1,0 +1,14 @@
+# Actions are pinned to commit SHAs (checked by zizmor in CI), so Dependabot proposes the updates
+# that a floating tag like @v4 would otherwise have taken silently.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']
+    # A release must be a week old first, so a compromised one is usually pulled before it is proposed.
+    cooldown:
+      default-days: 7

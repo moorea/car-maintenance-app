@@ -1,6 +1,7 @@
 import { createAttachmentsModel, createCarModel, createSafetyModel, type Vehicle } from '@car/core'
 import { useStore } from 'zustand'
 import { deps } from '../../bootstrap/deps'
+import { openPrivacyPolicy } from '../../bootstrap/links'
 import { useScreenModel } from '../../models/useScreenModel'
 import { CarView } from './CarView'
 
@@ -41,6 +42,7 @@ export function CarScreen({
       onFuel={onFuel}
       onDriving={onDriving}
       onRenewals={onRenewals}
+      onPrivacyPolicy={openPrivacyPolicy}
     />
   )
 }

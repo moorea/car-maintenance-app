@@ -370,6 +370,16 @@ export interface QuoteReader {
   read(photo: QuotePhoto, signal?: CancelSignal): Promise<QuoteLine[]>
 }
 
+/** Reads the miles from a photo of the car's odometer, on the server. Needs a connection. */
+export interface OdometerReader {
+  /**
+   * Resolves with the whole miles the odometer shows, or undefined when the photo shows no
+   * odometer it can read. Rejects with AssistantError, since it shares the assistant's service and
+   * daily limit.
+   */
+  read(photo: QuotePhoto, signal?: CancelSignal): Promise<number | undefined>
+}
+
 /** The phone's camera and photo library. */
 export interface PhotoPicker {
   /** Opens the camera; resolves with the photo, or undefined if the owner cancelled. */

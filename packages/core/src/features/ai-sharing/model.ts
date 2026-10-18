@@ -4,6 +4,7 @@ import type {
   Assistant,
   AuthPort,
   DevicePreferencesRepo,
+  OdometerReader,
   QuoteReader,
   Unsubscribe,
 } from '../../ports'
@@ -44,7 +45,7 @@ export const watchAiSharing = (
 export interface AiSharingState {
   /** `saving` while a change is being written; the switch ignores taps meanwhile. */
   status: 'loading' | 'ready' | 'saving'
-  /** Whether Ask and the quote checker may send the signed-in owner's data to Anthropic. */
+  /** Whether Ask and the photo readers may send the signed-in owner's data to Anthropic. */
   on: boolean
   /** Why the last change did not save. Cleared by the next change. */
   error?: string | undefined
@@ -60,8 +61,8 @@ export interface AiSharingActions {
 export type AiSharingModel = StoreApi<AiSharingState & AiSharingActions>
 
 /**
- * The signed-in owner's permission for Ask and the quote checker to share data with Anthropic.
- * Asked for the first time either is opened, and changeable in Account (App Store guideline
+ * The signed-in owner's permission for Ask and the photo readers (quotes, odometer) to share data
+ * with Anthropic. Asked for the first time any is used, and changeable in Account (App Store guideline
  * 5.1.2(i)).
  */
 export const createAiSharingModel = (deps: AiSharingDeps): AiSharingModel => {
@@ -100,14 +101,14 @@ export const createAiSharingModel = (deps: AiSharingDeps): AiSharingModel => {
 }
 
 /**
- * Wraps the assistant and the quote reader so nothing reaches Anthropic unless the signed-in
+ * Wraps the assistant and the photo readers so nothing reaches Anthropic unless the signed-in
  * owner allowed it, whichever screen asks. Refuses with AssistantError `not-allowed` otherwise.
  * Lives for as long as the app runs.
  */
 export const guardAiSharing = (
   deps: AiSharingDeps,
-  services: { assistant: Assistant; quoteReader: QuoteReader },
-): { assistant: Assistant; quoteReader: QuoteReader } => {
+  services: { assistant: Assistant; quoteReader: QuoteReader; odometerReader: OdometerReader },
+): { assistant: Assistant; quoteReader: QuoteReader; odometerReader: OdometerReader } => {
   let allowed = false
   watchAiSharing(deps, (now) => {
     allowed = now
@@ -126,6 +127,12 @@ export const guardAiSharing = (
       read: async (photo, signal) => {
         check()
         return services.quoteReader.read(photo, signal)
+      },
+    },
+    odometerReader: {
+      read: async (photo, signal) => {
+        check()
+        return services.odometerReader.read(photo, signal)
       },
     },
   }

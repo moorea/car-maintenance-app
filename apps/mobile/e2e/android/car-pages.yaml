@@ -122,3 +122,20 @@ appId: com.moorea.carmaintenance
     visible: 'Before you ask'
     timeout: 5000
 - takeScreenshot: 38-ask-consent
+- back
+
+# Reading the odometer from a photo asks before the first photo goes to Anthropic.
+- tapOn: 'Car'
+- scrollUntilVisible:
+    element: 'Update'
+    direction: UP
+- tapOn: 'Update'
+- extendedWaitUntil:
+    visible: 'Take photo'
+    timeout: 5000
+- takeScreenshot: 39-odometer-editor
+- tapOn: 'Take photo'
+- extendedWaitUntil:
+    visible: 'Read the miles with Claude\?'
+    timeout: 5000
+- takeScreenshot: 39-odometer-photo-consent

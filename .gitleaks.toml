@@ -1,0 +1,11 @@
+# Secret scanning in CI (the security job in .github/workflows/ci.yml) uses gitleaks' default rules
+# plus this allowance.
+[extend]
+useDefault = true
+
+# The Supabase CLI's local demo keys: every `supabase start` prints the same ones (issuer
+# "supabase-demo"), and they only open a database on the developer's own machine.
+[[allowlists]]
+description = "Supabase local demo keys"
+regexTarget = "match"
+regexes = ['''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJzdXBhYmFzZS1kZW1vI''']

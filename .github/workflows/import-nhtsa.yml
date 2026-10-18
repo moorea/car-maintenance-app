@@ -8,7 +8,9 @@ on:
   schedule:
     - cron: '23 */3 * * *'
   # Straight after migrations are applied, so a new or changed import runs against its tables.
-  workflow_run:
+  # Safe as a trigger here: Deploy database only runs on main, and this job checks out the default
+  # branch and reads no artifact or input from the run that triggered it.
+  workflow_run: # zizmor: ignore[dangerous-triggers]
     workflows: ['Deploy database']
     types: [completed]
   workflow_dispatch:
@@ -30,26 +32,32 @@ jobs:
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    # The secrets are given only to the steps that need them, never to `pnpm install`, where a
+    # compromised dependency's code could read the environment.
     env:
-      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       PROJECT_REF: vdklyvktmbcocwmiqkze
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile --filter @car/importer
-      - uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb # v1.7.3
         with:
           version: 2.121.0
       # Linking records the project's connection pooler, which GitHub's runners can reach (the
       # direct database host is IPv6 only).
       - run: supabase link --project-ref "$PROJECT_REF"
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       - name: Import
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
           DATABASE_URL="$(cat supabase/.temp/pooler-url)"
           test -n "$DATABASE_URL" || { echo "supabase link wrote no pooler URL"; exit 1; }
