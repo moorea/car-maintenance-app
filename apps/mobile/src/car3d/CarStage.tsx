@@ -362,7 +362,7 @@ export function CarStage(props: CarStageProps) {
   }
 
   return (
-    <View style={{ height: props.height }} accessible={false} onLayout={onLayout}>
+    <View style={{ width: '100%', height: props.height }} accessible={false} onLayout={onLayout}>
       <View
         style={StyleSheet.absoluteFill}
         accessible

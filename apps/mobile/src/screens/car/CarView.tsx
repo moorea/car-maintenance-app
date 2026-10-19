@@ -536,7 +536,9 @@ function CarDrawing({
   const items = picked ? car.schedule.filter((r) => picked.itemIds.includes(r.itemId)) : []
   return (
     <Column spacing={10}>
-      <RNHostView style={{ height: STAGE_HEIGHT }}>
+      {/* Width from the page, height from the stage: the stage's children are absolutely placed,
+          so a host sized to them would be zero wide and GL would never start. */}
+      <RNHostView matchContents={{ vertical: true }}>
         <Suspense fallback={<ActivityIndicator style={{ height: STAGE_HEIGHT }} />}>
           <CarStage
             bodyStyle={bodyStyle}
