@@ -16,6 +16,7 @@ import { createDemoAssistant, createDemoRepositories, DEMO_ODOMETER_PHOTO_MILES 
 import { createLiveRepositories } from './live'
 import { systemFilePicker, systemFilePreview } from './files'
 import { expoNotifier } from './notifications'
+import { systemPhoneDisplay } from './phoneDisplay'
 import { expoPhotoPicker } from './photos'
 
 // The composition root: the only place that picks adapters. Screens only ever see ports.
@@ -68,6 +69,7 @@ export const deps = {
   picker: systemFilePicker(),
   preview: systemFilePreview(),
   photos: expoPhotoPicker(),
+  phone: systemPhoneDisplay(),
   reminders: createReminderScheduler({
     ...repositories,
     clock,

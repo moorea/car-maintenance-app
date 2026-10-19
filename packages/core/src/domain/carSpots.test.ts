@@ -83,7 +83,7 @@ describe('carHotspots', () => {
     ])
   })
 
-  it('marks a place with an open recall above anything overdue, and counts both', () => {
+  it('marks a place with a recall above anything overdue, and counts both', () => {
     const [hood] = carHotspots(
       [item('oil', 'overdue', 'hood'), item('plugs', 'due-soon', 'hood')],
       [{ id: 'r1', spot: 'hood' }],
@@ -91,7 +91,7 @@ describe('carHotspots', () => {
     expect(hood).toMatchObject({
       attention: 'recall',
       recallIds: ['r1'],
-      summary: '1 open recall · 1 overdue · 1 due soon',
+      summary: '1 recall · 1 overdue · 1 due soon',
     })
   })
 

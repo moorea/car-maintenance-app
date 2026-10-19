@@ -90,6 +90,8 @@ export interface CarState {
   /** The link to the car's fill-ups and costs, in the words of what it usually runs on. */
   fuelLink: FuelLink
   section: CarSection
+  /** The spot on the drawing of the car the owner picked, whose items show under it. */
+  spot?: CarSpot | undefined
   /** "Toyota schedule · normal driving", or "General schedule · normal driving". */
   scheduleTitle: string
   /** Says the schedule is general guidance, not the manufacturer's; absent when it is theirs. */
@@ -103,6 +105,8 @@ export interface CarState {
 export interface CarActions {
   start: () => void
   showSection: (section: CarSection) => void
+  /** Picks a spot on the drawing of the car, or lets it go when picked again or given none. */
+  showSpot: (spot: CarSpot | undefined) => void
   editOdometer: () => void
   setOdometer: (value: string) => void
   /** Closes the editor, stopping a photo being read. */
@@ -352,6 +356,7 @@ export const createCarModel = (deps: CarDeps): CarModel => {
       schedule: [],
 
       showSection: (section) => set({ section }),
+      showSpot: (spot) => set({ spot: spot === get().spot ? undefined : spot }),
 
       editOdometer: () => set({ editingOdometer: EMPTY_EDITOR }),
 

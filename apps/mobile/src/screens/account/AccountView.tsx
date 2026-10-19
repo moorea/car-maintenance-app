@@ -3,6 +3,8 @@ import type {
   AccountState,
   AiSharingActions,
   AiSharingState,
+  Car3dActions,
+  Car3dState,
   RemindersSummary,
 } from '@car/core'
 import { Column, Row, ScrollView, Switch } from '@expo/ui'
@@ -24,6 +26,7 @@ type Props = AccountState &
     onBack?: (() => void) | undefined
     onYourData?: (() => void) | undefined
     aiSharing: AiSharingState & Pick<AiSharingActions, 'setOn'>
+    car3d: Car3dState & Pick<Car3dActions, 'setOn'>
     onPrivacyPolicy: () => void
   }
 
@@ -101,6 +104,8 @@ export function AccountView(props: Props) {
             </Section>
           ) : null}
 
+          <Display {...props} />
+
           <Privacy {...props} />
 
           <Column spacing={8}>
@@ -136,6 +141,35 @@ export function AccountView(props: Props) {
         </Column>
       </ScrollView>
     </Host>
+  )
+}
+
+const OFF_BECAUSE = {
+  'reduce-motion': 'Off because Reduce Motion is on. Turn it on here to see the car in 3D anyway.',
+  'low-power': 'Off while Low Power Mode is on. Turn it on here to see the car in 3D anyway.',
+  'slow-phone': 'Off because this phone may draw it slowly. Turn it on here to try it.',
+} as const
+
+function Display({ car3d }: Props) {
+  return (
+    <Section title="DISPLAY">
+      <Card padding={0}>
+        <Row style={{ paddingHorizontal: 16, paddingVertical: 10 }}>
+          <Switch
+            label="Show your car in 3D"
+            value={car3d.on}
+            disabled={car3d.status !== 'ready'}
+            onValueChange={(on) => void car3d.setOn(on)}
+          />
+        </Row>
+      </Card>
+      {car3d.error ? <ErrorText>{car3d.error}</ErrorText> : null}
+      <Note>
+        {car3d.offBecause
+          ? OFF_BECAUSE[car3d.offBecause]
+          : 'Turn your car on its page and tap a spot to see what’s due there. Off shows a still drawing instead. Applies to this phone.'}
+      </Note>
+    </Section>
   )
 }
 

@@ -1,0 +1,37 @@
+# The car drawn in 3D, a spot picked, then the still drawing, as apps/mobile/e2e/car-3d.yaml does
+# on iOS.
+appId: com.moorea.carmaintenance
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+- extendedWaitUntil:
+    visible: 'Demo car.*'
+    timeout: 90000
+- tapOn: 'Car'
+- extendedWaitUntil:
+    visible: 'Tap a dot.*'
+    timeout: 10000
+- waitForAnimationToEnd
+- takeScreenshot: 90-car-3d
+- tapOn:
+    id: 'spot-hood'
+- extendedWaitUntil:
+    visible: 'Under the hood'
+    timeout: 5000
+- waitForAnimationToEnd
+- takeScreenshot: 90-car-3d-spot
+- tapOn: 'Done'
+- tapOn: 'Account'
+- scrollUntilVisible:
+    element: 'Show your car in 3D'
+    centerElement: true
+- tapOn: 'Show your car in 3D'
+- takeScreenshot: 90-account-3d-off
+- tapOn: 'Car'
+- extendedWaitUntil:
+    visible: 'Tap a dot.*'
+    timeout: 10000
+- waitForAnimationToEnd
+- takeScreenshot: 90-car-still

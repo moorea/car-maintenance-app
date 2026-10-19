@@ -21,9 +21,11 @@
     "@react-native-async-storage/async-storage": "2.2.0",
     "@supabase/supabase-js": "^2.118.0",
     "expo": "~58.0.14",
+    "expo-battery": "~58.0.3",
     "expo-crypto": "~58.0.7",
     "expo-dev-client": "~58.0.14",
     "expo-file-system": "~58.0.9",
+    "expo-gl": "~58.0.3",
     "expo-image-picker": "~58.0.10",
     "expo-notifications": "~58.1.5",
     "expo-print": "~58.0.6",
@@ -35,10 +37,12 @@
     "react-native-safe-area-context": "~5.10.1",
     "react-native-url-polyfill": "^4.0.0",
     "react-native-web": "~0.21.4",
+    "three": "0.160.0",
     "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@types/react": "~19.3.0",
+    "@types/three": "0.160.0",
     "vitest": "^5.0.5"
   }
 }

@@ -1,21 +1,29 @@
-import type {
-  CarActions,
-  CarSection,
-  CarState,
-  DueStatus,
-  EditCarActions,
-  EditCarState,
-  FuelLink,
-  SafetyActions,
-  SafetyState,
-  ScheduleItemActions,
-  ScheduleItemState,
-  ScheduleRow,
+import {
+  BODY_STYLES,
+  carHotspots,
+  DEFAULT_BODY_STYLE,
+  DEFAULT_PAINT,
+  PAINTS,
+  spotOfComponent,
+  type Car3dState,
+  type CarActions,
+  type CarSection,
+  type CarState,
+  type DueStatus,
+  type EditCarActions,
+  type EditCarState,
+  type FuelLink,
+  type SafetyActions,
+  type SafetyState,
+  type ScheduleItemActions,
+  type ScheduleItemState,
+  type ScheduleRow,
+  type Vehicle,
 } from '@car/core'
-import { Column, Row, ScrollView } from '@expo/ui'
-import { Fragment } from 'react'
+import { Column, RNHostView, Row, ScrollView } from '@expo/ui'
+import { Fragment, lazy, Suspense } from 'react'
 import { ActivityIndicator, StyleSheet } from 'react-native'
-import { useColors, type ColorRole } from '../../theme'
+import { paintColors, useColors, type ColorRole } from '../../theme'
 import { Host } from '../../ui/Host'
 import { ErrorText, Note } from '../../ui/Note'
 import { SegmentedControl } from '../../ui/SegmentedControl'
@@ -42,8 +50,14 @@ import { TITLE_TOP } from '../../ui/layout'
 import { Text } from '../../ui/Text'
 import { Button } from '../../ui/Button'
 
+// three.js is only loaded once a Car screen first draws the car.
+const CarStage = lazy(() => import('../../car3d/CarStage').then((m) => ({ default: m.CarStage })))
+const STAGE_HEIGHT = 230
+
 interface Props {
   car: CarState & CarActions
+  vehicle: Vehicle
+  car3d: Car3dState
   safety: SafetyState & Pick<SafetyActions, 'toggle'>
   scheduleItem: ScheduleItemState & ScheduleItemActions
   editCar: EditCarState & EditCarActions
@@ -63,6 +77,8 @@ const OVERLINE = { fontSize: 13, fontWeight: '600', letterSpacing: 0.5 } as cons
 /** Pure rendering of a car's page: odometer, documents, then schedule, recalls or known issues. */
 export function CarView({
   car,
+  vehicle,
+  car3d,
   safety,
   scheduleItem,
   editCar,
@@ -103,6 +119,13 @@ export function CarView({
             </FillColumn>
             <GlassIconButton symbol="compose" label="Edit car" onPress={editCar.open} />
           </Row>
+          <CarDrawing
+            car={car}
+            vehicle={vehicle}
+            car3d={car3d}
+            safety={safety}
+            onItem={(id) => void scheduleItem.openItem(id)}
+          />
           <OdometerCard {...car} onPrivacyPolicy={onPrivacyPolicy} />
           <QuoteCard onPress={onCheckQuote} />
           <TroubleCodesCard onPress={onTroubleCodes} />
@@ -480,3 +503,94 @@ function ScheduleRowView({ row, onPress }: { row: ScheduleRow; onPress: () => vo
 const styles = StyleSheet.create({
   fill: { flex: 1 },
 })
+
+/**
+ * The owner's car drawn at the top of its page, in 3D or as a still side view (ADR 0022), with a
+ * pin on each spot that has something on it. Picking a pin lists what is there underneath.
+ */
+function CarDrawing({
+  car,
+  vehicle,
+  car3d,
+  safety,
+  onItem,
+}: {
+  car: CarState & CarActions
+  vehicle: Vehicle
+  car3d: Car3dState
+  safety: SafetyState
+  onItem: (itemId: string) => void
+}) {
+  const colors = useColors()
+  if (car3d.status === 'loading' || car.status !== 'ready') return null
+  const recalls = safety.status === 'ready' ? safety.recalls : []
+  const hotspots = carHotspots(
+    car.schedule,
+    recalls.map((r) => ({ id: r.id, spot: spotOfComponent(r.component) })),
+  )
+  const bodyStyle = vehicle.bodyStyle ?? DEFAULT_BODY_STYLE
+  const paint = vehicle.paint ?? DEFAULT_PAINT
+  const kind = BODY_STYLES.find((b) => b.id === bodyStyle)?.label ?? ''
+  const paintName = PAINTS.find((p) => p.id === paint)?.label.toLowerCase() ?? ''
+  const picked = hotspots.find((h) => h.spot === car.spot)
+  const items = picked ? car.schedule.filter((r) => picked.itemIds.includes(r.itemId)) : []
+  return (
+    <Column spacing={10}>
+      <RNHostView style={{ height: STAGE_HEIGHT }}>
+        <Suspense fallback={<ActivityIndicator style={{ height: STAGE_HEIGHT }} />}>
+          <CarStage
+            bodyStyle={bodyStyle}
+            paint={paintColors[paint]}
+            mode={car3d.on ? '3d' : 'still'}
+            hotspots={hotspots}
+            focused={car.spot}
+            onSelect={car.showSpot}
+            label={`Drawing of a ${paintName} ${kind} standing in for your ${car.title}.${car3d.on ? ' Drag sideways to turn it.' : ''}`}
+            height={STAGE_HEIGHT}
+          />
+        </Suspense>
+      </RNHostView>
+      {picked ? (
+        <Card spacing={8}>
+          <Row alignment="center">
+            <FillColumn spacing={2}>
+              <Text textStyle={{ fontSize: 16, fontWeight: '600' }}>{picked.label}</Text>
+              <Text textStyle={{ fontSize: 13, color: colors.textSecondary }}>
+                {picked.summary}
+              </Text>
+            </FillColumn>
+            <Button variant="text" label="Done" onPress={() => car.showSpot(undefined)} />
+          </Row>
+          {picked.recallIds.length > 0 ? (
+            <TappableRow onPress={() => car.showSection('recalls')}>
+              <Dot color="danger" />
+              <FillColumn>
+                <Text>
+                  {picked.recallIds.length === 1
+                    ? 'A recall is here'
+                    : `${picked.recallIds.length} recalls are here`}
+                </Text>
+              </FillColumn>
+              <Symbol name="chevron" size={14} color={colors.textSecondary} />
+            </TappableRow>
+          ) : null}
+          {items.map((row) => (
+            <TappableRow key={row.itemId} onPress={() => onItem(row.itemId)}>
+              <Dot color={DOT[row.status]} />
+              <FillColumn>
+                <Text>{row.task}</Text>
+              </FillColumn>
+              <Text textStyle={{ fontSize: 13, color: colors.textSecondary }}>{row.next}</Text>
+            </TappableRow>
+          ))}
+        </Card>
+      ) : (
+        <Note>
+          {hotspots.length > 0
+            ? 'Tap a dot to see what’s there. Everything is also in the schedule below.'
+            : 'Nothing to point out on the car. The schedule is below.'}
+        </Note>
+      )}
+    </Column>
+  )
+}

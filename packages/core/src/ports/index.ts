@@ -1,4 +1,5 @@
 import type { IsoDate } from '../lib/date'
+import type { PhoneFor3d } from '../domain/appearance'
 import type {
   AnswerSource,
   Attachment,
@@ -344,6 +345,12 @@ export interface DevicePreferencesRepo {
   watch(onChange: (preferences: DevicePreferences) => void): Unsubscribe
   /** Saves the given preferences, keeping the others. */
   update(change: Partial<DevicePreferences>): Promise<void>
+}
+
+/** What the phone says about drawing the car in 3D: Reduce Motion, low power and its speed. */
+export interface PhoneDisplay {
+  /** Calls `onChange` with the phone's settings now and whenever they change. */
+  watch(onChange: (phone: PhoneFor3d) => void): Unsubscribe
 }
 
 /** The part of the platform's AbortSignal that core relies on; core has no DOM types. */

@@ -103,3 +103,26 @@ export const paintColors: Record<Paint, string> = {
   green: p.paintGreen,
   brown: p.paintBrown,
 }
+
+/** The colours of the drawn car's parts other than its paint (ADR 0022). The same in light and dark. */
+export const carPartColors = {
+  trim: p.carTrim,
+  well: p.carWell,
+  rubber: p.carRubber,
+  alloy: p.carAlloy,
+  alloyDark: p.carAlloyDark,
+  rotor: p.carRotor,
+  caliper: p.carCaliper,
+  interior: p.carInterior,
+  glassTint: p.black,
+  headlight: p.carHeadlight,
+  taillight: p.carTaillight,
+  tailLens: p.carTailLens,
+  plate: p.carPlate,
+  light: p.white,
+  skyLight: p.carSkyLight,
+  ground: p.carGround,
+  shadow: p.black,
+} as const
+
+export type CarPartColors = typeof carPartColors

@@ -1,4 +1,4 @@
-import { createAccountModel, createAiSharingModel } from '@car/core'
+import { createAccountModel, createAiSharingModel, createCar3dModel } from '@car/core'
 import { useStore } from 'zustand'
 import { deps } from '../../bootstrap/deps'
 import { openPrivacyPolicy } from '../../bootstrap/links'
@@ -28,10 +28,12 @@ export function AccountScreen(props: {
       createAiSharingModel({ preferences: deps.preferences, auth: deps.auth }),
     ),
   )
+  const car3d = useStore(useScreenModel('car-3d', () => createCar3dModel(deps)))
   return (
     <AccountView
       {...state}
       aiSharing={sharing}
+      car3d={car3d}
       onPrivacyPolicy={openPrivacyPolicy}
       onReminders={props.onReminders}
       onYourData={props.onYourData}
