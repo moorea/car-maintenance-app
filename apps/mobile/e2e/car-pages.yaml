@@ -172,6 +172,11 @@ appId: com.moorea.carmaintenance
     visible: 'ODOMETER'
     timeout: 10000
 - waitForAnimationToEnd
+# The car's first drawing is built on the JS thread, which on a slow simulator holds up taps.
+- extendedWaitUntil:
+    visible:
+      id: 'spot-hood'
+    timeout: 30000
 - tapOn: 'Update'
 - extendedWaitUntil:
     visible: 'Take photo'
