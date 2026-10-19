@@ -365,6 +365,7 @@ export function CarStage(props: CarStageProps) {
   const onLayout = (e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout
     box.current = { w: width, h: height }
+    console.log('[car3d] layout', width, height) // TEMPORARY
     if (width > 0 && height > 0) setSized(true)
     redraw()
   }
@@ -379,8 +380,15 @@ export function CarStage(props: CarStageProps) {
         {...pan}
       >
         {sized ? (
-          <GLView style={StyleSheet.absoluteFill} onContextCreate={onContextCreate} />
+          <GLView
+            style={StyleSheet.absoluteFill}
+            onContextCreate={onContextCreate}
+            onLayout={(e) => console.log('[car3d] glview', JSON.stringify(e.nativeEvent.layout))} // TEMPORARY
+          />
         ) : null}
+        <Animated.Text style={{ position: 'absolute', left: 4, top: 4, color: colors.danger }}>
+          {`DEBUG sized=${String(sized)}`}
+        </Animated.Text>
       </View>
       {props.hotspots.map((h) => {
         const pin = pins.get(h.spot)

@@ -54,6 +54,6 @@ find . "$out/maestro" \( -name node_modules -o -name .expo -o -path ./apps/mobil
 adb exec-out screencap -p > "$out/screenshots/last.png" || true
 adb logcat -d -v time > "$out/maestro/logcat.txt" || true
 grep -E 'ReactNativeJS|AndroidRuntime|FATAL' "$out/maestro/logcat.txt" | tail -n 200 || true
-grep -F '[car3d]' "$out/maestro/logcat.txt" | head -n 40 || true # TEMPORARY
+grep -E '\[car3d\]|EXGL|GLView|GLContext|expo.modules.gl|TextureView|E/OpenGL|EGL' "$out/maestro/logcat.txt" | head -n 120 || true # TEMPORARY
 [ "$status" = 0 ] || scripts/maestro-report.sh "$out/maestro"
 exit "$status"
