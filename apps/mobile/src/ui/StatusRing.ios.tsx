@@ -2,13 +2,14 @@
 // Type it would spill over the ring. The ring's label reads it out instead.
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { Text } from '@expo/ui'
-import { Chart, Circle, VStack, ZStack } from '@expo/ui/swift-ui'
+import { Chart, VStack, ZStack } from '@expo/ui/swift-ui'
 import {
   accessibilityElement,
   accessibilityLabel,
-  foregroundStyle,
+  background,
   frame,
   monospacedDigit,
+  shapes,
 } from '@expo/ui/swift-ui/modifiers'
 import { useColors } from '../theme'
 import { RING_THICKNESS, type StatusRingProps } from './StatusRing'
@@ -47,15 +48,15 @@ export function StatusRing({ segments, count, caption, label, size = 200 }: Stat
         showLegend={false}
         modifiers={[frame({ width: size, height: size })]}
       />
-      {/* The chart ignores the inner radius on the simulator, so the hole is punched with the page
-          colour instead. */}
-      <Circle
+      {/* The chart leaves its inner radius unfilled on the simulator, so the number sits on a disc
+          of the page colour that makes the hole. */}
+      <VStack
+        spacing={0}
         modifiers={[
           frame({ width: size - 2 * thickness, height: size - 2 * thickness }),
-          foregroundStyle(colors.background),
+          background(colors.background, shapes.circle()),
         ]}
-      />
-      <VStack spacing={0}>
+      >
         <Text
           textStyle={{ fontSize: 56, fontWeight: '700', color: colors.textPrimary }}
           modifiers={[monospacedDigit()]}
