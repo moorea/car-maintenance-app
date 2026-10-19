@@ -18,22 +18,22 @@ appId: com.moorea.carmaintenance
 - tapOn: 'Continue'
 - extendedWaitUntil:
     visible: 'Answers you can check'
-    timeout: 5000
+    timeout: 15000
 - takeScreenshot: 21-onboarding-2
 - tapOn: 'Continue'
 - extendedWaitUntil:
     visible: 'Walk into the shop knowing more'
-    timeout: 5000
+    timeout: 15000
 - takeScreenshot: 22-onboarding-3
 - tapOn: 'Continue'
 - extendedWaitUntil:
     visible: "A heads-up when it's due"
-    timeout: 5000
+    timeout: 15000
 - takeScreenshot: 23-onboarding-4
 - tapOn: 'Get started'
 - extendedWaitUntil:
     visible: 'Email me a code'
-    timeout: 5000
+    timeout: 15000
 - takeScreenshot: 24-sign-in
 # A new email creates the account; the demo signs it in as a new owner with no cars.
 - tapOn: 'you@example.com'

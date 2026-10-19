@@ -167,6 +167,11 @@ appId: com.moorea.carmaintenance
     visible: 'Demo car'
     timeout: 60000
 - tapOn: 'Car'
+# The car drawing loads above the odometer and moves it down, so wait for it to settle.
+- extendedWaitUntil:
+    visible: 'ODOMETER'
+    timeout: 10000
+- waitForAnimationToEnd
 - tapOn: 'Update'
 - extendedWaitUntil:
     visible: 'Take photo'
