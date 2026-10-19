@@ -1,15 +1,13 @@
 // The number sits inside a ring of fixed size, so it stays a fixed size too: grown with Dynamic
 // Type it would spill over the ring. The ring's label reads it out instead.
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import { Text } from '@expo/ui'
+import { Row, Text } from '@expo/ui'
 import { Chart, VStack, ZStack } from '@expo/ui/swift-ui'
 import {
   accessibilityElement,
   accessibilityLabel,
-  background,
   frame,
   monospacedDigit,
-  shapes,
 } from '@expo/ui/swift-ui/modifiers'
 import { useColors } from '../theme'
 import { RING_THICKNESS, type StatusRingProps } from './StatusRing'
@@ -48,15 +46,17 @@ export function StatusRing({ segments, count, caption, label, size = 200 }: Stat
         showLegend={false}
         modifiers={[frame({ width: size, height: size })]}
       />
-      {/* The chart leaves its inner radius unfilled on the simulator, so the number sits on a disc
-          of the page colour that makes the hole. */}
-      <VStack
-        spacing={0}
-        modifiers={[
-          frame({ width: size - 2 * thickness, height: size - 2 * thickness }),
-          background(colors.background, shapes.circle()),
-        ]}
-      >
+      {/* The chart leaves its inner radius filled on the simulator, so a disc of the page colour
+          makes the hole. */}
+      <Row
+        style={{
+          width: size - 2 * thickness,
+          height: size - 2 * thickness,
+          borderRadius: size / 2 - thickness,
+          backgroundColor: colors.background,
+        }}
+      />
+      <VStack spacing={0}>
         <Text
           textStyle={{ fontSize: 56, fontWeight: '700', color: colors.textPrimary }}
           modifiers={[monospacedDigit()]}

@@ -1,49 +1,40 @@
 // The number sits inside a ring of fixed size, so it stays a fixed size too, as on iOS.
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
-import { Column, Text } from '@expo/ui'
-import { Box, CircularProgressIndicator } from '@expo/ui/jetpack-compose'
-import { rotate, semantics, size as sizeModifier } from '@expo/ui/jetpack-compose/modifiers'
+import { Column, Row, Text } from '@expo/ui'
+import { Box } from '@expo/ui/jetpack-compose'
+import { offset, semantics, size as sizeModifier } from '@expo/ui/jetpack-compose/modifiers'
 import { useColors } from '../theme'
 import { RING_THICKNESS, type StatusRingProps } from './StatusRing'
 
-// The gap between segments, in degrees.
-const GAP = 4
-
-// How many arcs the ring always holds. Compose stopped drawing a ring whose arcs were added or
-// reordered after it first appeared (as when recalls arrive), so the arcs stay put and only their
-// colour and length change; unused ones have no length. Past this many segments, the rest are left
-// off, which are the latest-due items since recalls and overdue items come first.
-const SLOTS = 36
-
 /**
- * A ring of coloured segments around a number. Compose has no chart, so each segment is a
- * determinate circular progress indicator covering its share of the ring, turned to its place.
+ * A ring of coloured dots around a number, one per segment, clockwise from the top. Compose has no
+ * chart, and circular progress indicators stacked into a ring were not reliably drawn, so each dot
+ * is a plain filled shape moved out from the centre.
  */
 export function StatusRing({ segments, count, caption, label, size = 200 }: StatusRingProps) {
   const colors = useColors()
-  const thickness = Math.round(size * RING_THICKNESS)
-  const shown = (
-    segments.length > 0 ? segments : [{ key: 'empty', color: 'separator' as const }]
-  ).slice(0, SLOTS)
-  const share = 360 / shown.length
-  const gap = shown.length > 1 ? GAP : 0
+  const shown = segments.length > 0 ? segments : [{ key: 'empty', color: 'separator' as const }]
+  // Dots shrink when there are many, so neighbours keep a gap between them.
+  const room = (Math.PI * size) / shown.length
+  const dot = Math.max(4, Math.min(size * RING_THICKNESS, room * 0.6))
+  const radius = (size - dot) / 2
   return (
     <Box
       contentAlignment="center"
       modifiers={[sizeModifier(size, size), semantics({ contentDescription: label })]}
     >
-      {Array.from({ length: SLOTS }, (_, i) => {
-        const s = shown[i]
+      {shown.map((s, i) => {
+        const angle = ((i + 0.5) / shown.length) * 2 * Math.PI - Math.PI / 2
         return (
-          <CircularProgressIndicator
-            key={i}
-            progress={s ? (share - gap) / 360 : 0}
-            color={s ? colors[s.color] : colors.clear}
-            trackColor={colors.clear}
-            strokeWidth={thickness}
-            strokeCap="butt"
-            gapSize={0}
-            modifiers={[sizeModifier(size, size), rotate(s ? i * share + gap / 2 : 0)]}
+          <Row
+            key={s.key}
+            style={{
+              width: dot,
+              height: dot,
+              borderRadius: dot / 2,
+              backgroundColor: colors[s.color],
+            }}
+            modifiers={[offset(radius * Math.cos(angle), radius * Math.sin(angle))]}
           />
         )
       })}
