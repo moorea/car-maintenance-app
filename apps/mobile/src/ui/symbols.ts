@@ -14,6 +14,7 @@ export const SYMBOLS = {
       'M7 16a1.5 1.5 0 1 0 0.01 0M17 16a1.5 1.5 0 1 0 0.01 0',
     ],
   },
+  status: { ios: 'waveform.path.ecg', paths: ['M3 12h4l2-5 4 10 2-5h6'] },
   ask: {
     ios: 'bubble.left.and.text.bubble.right',
     paths: ['M4 5h16v11H9l-5 4z', 'M9 10h.01M12 10h.01M15 10h.01'],
