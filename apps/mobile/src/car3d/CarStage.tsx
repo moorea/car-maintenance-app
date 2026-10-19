@@ -242,6 +242,10 @@ export function CarStage(props: CarStageProps) {
     g.current = { renderer, scene, camera, gl, mats, orbit }
     setCar(p.bodyStyle, p.paint)
     draw()
+    console.log('[car3d] ctx', width, height) // TEMPORARY
+    // The first frames can land before the view is on screen, which leaves it empty until the
+    // next drag, so draw again as it settles.
+    for (const ms of [100, 400, 1200]) setTimeout(redraw, ms)
   }
 
   const setCar = (style: BodyStyle, paint: string) => {

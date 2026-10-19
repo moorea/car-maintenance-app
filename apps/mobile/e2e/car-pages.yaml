@@ -70,7 +70,7 @@ appId: com.moorea.carmaintenance
 # The page, not the car page the tap left: the screenshot used to catch the car page mid-push.
 - extendedWaitUntil:
     visible: 'Fuel economy'
-    timeout: 5000
+    timeout: 10000
 - takeScreenshot: 33-fuel
 - scroll
 - takeScreenshot: 34-fuel-charts

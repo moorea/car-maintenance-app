@@ -10,6 +10,11 @@ appId: com.moorea.carmaintenance
     visible: 'Demo car'
     timeout: 60000
 - tapOn: 'Car'
+# The car's drawing loads as the page opens; tap once it has settled.
+- extendedWaitUntil:
+    visible: 'ODOMETER'
+    timeout: 10000
+- waitForAnimationToEnd
 - tapOn: 'Edit car'
 - extendedWaitUntil:
     visible: 'Remove car'

@@ -23,6 +23,10 @@ appId: com.moorea.carmaintenance
 - waitForAnimationToEnd
 - takeScreenshot: 90-car-3d-spot
 - tapOn: 'Done'
+- tapOn: 'Garage'
+- extendedWaitUntil:
+    visible: 'Demo car.*'
+    timeout: 10000
 - tapOn: 'Account'
 - scrollUntilVisible:
     element: 'Show your car in 3D'
