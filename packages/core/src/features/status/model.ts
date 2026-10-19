@@ -13,7 +13,7 @@ import { createSafetyModel, type SafetyDeps, type SafetyState } from '../safety/
 export type StatusLevel = 'attention' | 'soon' | 'good' | 'unknown'
 
 /**
- * What a ring segment or check stands for, which the app turns into a colour:
+ * What a status dot or check stands for, which the app turns into a colour:
  * `attention` needs the owner, `soon` is due soon, `ok` is fine, `later` and `quiet` are neither.
  */
 export type StatusTone = 'attention' | 'soon' | 'ok' | 'later' | 'quiet'
@@ -41,11 +41,11 @@ export interface StatusCheck {
 }
 
 export interface StatusSummary {
-  /** Overdue items plus open recalls: what needs the owner, shown in the ring's centre. */
+  /** Overdue items plus open recalls: what needs the owner, shown large above the dots. */
   needYou: number
   /** One per schedule item with a known due point and per open recall, the most urgent first. */
   segments: StatusSegment[]
-  /** What VoiceOver and TalkBack read for the ring: the count and what it is made of. */
+  /** What VoiceOver and TalkBack read for the number and dots: the count and what it is made of. */
   ringLabel: string
   level: StatusLevel
   /** "Needs attention", "Coming up" or "All good". */

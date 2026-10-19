@@ -15,7 +15,8 @@ plus open recalls), one status word with a sentence saying why, three stats and 
 - **Dots, not a ring.** The mockup's segmented ring was tried with a Swift Charts donut on iOS and
   Compose progress indicators on Android. Neither drew reliably on the simulator and emulator, so
   the segments are the same plain dots the checks list uses, in a row under the number. Each
-  platform wraps them so screen readers read one label for the whole thing.
+  platform wraps them with one label for screen readers: VoiceOver reads only the label; TalkBack
+  gets it as the description of the group around the number and dots.
 - **No driving chart.** The mockup's miles-per-period chart is left out: the app only learns an
   average pace from odometer readings, not real mileage per week or month.
 

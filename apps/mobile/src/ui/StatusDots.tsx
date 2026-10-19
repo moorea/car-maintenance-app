@@ -1,7 +1,9 @@
-import { Column, Row } from '@expo/ui'
+// The number stays a fixed size: Dynamic Type would snap it down to the largest text style, the
+// same size as the page title. The wrappers' label reads it out instead.
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
+import { Column, Row, Text } from '@expo/ui'
 import { useColors, type ColorRole } from '../theme'
 import { Dot } from './surfaces'
-import { Text } from './Text'
 
 export interface StatusDotsProps {
   /** One per thing the dots stand for, in order from the left. */
@@ -16,8 +18,6 @@ export interface StatusDotsProps {
   size?: number
 }
 
-const GAP = 6
-
 /**
  * A big number over a row of coloured dots, one per segment. The web preview shows it as is; iOS
  * and Android wrap it so screen readers read the label instead of the parts.
@@ -30,7 +30,9 @@ export function StatusDots({ segments, count, caption, size = 240 }: StatusDotsP
   const colors = useColors()
   // With nothing to show, one empty dot keeps the shape.
   const shown = segments.length > 0 ? segments : [{ key: 'empty', color: 'separator' as const }]
-  const dot = Math.max(6, Math.min(14, (size - GAP * (shown.length - 1)) / shown.length))
+  // Each dot gets half its width again as a gap, so the row never grows past size.
+  const dot = Math.min(14, size / (1.5 * shown.length))
+  const gap = Math.min(6, dot / 2)
   return (
     <Column alignment="center" spacing={10}>
       <Column alignment="center" spacing={0}>
@@ -39,7 +41,7 @@ export function StatusDots({ segments, count, caption, size = 240 }: StatusDotsP
         </Text>
         <Text textStyle={{ fontSize: 13, color: colors.textSecondary }}>{caption}</Text>
       </Column>
-      <Row spacing={GAP}>
+      <Row spacing={gap}>
         {shown.map((s) => (
           <Dot key={s.key} color={s.color} size={dot} />
         ))}
