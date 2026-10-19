@@ -75,18 +75,20 @@ export function StatusRing(props: StatusRingProps) {
   return (
     <Column alignment="center" spacing={4}>
       <Row spacing={8}>
+        <Column alignment="center">
+          <Ring {...small} flags={{}} />
+          <Text>V</Text>
+        </Column>
+        <Column alignment="center">
+          <Ring {...small} flags={{}} />
+        </Column>
         <Ring {...small} flags={{}} />
-        <Ring {...small} flags={{ sem: true }} />
-        <Ring {...small} flags={{ num: true }} />
       </Row>
-      <Text>P none · Q semantics · R number</Text>
-      <Row spacing={8}>
-        <Ring {...small} flags={{ num: true, spacing: true }} />
-        <Ring {...small} flags={{ num: true, big: true }} />
-        <Ring {...small} flags={{ sem: true, num: true, spacing: true, big: true }} />
-      </Row>
-      <Text>S spacing · T big number · U all</Text>
-      <Ring {...props} flags={{ sem: true, num: true, spacing: true, big: true }} />
+      <Text>V column+text · W column · X bare</Text>
+      <Column alignment="center">
+        <Ring {...props} flags={{ sem: true, num: true, spacing: true, big: true }} />
+        <Text> </Text>
+      </Column>
     </Column>
   )
 }
