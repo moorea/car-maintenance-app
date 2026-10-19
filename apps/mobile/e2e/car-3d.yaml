@@ -22,9 +22,10 @@ appId: com.moorea.carmaintenance
 - takeScreenshot: 90-car-3d
 - tapOn:
     id: 'spot-hood'
+# The tap waits behind the car's drawing on the JS thread, so the sheet can be slow to open.
 - extendedWaitUntil:
     visible: 'Under the hood'
-    timeout: 5000
+    timeout: 20000
 # Each row names its item, not just when it is due.
 - assertVisible: 'Oil & filter change'
 - waitForAnimationToEnd
