@@ -46,8 +46,10 @@ appId: com.moorea.carmaintenance
 - waitForAnimationToEnd
 - takeScreenshot: 32-car-recalls
 
+# The page cards sit above the tabs, so back up to them.
 - scrollUntilVisible:
     element: 'Fuel & costs'
+    direction: UP
     centerElement: true
     timeout: 30000
 - waitForAnimationToEnd
