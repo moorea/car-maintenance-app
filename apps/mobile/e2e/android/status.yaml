@@ -1,0 +1,26 @@
+# The selected car's health at a glance, as apps/mobile/e2e/status.yaml checks on iOS.
+appId: com.moorea.carmaintenance
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+- extendedWaitUntil:
+    visible: 'Demo car.*'
+    timeout: 90000
+- tapOn: 'Status'
+- extendedWaitUntil:
+    visible: 'Needs attention|Coming up|All good'
+    timeout: 20000
+- waitForAnimationToEnd
+- takeScreenshot: 95-status
+# The last check can sit under the tab bar, where it counts as visible, so scroll once first.
+- scroll
+- scrollUntilVisible:
+    element: 'Odometer'
+    timeout: 15000
+- extendedWaitUntil:
+    visible: 'Updated .*|No reading yet'
+    timeout: 10000
+- waitForAnimationToEnd
+- takeScreenshot: 95-status-checks

@@ -13,6 +13,7 @@ import { ReminderOfferGate } from '../reminder-offer/ReminderOfferScreen'
 import { RemindersScreen } from '../reminders/RemindersScreen'
 import { ServiceLogScreen } from '../service-log/ServiceLogScreen'
 import { SignInScreen } from '../sign-in/SignInScreen'
+import { StatusScreen } from '../status/StatusScreen'
 import { TroubleCodesScreen } from '../trouble-codes/TroubleCodesScreen'
 import { WarrantyScreen } from '../warranty/WarrantyScreen'
 import { FuelScreen } from '../fuel/FuelScreen'
@@ -46,6 +47,7 @@ const TABS: TabBarItem<AppTab>[] = [
   { key: 'garage', label: 'Garage', symbol: 'garage' },
   { key: 'log', label: 'Log', symbol: 'log' },
   { key: 'car', label: 'Car', symbol: 'car' },
+  { key: 'status', label: 'Status', symbol: 'status' },
 ]
 
 const CAR_PAGES = new Set<AppTab>(['warranty', 'fuel', 'driving', 'tires', 'renewals'])
@@ -188,6 +190,8 @@ function TabContent(props: Props & { vehicle: Vehicle }) {
           onRenewals={() => props.openTab('renewals')}
         />
       )
+    case 'status':
+      return <StatusScreen vehicle={vehicle} />
     case 'renewals':
       return <RenewalsScreen vehicle={vehicle} onBack={() => props.openTab('car')} />
     case 'fuel':

@@ -4,6 +4,7 @@ import type { SymbolName } from './symbols'
 import garageIcon from '@expo/material-symbols/home.xml'
 import logIcon from '@expo/material-symbols/description.xml'
 import carIcon from '@expo/material-symbols/directions_car.xml'
+import statusIcon from '@expo/material-symbols/monitor_heart.xml'
 import askIcon from '@expo/material-symbols/forum.xml'
 import bellIcon from '@expo/material-symbols/notifications.xml'
 import personIcon from '@expo/material-symbols/account_circle.xml'
@@ -58,6 +59,7 @@ const MATERIAL: Record<SymbolName, ImageSourcePropType> = {
   garage: garageIcon,
   log: logIcon,
   car: carIcon,
+  status: statusIcon,
   ask: askIcon,
   bell: bellIcon,
   person: personIcon,

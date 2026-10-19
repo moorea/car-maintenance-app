@@ -138,6 +138,15 @@ describe('session model', () => {
     expect(model.getState()).toMatchObject({ selectedVehicleId: 'v-civic', tab: 'garage' })
   })
 
+  it("lands on the garage when the car whose status is open is removed, not the next car's", () => {
+    const { vehicles, model } = setup(true, [civic, accord])
+    model.getState().start()
+    model.getState().selectVehicle('v-accord')
+    model.getState().openTab('status')
+    vehicles.set([civic])
+    expect(model.getState()).toMatchObject({ selectedVehicleId: 'v-civic', tab: 'garage' })
+  })
+
   it('stays on the open page when a car other than the selected one is removed', () => {
     const { vehicles, model } = setup(true, [civic, accord])
     model.getState().start()
@@ -352,6 +361,23 @@ describe('session model, adding a car', () => {
     expect(model.getState().tab).toBe('garage')
     model.getState().openTab('log')
     expect(model.getState().tab).toBe('log')
+  })
+
+  it('goes back from the status tab to the garage, as from the other tabs', () => {
+    const { model } = setup(true, [civic])
+    model.getState().start()
+    model.getState().openTab('status')
+    expect(model.getState().systemBack()).toBe(true)
+    expect(model.getState().tab).toBe('garage')
+  })
+
+  it('goes back from Ask to the status it was opened from', () => {
+    const { model } = setup(true, [civic])
+    model.getState().start()
+    model.getState().openTab('status')
+    model.getState().openTab('ask')
+    model.getState().back()
+    expect(model.getState().tab).toBe('status')
   })
 
   it('goes back from Ask to the quote it was asked from, then to the car', () => {

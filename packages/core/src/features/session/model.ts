@@ -10,16 +10,17 @@ import { byGarageOrder } from '../../lib/garageOrder'
 export type SessionStatus = 'starting' | 'signed-out' | 'syncing' | 'no-vehicles' | 'ready'
 
 /**
- * The app's main sections: one per tab (the garage, the service log, the car and the assistant),
- * plus the reminder settings and the owner's account, opened from the garage, the owner's data
- * (export and import), opened from the account, and the quote checker, the check-engine code
- * lookup, how the car is driven, the car's warranties, its fuel and running costs, its tires, and
- * its registration, inspection and insurance dates, opened from the car.
+ * The app's main sections: one per tab (the garage, the service log, the car, its status at a
+ * glance and the assistant), plus the reminder settings and the owner's account, opened from the
+ * garage, the owner's data (export and import), opened from the account, and the quote checker,
+ * the check-engine code lookup, how the car is driven, the car's warranties, its fuel and running
+ * costs, its tires, and its registration, inspection and insurance dates, opened from the car.
  */
 export type AppTab =
   | 'garage'
   | 'log'
   | 'car'
+  | 'status'
   | 'ask'
   | 'reminders'
   | 'account'
@@ -118,6 +119,7 @@ const PARENT: Partial<Record<AppTab, AppTab>> = {
 /** The pages about the selected car, which would show another car's data once it is removed. */
 const CAR_PAGES = new Set<AppTab>([
   'car',
+  'status',
   'log',
   'ask',
   'quote',

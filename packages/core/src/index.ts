@@ -34,6 +34,7 @@ export * from './features/account/model'
 export * from './schemas/odometer'
 export * from './features/garage/odometer'
 export * from './features/car/model'
+export * from './features/status/model'
 export * from './features/service-log/history'
 
 export * from './lib/cancel'
