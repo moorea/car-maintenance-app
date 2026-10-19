@@ -137,6 +137,7 @@ export function CarStage(props: CarStageProps) {
     orbit: Orbit
     to?: { from: Orbit; goal: Orbit; t: number } | undefined
     frame?: number | undefined
+    settle: ReturnType<typeof setTimeout>[]
   } | null>(null)
   const latest = useRef({ props, pins })
   useEffect(() => {
@@ -241,12 +242,12 @@ export function CarStage(props: CarStageProps) {
     const { props: p } = latest.current
     const body = BODIES[p.bodyStyle]
     const orbit = p.mode === 'still' ? sideOf(body, width / height) : homeOf(body)
-    g.current = { renderer, scene, camera, gl, mats, orbit }
+    g.current = { renderer, scene, camera, gl, mats, orbit, settle: [] }
     setCar(p.bodyStyle, p.paint)
     draw()
     // The first frames can land before the view is on screen, which leaves it empty until the
     // next drag, so draw again as it settles.
-    for (const ms of [100, 400, 1200]) setTimeout(redraw, ms)
+    g.current.settle = [100, 400, 1200].map((ms) => setTimeout(redraw, ms))
   }
 
   const setCar = (style: BodyStyle, paint: string) => {
@@ -302,6 +303,7 @@ export function CarStage(props: CarStageProps) {
       const s = g.current
       if (!s) return
       if (s.frame !== undefined) cancelAnimationFrame(s.frame)
+      s.settle.forEach(clearTimeout)
       if (s.car) disposeGroup(s.car)
       s.mats.dispose()
       s.renderer.dispose()
@@ -367,6 +369,13 @@ export function CarStage(props: CarStageProps) {
     const { width, height } = e.nativeEvent.layout
     box.current = { w: width, h: height }
     if (width > 0 && height > 0) setSized(true)
+    // A stage that grows after GL started keeps its picture in proportion.
+    const s = g.current
+    if (s && width > 0 && height > 0) {
+      s.renderer.setSize(width * PixelRatio.get(), height * PixelRatio.get(), false)
+      s.camera.aspect = width / height
+      s.camera.updateProjectionMatrix()
+    }
     redraw()
   }
 
