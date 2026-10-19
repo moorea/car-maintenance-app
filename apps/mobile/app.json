@@ -98,6 +98,14 @@
           "cameraPermission": "Photograph receipts, documents and shop quotes for your car.",
           "microphonePermission": false
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "extraProguardRules": "# expo-gl's view is made by reflection and isn't an ExpoView, so R8 would strip its constructor.\n-keep class expo.modules.gl.** { *; }\n"
+          }
+        }
       ]
     ]
   }
