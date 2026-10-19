@@ -13,6 +13,7 @@ import {
 import * as THREE from 'three'
 import { carPartColors, useColors, type ColorRole } from '../theme'
 import { buildCar, carMaterials, disposeGroup, type CarMaterials } from './buildCar'
+import { note } from './debug'
 import { anchorsOf, BODIES, type BodySpec } from './shape'
 
 export interface CarStageProps {
@@ -101,7 +102,9 @@ const place = (camera: THREE.PerspectiveCamera, o: Orbit) => {
  * something on it. Drawn with three.js into a GL view; everything it shows is also in the
  * Service list, so it is never the only way to reach anything.
  */
+let draws = 0
 export function CarStage(props: CarStageProps) {
+  note('stage', props.hotspots.length)
   const colors = useColors()
   const st = BODIES[props.bodyStyle]
   // Keyed by which spots have pins, not the hotspots array, so a re-render with the same spots
@@ -167,6 +170,9 @@ export function CarStage(props: CarStageProps) {
       if (on) shown.push(spot)
     }
     const key = shown.join(',')
+    note('draws', (draws += 1))
+    note('wh', `${Math.round(w)}x${Math.round(h)}`)
+    note('shown', key || '-')
     if (key !== shownKey.current) {
       shownKey.current = key
       setVisible(key)
@@ -201,6 +207,7 @@ export function CarStage(props: CarStageProps) {
   const onContextCreate = (gl: ExpoWebGLRenderingContext) => {
     const width = gl.drawingBufferWidth
     const height = gl.drawingBufferHeight
+    note('ctx', `${width}x${height}`)
     // three.js only needs a few canvas fields; the GL context does the rest.
     const canvas = {
       width,
@@ -358,6 +365,7 @@ export function CarStage(props: CarStageProps) {
   const onLayout = (e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout
     box.current = { w: width, h: height }
+    note('layout', `${Math.round(width)}x${Math.round(height)}`)
     redraw()
   }
 
