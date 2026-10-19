@@ -17,7 +17,7 @@ appId: com.moorea.carmaintenance
 - takeScreenshot: 2-service-log
 - tapOn: 'Car'
 - extendedWaitUntil:
-    visible: 'Registration & insurance.*'
+    visible: 'ODOMETER'
     timeout: 10000
 - waitForAnimationToEnd
 - takeScreenshot: 3-car

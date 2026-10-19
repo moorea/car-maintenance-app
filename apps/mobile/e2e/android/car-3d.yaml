@@ -1,0 +1,48 @@
+# The car drawn in 3D, a spot picked, then the still drawing, as apps/mobile/e2e/car-3d.yaml does
+# on iOS.
+appId: com.moorea.carmaintenance
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+- extendedWaitUntil:
+    visible: 'Demo car.*'
+    timeout: 90000
+- tapOn: 'Car'
+- extendedWaitUntil:
+    visible: 'Tap a dot.*'
+    timeout: 10000
+# The dots appear once the car's first frame is drawn, which is slow on a simulator.
+- extendedWaitUntil:
+    visible:
+      id: 'spot-hood'
+    timeout: 30000
+- waitForAnimationToEnd
+- takeScreenshot: 90-car-3d
+- tapOn:
+    id: 'spot-hood'
+- extendedWaitUntil:
+    visible: 'Under the hood'
+    timeout: 5000
+# Each row names its item, not just when it is due.
+- assertVisible: 'Oil & filter change'
+- waitForAnimationToEnd
+- takeScreenshot: 90-car-3d-spot
+- tapOn: 'Done'
+- tapOn: 'Garage'
+- extendedWaitUntil:
+    visible: 'Demo car.*'
+    timeout: 10000
+- tapOn: 'Account'
+- scrollUntilVisible:
+    element: 'Show your car in 3D'
+    centerElement: true
+- tapOn: 'Show your car in 3D'
+- takeScreenshot: 90-account-3d-off
+- tapOn: 'Car'
+- extendedWaitUntil:
+    visible: 'Tap a dot.*'
+    timeout: 10000
+- waitForAnimationToEnd
+- takeScreenshot: 90-car-still

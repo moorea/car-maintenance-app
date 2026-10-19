@@ -124,9 +124,9 @@ export interface CarHotspot {
 const RANK: Record<DueStatus, number> = { overdue: 0, 'due-soon': 1, upcoming: 2, unknown: 3 }
 
 /**
- * The pins for the drawing of the car: a spot for every place with a schedule item or an open
- * recall, in the order of `CAR_SPOTS`. Items and recalls with no spot are left out; the Service
- * list still shows them.
+ * The pins for the drawing of the car: a spot for every place with a schedule item or a recall,
+ * in the order of `CAR_SPOTS`. Items and recalls with no spot are left out; the Service list still
+ * shows them.
  */
 export const carHotspots = (
   items: readonly { itemId: string; task: string; status: DueStatus; spot?: CarSpot | undefined }[],
@@ -177,7 +177,7 @@ const summarize = (
 ): string => {
   const unknown = items - overdue.length - dueSoon.length - upcoming
   const parts = [
-    recalls > 0 ? plural(recalls, 'open recall', 'open recalls') : undefined,
+    recalls > 0 ? plural(recalls, 'recall', 'recalls') : undefined,
     overdue.length === 1 && recalls === 0 ? `Overdue: ${overdue[0]?.task}` : undefined,
     overdue.length > 1 || (overdue.length === 1 && recalls > 0)
       ? `${overdue.length} overdue`

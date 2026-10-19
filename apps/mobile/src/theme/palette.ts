@@ -44,6 +44,22 @@ export const palette = {
   paintGreen: '#2F5D46',
   paintBrown: '#6A4A33',
 
+  // The car's own parts, which keep their colour whatever its paint or the theme.
+  carTrim: '#141518',
+  carWell: '#0B0C0D',
+  carRubber: '#1A1B1D',
+  carAlloy: '#C9CED4',
+  carAlloyDark: '#2C2F33',
+  carRotor: '#8B8F94',
+  carCaliper: '#33363B',
+  carInterior: '#1D1E21',
+  carHeadlight: '#EEF6FF',
+  carTaillight: '#E0161E',
+  carTailLens: '#6A0A0E',
+  carPlate: '#DFE3E8',
+  carSkyLight: '#DFE8FF',
+  carGround: '#3A3E46',
+
   // No fill at all.
   clear: 'transparent',
 

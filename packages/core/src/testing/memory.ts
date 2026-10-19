@@ -51,7 +51,9 @@ import type {
   WarrantyRepo,
   RenewalRepo,
   CustomItemRepo,
+  PhoneDisplay,
 } from '../ports'
+import type { PhoneFor3d } from '../domain/appearance'
 import { withCustomItems } from '../lib/customSchedule'
 import type { IsoDate } from '../lib/date'
 import type { CareReport } from '../features/care-report/report'
@@ -968,4 +970,23 @@ export const memoryDataFiles = (stored: Record<string, Uint8Array> = {}) => {
     },
   }
   return files
+}
+
+/** A phone's display settings that a test can change, as Reduce Motion or Low Power Mode would. */
+export const memoryPhoneDisplay = (
+  initial: Partial<PhoneFor3d> = {},
+): PhoneDisplay & { set: (change: Partial<PhoneFor3d>) => void } => {
+  let phone: PhoneFor3d = { reduceMotion: false, lowPower: false, capable: true, ...initial }
+  const watchers = new Set<(p: PhoneFor3d) => void>()
+  return {
+    watch: (onChange) => {
+      watchers.add(onChange)
+      onChange(phone)
+      return () => watchers.delete(onChange)
+    },
+    set: (change) => {
+      phone = { ...phone, ...change }
+      for (const w of watchers) w(phone)
+    },
+  }
 }

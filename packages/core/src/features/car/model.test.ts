@@ -413,6 +413,19 @@ describe('car model', () => {
     expect(model.getState().editingOdometer).toBeUndefined()
   })
 
+  it('picks a spot on the drawing of the car, and lets it go when it is picked again', () => {
+    const { model } = setup()
+    model.getState().showSpot('hood')
+    expect(model.getState().spot).toBe('hood')
+    model.getState().showSpot('wheels')
+    expect(model.getState().spot).toBe('wheels')
+    model.getState().showSpot('wheels')
+    expect(model.getState().spot).toBeUndefined()
+    model.getState().showSpot('hood')
+    model.getState().showSpot(undefined)
+    expect(model.getState().spot).toBeUndefined()
+  })
+
   it('switches between the schedule, recalls and known issues', () => {
     const { model } = setup()
     model.getState().showSection('recalls')

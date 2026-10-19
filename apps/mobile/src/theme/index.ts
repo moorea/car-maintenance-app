@@ -2,8 +2,8 @@ import type { ReportColors } from '@car/core'
 import { useColorScheme } from 'react-native'
 import { darkColors, lightColors, type Colors } from './colors'
 
-export type { ColorRole, Colors } from './colors'
-export { paintColors } from './colors'
+export type { CarPartColors, ColorRole, Colors } from './colors'
+export { carPartColors, paintColors } from './colors'
 
 /** The semantic colours for the system's current light or dark appearance. */
 export function useColors(): Colors {
