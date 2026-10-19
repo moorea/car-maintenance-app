@@ -16,8 +16,9 @@ appId: com.moorea.carmaintenance
 - takeScreenshot: 8-large-text-service-log
 - tapOn: 'Car'
 # At this size the tab can take a moment to switch; scrolling the log by mistake loses the way.
+# Waits for the note under the car drawing, since the drawing pushes the odometer below the fold.
 - extendedWaitUntil:
-    visible: 'ODOMETER'
+    visible: 'Tap a dot.*'
     timeout: 30000
 - waitForAnimationToEnd
 - takeScreenshot: 9-large-text-car
