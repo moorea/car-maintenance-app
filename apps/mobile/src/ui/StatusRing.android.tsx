@@ -10,6 +10,9 @@ import { RING_THICKNESS, type StatusRingProps } from './StatusRing'
 const GAP = 4
 
 interface Flags {
+  idx?: boolean
+  alt?: boolean
+  fixed?: boolean
   sem?: boolean
   num?: boolean
   spacing?: boolean
@@ -43,9 +46,9 @@ function Ring({
     >
       {shown.map((s, i) => (
         <CircularProgressIndicator
-          key={s.key}
-          progress={(share - gap) / 360}
-          color={colors[s.color]}
+          key={flags.idx ? i : s.key}
+          progress={flags.fixed ? (360 / 13 - 4) / 360 : (share - gap) / 360}
+          color={flags.alt ? (i % 2 ? colors.warning : colors.accent) : colors[s.color]}
           trackColor={colors.clear}
           strokeWidth={thickness}
           strokeCap="butt"
@@ -71,24 +74,61 @@ function Ring({
 
 // DEBUG: which part of the ring stops it showing on the emulator.
 export function StatusRing(props: StatusRingProps) {
-  const small = { ...props, size: 100 }
+  const colors = useColors()
+  const small = { ...props, size: 80 }
+  const shown = props.segments
+  const share = 360 / Math.max(1, shown.length)
+  const cell = (label: string, child: React.ReactNode) => (
+    <Column alignment="center">
+      {child}
+      <Text>{label}</Text>
+    </Column>
+  )
   return (
     <Column alignment="center" spacing={4}>
       <Row spacing={8}>
-        <Column alignment="center">
-          <Ring {...small} flags={{}} />
-          <Text>V</Text>
-        </Column>
-        <Column alignment="center">
-          <Ring {...small} flags={{}} />
-        </Column>
-        <Ring {...small} flags={{}} />
+        {cell('Y idx', <Ring {...small} flags={{ idx: true }} />)}
+        {cell('Z alt', <Ring {...small} flags={{ alt: true }} />)}
+        {cell('AA fixed', <Ring {...small} flags={{ fixed: true }} />)}
+        {cell('AB all3', <Ring {...small} flags={{ idx: true, alt: true, fixed: true }} />)}
       </Row>
-      <Text>V column+text · W column · X bare</Text>
-      <Column alignment="center">
-        <Ring {...props} flags={{ sem: true, num: true, spacing: true, big: true }} />
-        <Text> </Text>
-      </Column>
+      <Row spacing={8}>
+        {cell(
+          'AC inline',
+          <Box contentAlignment="center" modifiers={[sizeModifier(80, 80)]}>
+            {shown.map((s, i) => (
+              <CircularProgressIndicator
+                key={s.key}
+                progress={(share - 4) / 360}
+                color={colors[s.color]}
+                trackColor={colors.clear}
+                strokeWidth={8}
+                strokeCap="butt"
+                gapSize={0}
+                modifiers={[sizeModifier(80, 80), rotate(i * share + 2)]}
+              />
+            ))}
+          </Box>,
+        )}
+        {cell(
+          'AD static',
+          <Box contentAlignment="center" modifiers={[sizeModifier(80, 80)]}>
+            {Array.from({ length: 13 }, (_, i) => (
+              <CircularProgressIndicator
+                key={i}
+                progress={(360 / 13 - 4) / 360}
+                color={i % 2 ? colors.warning : colors.accent}
+                trackColor={colors.clear}
+                strokeWidth={8}
+                strokeCap="butt"
+                gapSize={0}
+                modifiers={[sizeModifier(80, 80), rotate((i * 360) / 13 + 2)]}
+              />
+            ))}
+          </Box>,
+        )}
+      </Row>
+      <Ring {...props} flags={{ sem: true, num: true, spacing: true, big: true }} />
     </Column>
   )
 }
