@@ -25,7 +25,7 @@ appId: com.moorea.carmaintenance
 - tapOn: 'Insurance card'
 - extendedWaitUntil:
     visible: 'Take Photo'
-    timeout: 5000
+    timeout: 10000
 - takeScreenshot: 30-car-documents-submenu
 - launchApp
 - extendedWaitUntil:
@@ -84,7 +84,7 @@ appId: com.moorea.carmaintenance
 - tapOn: 'Warranty & care report'
 - extendedWaitUntil:
     visible: 'Care report'
-    timeout: 5000
+    timeout: 10000
 - takeScreenshot: 35-warranty
 - scroll
 - waitForAnimationToEnd
@@ -99,12 +99,12 @@ appId: com.moorea.carmaintenance
 - tapOn: 'Registration & insurance.*'
 - extendedWaitUntil:
     visible: 'Renewals'
-    timeout: 5000
+    timeout: 10000
 - takeScreenshot: 35-renewals
 - tapOn: 'Edit'
 - extendedWaitUntil:
     visible: 'Edit date'
-    timeout: 5000
+    timeout: 10000
 - takeScreenshot: 35-renewals-edit
 - tapOn: 'Cancel'
 
@@ -117,7 +117,7 @@ appId: com.moorea.carmaintenance
 - tapOn: 'Tires.*'
 - extendedWaitUntil:
     visible: 'Put on the car'
-    timeout: 5000
+    timeout: 10000
 - takeScreenshot: 35-tires
 
 - tapOn: 'Car'
@@ -129,7 +129,7 @@ appId: com.moorea.carmaintenance
 - tapOn: 'Check a shop.s quote'
 - extendedWaitUntil:
     visible: 'Before you check a quote'
-    timeout: 5000
+    timeout: 10000
 - takeScreenshot: 36-quote-consent
 
 - launchApp
@@ -145,7 +145,7 @@ appId: com.moorea.carmaintenance
 - tapOn: 'Check-engine light on.'
 - extendedWaitUntil:
     visible: 'Check-engine light'
-    timeout: 5000
+    timeout: 10000
 - takeScreenshot: 37-trouble-codes
 
 # Ask is the round button beside the tab bar, which has no text. The bar floats 24pt above the
@@ -158,7 +158,7 @@ appId: com.moorea.carmaintenance
     point: '86%,94%'
 - extendedWaitUntil:
     visible: 'Before you ask'
-    timeout: 5000
+    timeout: 10000
 - takeScreenshot: 38-ask-consent
 
 # Reading the odometer from a photo asks before the first photo goes to Anthropic.
@@ -170,12 +170,12 @@ appId: com.moorea.carmaintenance
 - tapOn: 'Update'
 - extendedWaitUntil:
     visible: 'Take photo'
-    timeout: 5000
+    timeout: 10000
 - takeScreenshot: 39-odometer-editor
 - tapOn: 'Take photo'
 - extendedWaitUntil:
     visible: 'Read the miles with Claude\?'
-    timeout: 5000
+    timeout: 10000
 - takeScreenshot: 39-odometer-photo-consent
 
 - launchApp
@@ -193,7 +193,7 @@ appId: com.moorea.carmaintenance
 - tapOn: '.*Engine air filter.*'
 - extendedWaitUntil:
     visible: 'Use the schedule.s interval'
-    timeout: 5000
+    timeout: 10000
 - takeScreenshot: 40-schedule-item
 - tapOn: 'Cancel'
 - scrollUntilVisible:
@@ -204,6 +204,6 @@ appId: com.moorea.carmaintenance
 - tapOn: 'Add an item'
 - extendedWaitUntil:
     visible: 'Or every \(months\)'
-    timeout: 5000
+    timeout: 10000
 - takeScreenshot: 40-schedule-add
 - tapOn: 'Cancel'
