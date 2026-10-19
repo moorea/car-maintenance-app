@@ -10,7 +10,7 @@ import { createSafetyModel, type SafetyDeps, type SafetyState } from '../safety/
  * - `soon`: nothing needs the owner yet, but something is due soon.
  * - `good`: nothing is due.
  */
-export type StatusLevel = 'attention' | 'soon' | 'good'
+export type StatusLevel = 'attention' | 'soon' | 'good' | 'unknown'
 
 /**
  * What a ring segment or check stands for, which the app turns into a colour:
@@ -73,6 +73,10 @@ const plural = (n: number, one: string, many: string) => (n === 1 ? one : many)
 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
+/** "Brake fluid" to "brake fluid", keeping "CVT fluid" as it is. */
+const midSentence = (s: string) =>
+  /^[A-Z][a-z]/.test(s) ? s.charAt(0).toLowerCase() + s.slice(1) : s
+
 const roundTo = (n: number, step: number) => Math.round(n / step) * step
 
 /** "Tire rotation", "Tire rotation and brake fluid", or "3 items", for a sentence about them. */
@@ -80,7 +84,7 @@ const nameItems = (rows: ScheduleRow[]): string => {
   const [first, second] = rows
   if (!first) return ''
   if (rows.length === 1) return first.task
-  if (rows.length === 2 && second) return `${first.task} and ${second.task.toLowerCase()}`
+  if (rows.length === 2 && second) return `${first.task} and ${midSentence(second.task)}`
   return `${rows.length} items`
 }
 
@@ -139,16 +143,36 @@ export const describeStatus = (
       .map((r) => ({ key: r.itemId, tone: SEGMENT_TONE[r.status as keyof typeof SEGMENT_TONE] })),
   ]
 
-  const level: StatusLevel = needYou > 0 ? 'attention' : soon.length > 0 ? 'soon' : 'good'
-  const word = { attention: 'Needs attention', soon: 'Coming up', good: 'All good' }[level]
+  // A schedule that could not be read says nothing about what is due, so it is not "All good".
+  const unread = car.error !== undefined && rows.length === 0
+  const level: StatusLevel =
+    needYou > 0 ? 'attention' : unread ? 'unknown' : soon.length > 0 ? 'soon' : 'good'
+  const word = {
+    attention: 'Needs attention',
+    soon: 'Coming up',
+    good: 'All good',
+    unknown: "Can't check",
+  }[level]
 
   return {
     needYou,
     segments,
-    ringLabel: ringLabel(overdue.length, recalls.length, soon.length),
+    ringLabel:
+      unread && needYou === 0
+        ? "The schedule couldn't be read."
+        : ringLabel(overdue.length, recalls.length, soon.length),
     level,
     word,
-    sentence: sentence({ overdue, soon, unknown, next, recalls: recalls.length, car, today }),
+    sentence: sentence({
+      overdue,
+      soon,
+      unknown,
+      next,
+      recalls: recalls.length,
+      unread,
+      car,
+      today,
+    }),
     stats: [
       nextStat(next, car.miles, today, unknown.length > 0),
       {
@@ -189,6 +213,7 @@ const sentence = ({
   unknown,
   next,
   recalls,
+  unread,
   car,
   today,
 }: {
@@ -197,6 +222,7 @@ const sentence = ({
   unknown: ScheduleRow[]
   next: ScheduleRow | undefined
   recalls: number
+  unread: boolean
   car: StatusCarInput
   today: IsoDate
 }): string => {
@@ -214,7 +240,7 @@ const sentence = ({
     const rest =
       soon.length > 0
         ? `${nameItems(soon)} ${isAre(soon)} due soon.`
-        : overdue.length < car.schedule.length
+        : car.schedule.some((r) => r.status === 'upcoming')
           ? 'Everything else is on track.'
           : ''
     return [first, rest].filter(Boolean).join(' ')
@@ -224,6 +250,7 @@ const sentence = ({
     const timing = soon.length === 1 && only ? when(only, car.miles, today) : ''
     return `${nameItems(soon)} ${isAre(soon)} due soon${timing ? `, ${timing}` : ''}.`
   }
+  if (unread) return "The maintenance schedule couldn't be read. Try again later."
   if (car.schedule.length === 0) return "There's no maintenance schedule for this car yet."
   if (next) {
     const timing = when(next, car.miles, today)

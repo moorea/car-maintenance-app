@@ -80,6 +80,32 @@ const describe_ = (car: Partial<StatusCarInput> = {}, safety: Partial<StatusSafe
   describeStatus(carInput(car), safetyInput(safety), TODAY)
 
 describe('describeStatus', () => {
+  it("doesn't say all good when the schedule couldn't be read", () => {
+    const s = describe_({ schedule: [], error: "Couldn't load the schedule." })
+    expect(s).toMatchObject({ level: 'unknown', word: "Can't check", needYou: 0 })
+    expect(s.sentence).toBe("The maintenance schedule couldn't be read. Try again later.")
+    expect(s.ringLabel).toBe("The schedule couldn't be read.")
+  })
+
+  it('still counts open recalls when the schedule could not be read', () => {
+    const s = describe_({ schedule: [], error: 'x' }, { recalls: [recall('r1')] })
+    expect(s).toMatchObject({ level: 'attention', needYou: 1 })
+  })
+
+  it("doesn't call the rest on track when the rest can't be dated", () => {
+    const s = describe_({
+      schedule: [tires, row('Spark plugs', 'unknown', { trigger: 'miles' })],
+    })
+    expect(s.sentence).toBe('Tire rotation is overdue.')
+  })
+
+  it('keeps an initialism in the second name as it is', () => {
+    const s = describe_({
+      schedule: [tires, row('CVT fluid', 'overdue'), row('Brake fluid', 'upcoming')],
+    })
+    expect(s.sentence).toBe('Tire rotation and CVT fluid are overdue. Everything else is on track.')
+  })
+
   it('counts overdue items and open recalls as what needs the owner', () => {
     const s = describe_({ schedule: [tires, wipers, oil] }, { recalls: [recall('r1')] })
     expect(s.needYou).toBe(3)

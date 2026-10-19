@@ -32,6 +32,7 @@ const WORD: Record<StatusLevel, ColorRole> = {
   attention: 'warning',
   soon: 'accent',
   good: 'textPrimary',
+  unknown: 'textSecondary',
 }
 
 // What a check's dot says, for VoiceOver.
