@@ -569,25 +569,21 @@ function CarDrawing({
           </Row>
           {picked.recallIds.length > 0 ? (
             <TappableRow onPress={() => car.showSection('recalls')}>
-              <Dot color="danger" />
-              <FillColumn>
-                <Text>
-                  {picked.recallIds.length === 1
-                    ? 'A recall is here'
-                    : `${picked.recallIds.length} recalls are here`}
-                </Text>
-              </FillColumn>
-              <Symbol name="chevron" size={14} color={colors.textSecondary} />
+              <Row alignment="center" spacing={12}>
+                <Dot color="danger" />
+                <FillColumn>
+                  <Text textStyle={{ fontSize: 16, fontWeight: '500' }}>
+                    {picked.recallIds.length === 1
+                      ? 'A recall is here'
+                      : `${picked.recallIds.length} recalls are here`}
+                  </Text>
+                </FillColumn>
+                <Symbol name="chevron" size={14} color={colors.textSecondary} />
+              </Row>
             </TappableRow>
           ) : null}
           {items.map((row) => (
-            <TappableRow key={row.itemId} onPress={() => onItem(row.itemId)}>
-              <Dot color={DOT[row.status]} />
-              <FillColumn>
-                <Text>{row.task}</Text>
-              </FillColumn>
-              <Text textStyle={{ fontSize: 13, color: colors.textSecondary }}>{row.next}</Text>
-            </TappableRow>
+            <ScheduleRowView key={row.itemId} row={row} onPress={() => onItem(row.itemId)} />
           ))}
         </Card>
       ) : (

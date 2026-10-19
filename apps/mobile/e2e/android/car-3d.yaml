@@ -25,6 +25,8 @@ appId: com.moorea.carmaintenance
 - extendedWaitUntil:
     visible: 'Under the hood'
     timeout: 5000
+# Each row names its item, not just when it is due.
+- assertVisible: 'Oil & filter change'
 - waitForAnimationToEnd
 - takeScreenshot: 90-car-3d-spot
 - tapOn: 'Done'
