@@ -1,0 +1,24 @@
+# The selected car's health at a glance: the ring, the status word and why, then the checks.
+appId: com.moorea.carmaintenance
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+- extendedWaitUntil:
+    visible: 'Demo car'
+    timeout: 60000
+- tapOn: 'Status'
+- extendedWaitUntil:
+    visible: 'Needs attention|Coming up|All good'
+    timeout: 15000
+- waitForAnimationToEnd
+- takeScreenshot: 95-status
+- scrollUntilVisible:
+    element: 'Odometer'
+    timeout: 10000
+- extendedWaitUntil:
+    visible: 'Updated .*|No reading yet'
+    timeout: 10000
+- waitForAnimationToEnd
+- takeScreenshot: 95-status-checks
