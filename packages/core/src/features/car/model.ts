@@ -38,6 +38,12 @@ export interface ScheduleRow {
   own?: 'added' | 'changed' | undefined
   /** Where it is on the car, for pinning it to the drawing; absent for nowhere in particular. */
   spot?: CarSpot | undefined
+  /** When it is due, when that can be told. */
+  dueDate?: IsoDate | undefined
+  /** The odometer reading it is due at, when it has a mileage interval. */
+  dueMiles?: number | undefined
+  /** Which limit arrives first. */
+  trigger: 'miles' | 'time'
 }
 
 export interface OdometerEditor {
@@ -87,6 +93,12 @@ export interface CarState {
   odometer?: string | undefined
   /** "About 1,900 mi a month", or a note that the average is assumed. */
   pace?: string | undefined
+  /** The estimated odometer today, in miles; undefined with no readings yet. */
+  miles?: number | undefined
+  /** Miles driven a month, learned from the readings; undefined while the average is assumed. */
+  milesPerMonth?: number | undefined
+  /** The day of the newest odometer reading (or service mileage); undefined with none. */
+  readOn?: IsoDate | undefined
   /** The link to the car's fill-ups and costs, in the words of what it usually runs on. */
   fuelLink: FuelLink
   section: CarSection
@@ -236,6 +248,9 @@ export const createCarModel = (deps: CarDeps): CarModel => {
           pace: odometer.isDefault
             ? 'Assuming the US average until there are two readings'
             : `About ${formatMiles(roundTo(odometer.milesPerDay * 30.44, 10))} a month`,
+          miles: odometer.miles,
+          milesPerMonth: odometer.isDefault ? undefined : odometer.milesPerDay * 30.44,
+          readOn: odometer.latest?.date,
           schedule: due.map((d) => {
             const item = byId.get(d.itemId)
             return {
@@ -246,6 +261,9 @@ export const createCarModel = (deps: CarDeps): CarModel => {
               next: describeNextDue(d),
               own: item?.owner,
               spot: spotOfItem({ kind: item?.kind, task: d.task }),
+              dueDate: d.dueDate,
+              dueMiles: d.dueMiles,
+              trigger: d.trigger,
             }
           }),
           error: undefined,
