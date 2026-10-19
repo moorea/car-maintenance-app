@@ -21,9 +21,8 @@ import {
   type Vehicle,
 } from '@car/core'
 import { Column, RNHostView, Row, ScrollView } from '@expo/ui'
-import { Fragment, lazy, Suspense, useSyncExternalStore } from 'react'
+import { Fragment, lazy, Suspense } from 'react'
 import { ActivityIndicator, StyleSheet, View } from 'react-native'
-import { snapshot, subscribe } from '../../car3d/debug'
 import { paintColors, useColors, type ColorRole } from '../../theme'
 import { Host } from '../../ui/Host'
 import { ErrorText, Note } from '../../ui/Note'
@@ -524,7 +523,6 @@ function CarDrawing({
   onItem: (itemId: string) => void
 }) {
   const colors = useColors()
-  const debug = useSyncExternalStore(subscribe, snapshot)
   if (car3d.status === 'loading' || car.status !== 'ready') return null
   const recalls = safety.status === 'ready' ? safety.recalls : []
   const hotspots = carHotspots(
@@ -543,10 +541,7 @@ function CarDrawing({
           so a host sized to them would be zero wide and GL would never start. The host keeps the
           first view it is given, so that view stays put while the stage loads inside it. */}
       <RNHostView matchContents={{ vertical: true }}>
-        <View
-          style={styles.stage}
-          onLayout={(e) => console.log('[car3d] host', JSON.stringify(e.nativeEvent.layout))}
-        >
+        <View style={styles.stage}>
           <Suspense fallback={<ActivityIndicator style={styles.stage} />}>
             <CarStage
               bodyStyle={bodyStyle}
@@ -597,7 +592,9 @@ function CarDrawing({
         </Card>
       ) : (
         <Note>
-          {`${hotspots.length > 0 ? 'Tap a dot to see what’s there. Everything is also in the schedule below.' : 'Nothing to point out on the car. The schedule is below.'} [${debug}]`}
+          {hotspots.length > 0
+            ? 'Tap a dot to see what’s there. Everything is also in the schedule below.'
+            : 'Nothing to point out on the car. The schedule is below.'}
         </Note>
       )}
     </Column>
