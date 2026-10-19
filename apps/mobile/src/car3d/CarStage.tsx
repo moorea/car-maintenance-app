@@ -1,7 +1,15 @@
 import type { BodyStyle, CarHotspot, CarSpot } from '@car/core'
 import { GLView, type ExpoWebGLRenderingContext } from 'expo-gl'
-import { useEffect, useMemo, useRef } from 'react'
-import { Animated, Pressable, StyleSheet, View, type GestureResponderEvent } from 'react-native'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  Animated,
+  PixelRatio,
+  Pressable,
+  StyleSheet,
+  View,
+  type GestureResponderEvent,
+  type LayoutChangeEvent,
+} from 'react-native'
 import * as THREE from 'three'
 import { carPartColors, useColors, type ColorRole } from '../theme'
 import { buildCar, carMaterials, disposeGroup, type CarMaterials } from './buildCar'
@@ -96,12 +104,25 @@ const place = (camera: THREE.PerspectiveCamera, o: Orbit) => {
 export function CarStage(props: CarStageProps) {
   const colors = useColors()
   const st = BODIES[props.bodyStyle]
-  const spots = useMemo(() => props.hotspots.map((h) => h.spot), [props.hotspots])
+  // Keyed by which spots have pins, not the hotspots array, so a re-render with the same spots
+  // keeps the pins where they are.
+  const spotKey = props.hotspots.map((h) => h.spot).join(',')
   const pins = useMemo(
     () =>
-      new Map(spots.map((s) => [s, { xy: new Animated.ValueXY(), shown: new Animated.Value(0) }])),
-    [spots],
+      new Map(
+        (spotKey ? (spotKey.split(',') as CarSpot[]) : []).map((s) => [
+          s,
+          { xy: new Animated.ValueXY(), shown: new Animated.Value(0) },
+        ]),
+      ),
+    [spotKey],
   )
+  // Pins facing away can't be tapped or reached by a screen reader. Starts with none until the
+  // first frame has placed them.
+  const [visible, setVisible] = useState('')
+  const shownKey = useRef('')
+  // The stage's size in points, which pins are placed in; the GL buffer is in pixels.
+  const box = useRef<{ w: number; h: number } | null>(null)
   // The drawing lives outside React: GL state and the camera change every frame.
   const g = useRef<{
     renderer: THREE.WebGLRenderer
@@ -114,9 +135,9 @@ export function CarStage(props: CarStageProps) {
     to?: { from: Orbit; goal: Orbit; t: number } | undefined
     frame?: number | undefined
   } | null>(null)
-  const latest = useRef(props)
+  const latest = useRef({ props, pins })
   useEffect(() => {
-    latest.current = props
+    latest.current = { props, pins }
   })
 
   const draw = () => {
@@ -125,11 +146,13 @@ export function CarStage(props: CarStageProps) {
     place(s.camera, s.orbit)
     s.renderer.render(s.scene, s.camera)
     s.gl.endFrameEXP()
-    const w = s.gl.drawingBufferWidth / s.renderer.getPixelRatio()
-    const h = s.gl.drawingBufferHeight / s.renderer.getPixelRatio()
-    const anchors = anchorsOf(BODIES[latest.current.bodyStyle])
+    const w = box.current?.w ?? s.gl.drawingBufferWidth / PixelRatio.get()
+    const h = box.current?.h ?? s.gl.drawingBufferHeight / PixelRatio.get()
+    const { props: now, pins: current } = latest.current
+    const anchors = anchorsOf(BODIES[now.bodyStyle])
     const toCam = new THREE.Vector3()
-    for (const [spot, pin] of pins) {
+    const shown: CarSpot[] = []
+    for (const [spot, pin] of current) {
       const a = anchors[spot]
       const p = new THREE.Vector3(...a.pos)
       toCam.copy(s.camera.position).sub(p).normalize()
@@ -139,7 +162,14 @@ export function CarStage(props: CarStageProps) {
         x: ((v.x + 1) / 2) * w - PIN_SIZE / 2,
         y: ((1 - v.y) / 2) * h - PIN_SIZE / 2,
       })
-      pin.shown.setValue(facing || spot === latest.current.focused ? 1 : 0)
+      const on = facing || spot === now.focused
+      pin.shown.setValue(on ? 1 : 0)
+      if (on) shown.push(spot)
+    }
+    const key = shown.join(',')
+    if (key !== shownKey.current) {
+      shownKey.current = key
+      setVisible(key)
     }
   }
 
@@ -184,7 +214,7 @@ export function CarStage(props: CarStageProps) {
     const renderer = new THREE.WebGLRenderer({ canvas, context: gl, antialias: true, alpha: true })
     renderer.setPixelRatio(1)
     renderer.setSize(width, height, false)
-    renderer.setClearColor(0x000000, 0)
+    renderer.setClearColor(carPartColors.shadow, 0)
     renderer.toneMapping = THREE.ACESFilmicToneMapping
     renderer.toneMappingExposure = 1.1
     renderer.outputColorSpace = THREE.SRGBColorSpace
@@ -203,7 +233,7 @@ export function CarStage(props: CarStageProps) {
 
     const camera = new THREE.PerspectiveCamera(FOV, width / height, 0.1, 100)
     const mats = carMaterials(carPartColors)
-    const p = latest.current
+    const { props: p } = latest.current
     const body = BODIES[p.bodyStyle]
     const orbit = p.mode === 'still' ? sideOf(body, width / height) : homeOf(body)
     g.current = { renderer, scene, camera, gl, mats, orbit }
@@ -254,7 +284,11 @@ export function CarStage(props: CarStageProps) {
     redraw()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.focused])
-  useEffect(() => redraw(), [pins]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    // The last frame placed the old pins; place these.
+    shownKey.current = ''
+    redraw()
+  }, [pins]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(
     () => () => {
       const s = g.current
@@ -278,16 +312,19 @@ export function CarStage(props: CarStageProps) {
       const d = drag.current
       if (!d) {
         const s = g.current
-        if (s) drag.current = { x: t.pageX, y: t.pageY, from: { ...s.orbit } }
+        if (s) drag.current = { x: t.pageX, y: t.pageY, from: s.orbit }
         return false
       }
       const dx = t.pageX - d.x
       const dy = t.pageY - d.y
       return Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.5
     },
-    onResponderGrant: () => {
+    // Starts turning from where the car is now and where the finger is, so nothing jumps.
+    onResponderGrant: (e: GestureResponderEvent) => {
       const s = g.current
-      if (s) s.to = undefined
+      if (!s) return
+      s.to = undefined
+      drag.current = { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY, from: s.orbit }
     },
     onResponderMove: (e: GestureResponderEvent) => {
       const s = g.current
@@ -307,13 +344,25 @@ export function CarStage(props: CarStageProps) {
     onResponderTerminate: () => {
       drag.current = null
     },
+    // A touch the page scrolled with never reaches release, so each touch starts afresh.
+    onTouchStart: () => {
+      drag.current = null
+    },
     onTouchEnd: () => {
       drag.current = null
     },
+    onTouchCancel: () => {
+      drag.current = null
+    },
+  }
+  const onLayout = (e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout
+    box.current = { w: width, h: height }
+    redraw()
   }
 
   return (
-    <View style={{ height: props.height }} accessible={false}>
+    <View style={{ height: props.height }} accessible={false} onLayout={onLayout}>
       <View
         style={StyleSheet.absoluteFill}
         accessible
@@ -328,9 +377,13 @@ export function CarStage(props: CarStageProps) {
         if (!pin) return null
         const fill = colors[PIN[h.attention]]
         const focused = props.focused === h.spot
+        const hidden = !visible.split(',').includes(h.spot)
         return (
           <Animated.View
             key={h.spot}
+            pointerEvents={hidden ? 'none' : 'auto'}
+            accessibilityElementsHidden={hidden}
+            importantForAccessibility={hidden ? 'no-hide-descendants' : 'auto'}
             style={[styles.pin, { opacity: pin.shown, transform: pin.xy.getTranslateTransform() }]}
           >
             <Pressable

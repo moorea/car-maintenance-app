@@ -167,7 +167,7 @@ function Display({ car3d }: Props) {
       <Note>
         {car3d.offBecause
           ? OFF_BECAUSE[car3d.offBecause]
-          : 'Turn your car on its page and tap a spot to see what’s due there. Off shows a still drawing instead. Applies to this phone.'}
+          : 'Drag your car on its page to turn it, and tap a dot to see what’s due there. Off shows a still drawing instead. Applies to this phone.'}
       </Note>
     </Section>
   )

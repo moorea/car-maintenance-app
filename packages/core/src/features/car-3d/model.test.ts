@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import type { PhoneFor3d } from '../../domain/appearance'
 import { memoryPhoneDisplay, memoryPreferences } from '../../testing'
 import { createCar3dModel } from './model'
 
@@ -21,6 +22,30 @@ describe('car 3D setting', () => {
     expect(model.getState()).toMatchObject({ on: false, offBecause: 'reduce-motion' })
     display.set({ reduceMotion: false })
     expect(model.getState()).toMatchObject({ on: true, offBecause: undefined })
+  })
+
+  it('stays loading until the phone has said how it is set', () => {
+    let tell: ((phone: PhoneFor3d) => void) | undefined
+    const model = createCar3dModel({
+      preferences: memoryPreferences({ car3d: null }),
+      phone: {
+        watch: (onChange) => {
+          tell = onChange
+          return () => {}
+        },
+      },
+    })
+    model.getState().start()
+    expect(model.getState().status).toBe('loading')
+    tell?.({ capable: true, reduceMotion: false, lowPower: false })
+    expect(model.getState()).toMatchObject({ status: 'ready', on: true })
+  })
+
+  it('names the slow phone first, then Reduce Motion, when several keep it off', () => {
+    const all = { capable: false, reduceMotion: true, lowPower: true }
+    expect(setup(null, all).model.getState().offBecause).toBe('slow-phone')
+    const both = { reduceMotion: true, lowPower: true }
+    expect(setup(null, both).model.getState().offBecause).toBe('reduce-motion')
   })
 
   it('says when low power or a slow phone is why it is off', () => {

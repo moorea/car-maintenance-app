@@ -11,16 +11,21 @@ export function systemPhoneDisplay(): PhoneDisplay {
     watch: (onChange) => {
       let phone: PhoneFor3d = { reduceMotion: false, lowPower: false, capable }
       let stopped = false
+      // Reads both before the first answer, so the car never starts turning only to stop. A
+      // change that comes in sooner is kept and told with that answer.
+      let read = false
       const update = (change: Partial<PhoneFor3d>) => {
         if (stopped) return
         phone = { ...phone, ...change }
-        onChange(phone)
+        if (read) onChange(phone)
       }
-      // Reads both before the first answer, so the car never starts turning only to stop.
       void Promise.all([
         AccessibilityInfo.isReduceMotionEnabled().catch(() => false),
         Battery.isLowPowerModeEnabledAsync().catch(() => false),
-      ]).then(([reduceMotion, lowPower]) => update({ reduceMotion, lowPower }))
+      ]).then(([reduceMotion, lowPower]) => {
+        read = true
+        update({ reduceMotion, lowPower })
+      })
       const motion = AccessibilityInfo.addEventListener('reduceMotionChanged', (reduceMotion) =>
         update({ reduceMotion }),
       )
