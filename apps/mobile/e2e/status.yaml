@@ -16,6 +16,9 @@ appId: com.moorea.carmaintenance
 - takeScreenshot: 95-status
 - scrollUntilVisible:
     element: 'Odometer'
+    # The row peeks out above the tab bar at first, so ask for it whole and in the middle.
+    visibilityPercentage: 100
+    centerElement: true
     timeout: 10000
 - extendedWaitUntil:
     visible: 'Updated .*|No reading yet'
