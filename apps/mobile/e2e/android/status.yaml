@@ -14,11 +14,10 @@ appId: com.moorea.carmaintenance
     timeout: 20000
 - waitForAnimationToEnd
 - takeScreenshot: 95-status
+# The last check can sit under the tab bar, where it counts as visible, so scroll once first.
+- scroll
 - scrollUntilVisible:
     element: 'Odometer'
-    # The row peeks out above the tab bar at first, so ask for it whole and in the middle.
-    visibilityPercentage: 100
-    centerElement: true
     timeout: 15000
 - extendedWaitUntil:
     visible: 'Updated .*|No reading yet'
