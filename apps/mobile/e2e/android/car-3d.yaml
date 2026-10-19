@@ -13,6 +13,11 @@ appId: com.moorea.carmaintenance
 - extendedWaitUntil:
     visible: 'Tap a dot.*'
     timeout: 10000
+# The dots appear once the car's first frame is drawn, which is slow on a simulator.
+- extendedWaitUntil:
+    visible:
+      id: 'spot-hood'
+    timeout: 30000
 - waitForAnimationToEnd
 - takeScreenshot: 90-car-3d
 - tapOn:

@@ -159,7 +159,9 @@ export function CarStage(props: CarStageProps) {
       const a = anchors[spot]
       const p = new THREE.Vector3(...a.pos)
       toCam.copy(s.camera.position).sub(p).normalize()
-      const facing = new THREE.Vector3(...a.normal).normalize().dot(toCam) > 0.1
+      // The side view looks across the hood and roof, so it keeps pins that face up.
+      const facing =
+        new THREE.Vector3(...a.normal).normalize().dot(toCam) > (now.mode === 'still' ? -0.3 : 0.1)
       const v = p.project(s.camera)
       pin.xy.setValue({
         x: ((v.x + 1) / 2) * w - PIN_SIZE / 2,
@@ -242,7 +244,6 @@ export function CarStage(props: CarStageProps) {
     g.current = { renderer, scene, camera, gl, mats, orbit }
     setCar(p.bodyStyle, p.paint)
     draw()
-    console.log('[car3d] ctx', width, height) // TEMPORARY
     // The first frames can land before the view is on screen, which leaves it empty until the
     // next drag, so draw again as it settles.
     for (const ms of [100, 400, 1200]) setTimeout(redraw, ms)
@@ -365,7 +366,6 @@ export function CarStage(props: CarStageProps) {
   const onLayout = (e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout
     box.current = { w: width, h: height }
-    console.log('[car3d] layout', width, height) // TEMPORARY
     if (width > 0 && height > 0) setSized(true)
     redraw()
   }
@@ -380,15 +380,8 @@ export function CarStage(props: CarStageProps) {
         {...pan}
       >
         {sized ? (
-          <GLView
-            style={StyleSheet.absoluteFill}
-            onContextCreate={onContextCreate}
-            onLayout={(e) => console.log('[car3d] glview', JSON.stringify(e.nativeEvent.layout))} // TEMPORARY
-          />
+          <GLView style={StyleSheet.absoluteFill} onContextCreate={onContextCreate} />
         ) : null}
-        <Animated.Text style={{ position: 'absolute', left: 4, top: 4, color: colors.danger }}>
-          {`DEBUG sized=${String(sized)}`}
-        </Animated.Text>
       </View>
       {props.hotspots.map((h) => {
         const pin = pins.get(h.spot)

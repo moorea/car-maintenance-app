@@ -10,7 +10,6 @@ apk=${APK:-apps/mobile/android/app/build/outputs/apk/release/app-release.apk}
 mkdir -p "$out/screenshots" "$out/maestro"
 
 adb install -r "$apk" || exit 1
-adb logcat -G 16M || true # TEMPORARY
 # A fresh emulator's launcher sometimes stops responding, and its "isn't responding" dialog then
 # covers the app and fails whichever flow is running. Hide system crash and ANR dialogs, and close
 # any already showing.
@@ -54,6 +53,5 @@ find . "$out/maestro" \( -name node_modules -o -name .expo -o -path ./apps/mobil
 adb exec-out screencap -p > "$out/screenshots/last.png" || true
 adb logcat -d -v time > "$out/maestro/logcat.txt" || true
 grep -E 'ReactNativeJS|AndroidRuntime|FATAL' "$out/maestro/logcat.txt" | tail -n 200 || true
-grep -E '\[car3d\]|EXGL|GLView|GLContext|expo.modules.gl|TextureView|E/OpenGL|EGL' "$out/maestro/logcat.txt" | head -n 120 || true # TEMPORARY
 [ "$status" = 0 ] || scripts/maestro-report.sh "$out/maestro"
 exit "$status"
