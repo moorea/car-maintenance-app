@@ -32,6 +32,8 @@ export function StatusRing({ segments, count, caption, label, size = 200 }: Stat
   const gap = shown.length > 1 ? (circumference * GAP) / 360 : 0
   return (
     <ZStack
+      // Remounted when the segments change: arcs added to a ring already on screen weren't drawn.
+      key={shown.map((s) => s.key).join()}
       modifiers={[
         frame({ width: size, height: size }),
         accessibilityElement('ignore'),

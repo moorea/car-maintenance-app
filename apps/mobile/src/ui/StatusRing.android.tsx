@@ -77,6 +77,8 @@ export function StatusRing({ segments, count, caption, label, size = 200 }: Stat
     <Column alignment="center">
       {debug}
       <Box
+        // Remounted when the segments change: arcs added to a ring already on screen weren't drawn.
+        key={shown.map((s) => s.key).join()}
         contentAlignment="center"
         modifiers={[sizeModifier(size, size), semantics({ contentDescription: label })]}
       >
