@@ -22,7 +22,7 @@ import {
 } from '@car/core'
 import { Column, RNHostView, Row, ScrollView } from '@expo/ui'
 import { Fragment, lazy, Suspense } from 'react'
-import { ActivityIndicator, StyleSheet } from 'react-native'
+import { ActivityIndicator, StyleSheet, View } from 'react-native'
 import { paintColors, useColors, type ColorRole } from '../../theme'
 import { Host } from '../../ui/Host'
 import { ErrorText, Note } from '../../ui/Note'
@@ -502,6 +502,7 @@ function ScheduleRowView({ row, onPress }: { row: ScheduleRow; onPress: () => vo
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
+  stage: { width: '100%', height: STAGE_HEIGHT },
 })
 
 /**
@@ -537,20 +538,23 @@ function CarDrawing({
   return (
     <Column spacing={10}>
       {/* Width from the page, height from the stage: the stage's children are absolutely placed,
-          so a host sized to them would be zero wide and GL would never start. */}
+          so a host sized to them would be zero wide and GL would never start. The host keeps the
+          first view it is given, so that view stays put while the stage loads inside it. */}
       <RNHostView matchContents={{ vertical: true }}>
-        <Suspense fallback={<ActivityIndicator style={{ height: STAGE_HEIGHT }} />}>
-          <CarStage
-            bodyStyle={bodyStyle}
-            paint={paintColors[paint]}
-            mode={car3d.on ? '3d' : 'still'}
-            hotspots={hotspots}
-            focused={car.spot}
-            onSelect={car.showSpot}
-            label={`Drawing of a ${paintName} ${kind} standing in for your ${car.title}.${car3d.on ? ' Drag sideways to turn it.' : ''}`}
-            height={STAGE_HEIGHT}
-          />
-        </Suspense>
+        <View style={styles.stage}>
+          <Suspense fallback={<ActivityIndicator style={styles.stage} />}>
+            <CarStage
+              bodyStyle={bodyStyle}
+              paint={paintColors[paint]}
+              mode={car3d.on ? '3d' : 'still'}
+              hotspots={hotspots}
+              focused={car.spot}
+              onSelect={car.showSpot}
+              label={`Drawing of a ${paintName} ${kind} standing in for your ${car.title}.${car3d.on ? ' Drag sideways to turn it.' : ''}`}
+              height={STAGE_HEIGHT}
+            />
+          </Suspense>
+        </View>
       </RNHostView>
       {picked ? (
         <Card spacing={8}>
