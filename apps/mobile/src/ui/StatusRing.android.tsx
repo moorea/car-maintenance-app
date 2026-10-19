@@ -15,22 +15,22 @@ const GAP = 4
  */
 export function StatusRing({ segments, count, caption, label, size = 200 }: StatusRingProps) {
   const colors = useColors()
-  const thickness = size * RING_THICKNESS
+  const thickness = Math.round(size * RING_THICKNESS)
   const shown = segments.length > 0 ? segments : [{ key: 'empty', color: 'separator' as const }]
   const share = 360 / shown.length
   const gap = shown.length > 1 ? GAP : 0
   // DEBUG: which part of the ring stops it showing on the emulator.
-  const arcs = (n: number) =>
+  const arcs = (n: number, d = 70, w = 8) =>
     Array.from({ length: n }, (_, i) => (
       <CircularProgressIndicator
         key={i}
         progress={(360 / n - 4) / 360}
         color={i % 2 ? colors.warning : colors.accent}
         trackColor={colors.clear}
-        strokeWidth={8}
+        strokeWidth={w}
         strokeCap="butt"
         gapSize={0}
-        modifiers={[sizeModifier(70, 70), rotate((i * 360) / n + 2)]}
+        modifiers={[sizeModifier(d, d), rotate((i * 360) / n + 2)]}
       />
     ))
   const debug = (
@@ -65,6 +65,39 @@ export function StatusRing({ segments, count, caption, label, size = 200 }: Stat
             {arcs(25)}
           </Box>
           <Text>K</Text>
+        </Column>
+      </Row>
+      <Row spacing={8}>
+        <Column alignment="center">
+          <Box contentAlignment="center" modifiers={[sizeModifier(200, 200)]}>
+            {arcs(13, 200, 16)}
+          </Box>
+          <Text>L</Text>
+        </Column>
+      </Row>
+      <Row spacing={8}>
+        <Column alignment="center">
+          <Box contentAlignment="center" modifiers={[sizeModifier(70, 70)]}>
+            {shown.map((s, i) => (
+              <CircularProgressIndicator
+                key={s.key}
+                progress={(share - gap) / 360}
+                color={colors[s.color]}
+                trackColor={colors.clear}
+                strokeWidth={8}
+                strokeCap="butt"
+                gapSize={0}
+                modifiers={[sizeModifier(70, 70), rotate(i * share + gap / 2)]}
+              />
+            ))}
+          </Box>
+          <Text>M</Text>
+        </Column>
+        <Column alignment="center">
+          <Box contentAlignment="center" modifiers={[sizeModifier(70, 70)]}>
+            {arcs(13, 70, 16.000000000000004)}
+          </Box>
+          <Text>N</Text>
         </Column>
       </Row>
       <Text>{`n=${shown.length} p=${((share - gap) / 360).toFixed(3)} c=${String(colors[shown[0]?.color ?? 'separator'])} k=${shown
