@@ -1,0 +1,94 @@
+name: Release to TestFlight
+
+# Builds the iOS app on EAS from main and sends it to TestFlight, run by hand from the Actions tab.
+# The production profile in apps/mobile/eas.json points the build at the live backend, and EAS
+# counts the build number. Needs these repository settings:
+#   secrets   EXPO_TOKEN            an expo.dev access token
+#             (the API key needs the Admin role, so EAS can create certificates and profiles)
+#             ASC_API_KEY_P8        the App Store Connect API key's .p8 file, pasted whole
+#             ASC_KEY_ID            that key's id
+#             ASC_ISSUER_ID         the issuer id shown above the keys
+#   variables APPLE_TEAM_ID         the 10-character team id from developer.apple.com
+#             ASC_APP_ID            the app's Apple ID, from App Store Connect → App Information
+#             APPLE_TEAM_TYPE       INDIVIDUAL (default) or COMPANY_OR_ORGANIZATION
+#             EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY, EXPO_PUBLIC_POWERSYNC_URL
+#                                   the live backend, as for the Phone build workflow
+# With the API key, EAS creates and keeps the signing certificate and provisioning profile itself.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: testflight
+  cancel-in-progress: false
+
+jobs:
+  ios:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_ASC_API_KEY_PATH: ${{ github.workspace }}/asc-api-key.p8
+      EXPO_ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      EXPO_ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      EXPO_APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+      EXPO_APPLE_TEAM_TYPE: ${{ vars.APPLE_TEAM_TYPE || 'INDIVIDUAL' }}
+      ASC_APP_ID: ${{ vars.ASC_APP_ID }}
+      EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL }}
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+      EXPO_PUBLIC_POWERSYNC_URL: ${{ vars.EXPO_PUBLIC_POWERSYNC_URL }}
+    steps:
+      - name: Check the settings are there
+        run: |
+          missing=""
+          for name in EXPO_TOKEN EXPO_ASC_KEY_ID EXPO_ASC_ISSUER_ID EXPO_APPLE_TEAM_ID ASC_APP_ID \
+            EXPO_PUBLIC_SUPABASE_URL EXPO_PUBLIC_SUPABASE_ANON_KEY EXPO_PUBLIC_POWERSYNC_URL; do
+            if [ -z "${!name}" ]; then missing="$missing $name"; fi
+          done
+          if [ -z "$ASC_API_KEY_P8" ]; then missing="$missing ASC_API_KEY_P8"; fi
+          if [ -n "$missing" ]; then
+            echo "Missing repository secrets or variables:$missing (see the top of this workflow)"
+            exit 1
+          fi
+        env:
+          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Write the App Store Connect key
+        run: printf '%s\n' "$ASC_API_KEY_P8" > "$EXPO_ASC_API_KEY_PATH"
+        env:
+          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+      # EAS builds in its own cloud, so the backend settings and the submit profile's key and app
+      # id are written into eas.json here; they stay in repository settings, not the repository.
+      - name: Fill in the build and submit profiles
+        working-directory: apps/mobile
+        run: |
+          jq --arg path "$EXPO_ASC_API_KEY_PATH" --arg key "$EXPO_ASC_KEY_ID" \
+             --arg issuer "$EXPO_ASC_ISSUER_ID" --arg app "$ASC_APP_ID" \
+             '.build.production.env = {
+                EXPO_PUBLIC_SUPABASE_URL: env.EXPO_PUBLIC_SUPABASE_URL,
+                EXPO_PUBLIC_SUPABASE_ANON_KEY: env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+                EXPO_PUBLIC_POWERSYNC_URL: env.EXPO_PUBLIC_POWERSYNC_URL
+              }
+              | .submit.production.ios = { ascApiKeyPath: $path, ascApiKeyId: $key, ascApiKeyIssuerId: $issuer, ascAppId: $app }' \
+             eas.json > eas.tmp.json
+          mv eas.tmp.json eas.json
+      # Links to the account's EAS project for this app, creating it on the first run.
+      - name: Link the EAS project
+        working-directory: apps/mobile
+        run: npx --yes eas-cli@25.2.0 init --non-interactive --force
+      - name: Build and submit
+        working-directory: apps/mobile
+        run: npx --yes eas-cli@25.2.0 build --platform ios --profile production --non-interactive --auto-submit
+      - name: Remove the key
+        if: always()
+        run: rm -f "$EXPO_ASC_API_KEY_PATH"

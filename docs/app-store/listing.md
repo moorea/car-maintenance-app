@@ -2,14 +2,14 @@
 
 Draft copy for App Store Connect, built on the
 [Marketing story](https://claude.ai/code/artifact/b9f5fbaf-c3c7-44dc-a6d5-9f7ca7798edf). Every
-claim is something the app does today. `[Name]` waits on the app's name.
+claim is something the app does today.
 
 ## Name and subtitle
 
-| Field    | Limit | Copy                             | Length              |
-| -------- | ----- | -------------------------------- | ------------------- |
-| Name     | 30    | `[Name]: Car Care`               | depends on the name |
-| Subtitle | 30    | `Maintenance, recalls & answers` | 30                  |
+| Field    | Limit | Copy                             | Length |
+| -------- | ----- | -------------------------------- | ------ |
+| Name     | 30    | `Pocket Pit Crew: Car Care`      | 25     |
+| Subtitle | 30    | `Maintenance, recalls & answers` | 30     |
 
 ## Promotional text (170, can change without a review)
 
@@ -23,7 +23,7 @@ claim is something the app does today. `[Name]` waits on the app's name.
 > Know what your car needs, what's been recalled and what tends to break on your model, and ask
 > anything about it in plain English.
 >
-> Most of us drive a car we don't understand and pay for repairs we can't judge. [Name] knows
+> Most of us drive a car we don't understand and pay for repairs we can't judge. Pocket Pit Crew knows
 > your exact car and is on your side. Add it once by VIN, or by year, make and model, and it
 > shows you everything that matters, with no dongle and no shop network.
 >

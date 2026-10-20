@@ -2,7 +2,7 @@
 
 _Effective October 17, 2026_
 
-This policy explains what the Car Maintenance app ("the app", "we", "us") collects, why, who
+This policy explains what the Pocket Pit Crew app ("the app", "we", "us") collects, why, who
 else handles it, and the choices you have. The short version: we collect what the app needs to
 keep your cars, service history and documents in your account, we never sell your data or use it
 for advertising, and there is no tracking.
