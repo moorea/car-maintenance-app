@@ -397,8 +397,8 @@ jobs:
         run: |
           set -o pipefail
           xcodebuild build \
-            -workspace CarMaintenance.xcworkspace \
-            -scheme CarMaintenance \
+            -workspace PocketPitCrew.xcworkspace \
+            -scheme PocketPitCrew \
             -configuration Release \
             -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
@@ -417,7 +417,7 @@ jobs:
       - name: Install the app on the simulator
         run: |
           xcrun simctl bootstatus "$SIMULATOR"
-          xcrun simctl install "$SIMULATOR" "$RUNNER_TEMP/native/CarMaintenance.app"
+          xcrun simctl install "$SIMULATOR" "$RUNNER_TEMP/native/PocketPitCrew.app"
       - name: Restore Maestro
         id: maestro
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

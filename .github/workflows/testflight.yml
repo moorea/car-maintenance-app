@@ -4,7 +4,6 @@ name: Release to TestFlight
 # The production profile in apps/mobile/eas.json points the build at the live backend, and EAS
 # counts the build number. Needs these repository settings:
 #   secrets   EXPO_TOKEN            an expo.dev access token
-#             (the API key needs the Admin role, so EAS can create certificates and profiles)
 #             ASC_API_KEY_P8        the App Store Connect API key's .p8 file, pasted whole
 #             ASC_KEY_ID            that key's id
 #             ASC_ISSUER_ID         the issuer id shown above the keys
@@ -13,7 +12,10 @@ name: Release to TestFlight
 #             APPLE_TEAM_TYPE       INDIVIDUAL (default) or COMPANY_OR_ORGANIZATION
 #             EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY, EXPO_PUBLIC_POWERSYNC_URL
 #                                   the live backend, as for the Phone build workflow
-# With the API key, EAS creates and keeps the signing certificate and provisioning profile itself.
+# EAS cannot create a distribution certificate without someone at the keyboard, so before the
+# first run, create the signing credentials once from a Mac or PC signed in to the Apple account:
+#   cd apps/mobile && npx eas-cli@25.2.0 credentials -p ios   (production, set up all)
+# EAS keeps them, and every run after that reuses them.
 on:
   workflow_dispatch:
 
@@ -30,7 +32,7 @@ jobs:
     timeout-minutes: 90
     env:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-      EXPO_ASC_API_KEY_PATH: ${{ github.workspace }}/asc-api-key.p8
+      EXPO_ASC_API_KEY_PATH: ${{ runner.temp }}/asc-api-key.p8
       EXPO_ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
       EXPO_ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
       EXPO_APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}

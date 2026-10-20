@@ -34,11 +34,13 @@ In the order they block submission:
 7. **App Store Connect:** create the app, paste the [App Privacy answers](privacy-labels.md) and
    [listing](listing.md), set availability to the United States, answer the age rating
    questionnaire, and add the review notes below.
-8. **Build and upload.** Run **Release to TestFlight** from the Actions tab once its settings are in
-   (listed at the top of `.github/workflows/testflight.yml`: an Expo access token, an App Store
-   Connect API key with the Admin role, the team id, the app's Apple ID and the three public backend settings). It builds on
-   EAS against the live backend and sends the build to TestFlight. Screenshots come from that
-   build.
+8. **Build and upload.** First, once, create the signing credentials from your own computer:
+   `cd apps/mobile && npx eas-cli@25.2.0 credentials -p ios`, pick the production profile and let
+   it set everything up with your Apple account. Then run **Release to TestFlight** from the
+   Actions tab once its settings are in (listed at the top of `.github/workflows/testflight.yml`:
+   an Expo access token, an App Store Connect API key, the team id, the app's Apple ID and the
+   three public backend settings). It builds on EAS against the live backend and sends the build
+   to TestFlight. Screenshots come from that build.
 
 ## Audit against the App Review Guidelines
 
