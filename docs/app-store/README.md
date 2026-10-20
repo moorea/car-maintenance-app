@@ -34,8 +34,18 @@ In the order they block submission:
 7. **App Store Connect:** create the app, paste the [App Privacy answers](privacy-labels.md) and
    [listing](listing.md), set availability to the United States, answer the age rating
    questionnaire, and add the review notes below.
-8. **Build and upload.** `eas build --platform ios` and `eas submit` with an Expo account linked
-   to the Apple account, or Xcode after `npx expo prebuild`. Screenshots come from that build.
+8. **Build and upload.** EAS builds from GitHub (the repository is linked to the expo.dev
+   project). Once, before the first build:
+   - In the project's **Environment variables**, add `EXPO_PUBLIC_SUPABASE_URL`,
+     `EXPO_PUBLIC_SUPABASE_ANON_KEY` and `EXPO_PUBLIC_POWERSYNC_URL` to the production
+     environment (all public values, see `apps/mobile/.env.example`).
+   - From your own computer, create the signing credentials and the App Store Connect API key:
+     `cd apps/mobile && npx eas-cli@25.2.0 credentials -p ios`, pick the production profile and
+     let it set everything up with your Apple account. EAS keeps them for every later build.
+
+   Then, from the project's **GitHub** page on expo.dev, start a build of `main` with the
+   production profile and submission to the App Store turned on. EAS counts the build number and
+   sends the build to TestFlight. Screenshots come from that build.
 
 ## Audit against the App Review Guidelines
 

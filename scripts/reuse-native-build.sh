@@ -75,7 +75,7 @@ case "$command" in
   keep)
     rm -rf "$dir" && mkdir -p "$dir"
     if [ "$platform" = ios ]; then
-      cp -R "$RUNNER_TEMP/derived/Build/Products/Release-iphonesimulator/CarMaintenance.app" "$dir/"
+      cp -R "$RUNNER_TEMP/derived/Build/Products/Release-iphonesimulator/PocketPitCrew.app" "$dir/"
       # The compiler the build used, since the bytecode must match the Hermes in the app.
       hermesc="$mobile/ios/Pods/hermes-engine/destroot/bin/hermesc"
       [ -f "$hermesc" ] || hermesc=$(npm_hermesc osx-bin)
@@ -90,7 +90,7 @@ case "$command" in
     js=$4
     bundle="$js/$(bundle_name)"
     if [ "$platform" = ios ]; then
-      app="$dir/CarMaintenance.app"
+      app="$dir/PocketPitCrew.app"
       hermesc="$dir/hermesc"
       # RCTUseAssetCatalog builds images into a compiled catalog that a swap cannot update.
       if /usr/libexec/PlistBuddy -c 'Print :RCTUseAssetCatalog' "$app/Info.plist" > /dev/null 2>&1; then

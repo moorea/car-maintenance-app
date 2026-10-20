@@ -12,7 +12,7 @@ const styles = read('apps/site/src/styles.css')
 
 const build = (overrides: { policyMarkdown?: string; siteUrl?: string } = {}) =>
   buildSite({
-    appName: 'Car Maintenance',
+    appName: 'Pocket Pit Crew',
     policyMarkdown: policy,
     styles,
     light: lightColors,
