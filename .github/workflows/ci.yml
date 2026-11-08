@@ -105,7 +105,7 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
-      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: zulu
           java-version: 17
@@ -136,7 +136,7 @@ jobs:
         run: |
           scripts/reuse-native-build.sh apply android "$RUNNER_TEMP/native" "$RUNNER_TEMP/js"
           echo "APK=$RUNNER_TEMP/native/app.apk" >> "$GITHUB_ENV"
-      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
         if: steps.reuse.outcome != 'success'
       - name: Generate the native project
         if: steps.reuse.outcome != 'success'
@@ -285,7 +285,7 @@ jobs:
         env:
           BASE_REF: ${{ github.base_ref }}
         run: scripts/check-migration-order.sh "origin/$BASE_REF"
-      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
+      - uses: supabase/setup-cli@d239d1052f6f024a8d746d7e5aeddead63b9cb53 # v3.1.0
         with:
           version: 2.121.0
       - name: Check scripts and sign-in emails
@@ -315,7 +315,7 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
+      - uses: supabase/setup-cli@d239d1052f6f024a8d746d7e5aeddead63b9cb53 # v3.1.0
         with:
           version: 2.121.0
       # Only what the data layer talks to: Postgres, Auth, PostgREST, Storage and the gateway.
